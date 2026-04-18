@@ -6,9 +6,7 @@ var tender = CreateSampleTender();
 var lineEvaluationService = new LineEvaluationService();
 var supplierAggregationService = new SupplierAggregationService();
 
-var lineEvaluations = tender.LabelLineItems
-    .Select(lineEvaluationService.Evaluate)
-    .ToList();
+var lineEvaluations = lineEvaluationService.EvaluateMany(tender.LabelLineItems);
 
 var supplierEvaluations = supplierAggregationService.AggregateBySupplierName(lineEvaluations);
 

@@ -12,7 +12,8 @@ public sealed class EvaluationServiceTests
         {
             ItemNo = "LBL-001",
             SupplierName = "Acme Labels",
-            Spend = 125m
+            Spend = 125m,
+            PricePerThousand = 10m
         };
 
         var evaluation = new LineEvaluationService().Evaluate(lineItem);
@@ -21,10 +22,10 @@ public sealed class EvaluationServiceTests
         Assert.Same(lineItem, evaluation.LineItem);
         Assert.False(evaluation.RequiresManualReview);
         Assert.Empty(evaluation.ManualReviewFlags);
-        Assert.Equal(0m, evaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Commercial);
         Assert.Equal(0m, evaluation.ScoreBreakdown.Technical);
         Assert.Equal(0m, evaluation.ScoreBreakdown.Regulatory);
-        Assert.Equal(0m, evaluation.ScoreBreakdown.Total);
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Total);
     }
 
     [Fact]
@@ -51,8 +52,8 @@ public sealed class EvaluationServiceTests
         Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.Price));
         Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.TheoreticalSpend));
         Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.NumberOfColors));
-        Assert.Equal(7, evaluation.ManualReviewFlags.Count);
-        Assert.Equal(0m, evaluation.ScoreBreakdown.Total);
+        Assert.Equal(8, evaluation.ManualReviewFlags.Count);
+        Assert.Null(evaluation.ScoreBreakdown.Total);
     }
 
     [Fact]
@@ -70,6 +71,9 @@ public sealed class EvaluationServiceTests
         Assert.Contains(evaluation.ManualReviewFlags, flag =>
             flag.FieldName == nameof(LabelLineItem.Spend)
             && flag.Severity == ManualReviewSeverity.Warning);
+        Assert.Contains(evaluation.ManualReviewFlags, flag =>
+            flag.FieldName == nameof(LabelLineItem.PricePerThousand)
+            && flag.Severity == ManualReviewSeverity.Warning);
     }
 
     [Fact]
@@ -78,9 +82,9 @@ public sealed class EvaluationServiceTests
         var lineService = new LineEvaluationService();
         var lineEvaluations = new[]
         {
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m }),
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Beta Labels", Spend = 50m }),
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m })
+            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m }),
+            lineService.Evaluate(new LabelLineItem { SupplierName = "Beta Labels", Spend = 50m, PricePerThousand = 12m }),
+            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 11m })
         };
 
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
@@ -140,7 +144,79 @@ public sealed class EvaluationServiceTests
         Assert.Equal(flaggedLine.ManualReviewFlags.Count, supplierEvaluation.ManualReviewFlags.Count);
         Assert.Contains(supplierEvaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.SupplierName));
         Assert.Contains(supplierEvaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.Spend));
+        Assert.Contains(supplierEvaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.PricePerThousand));
         Assert.Equal(0m, supplierEvaluation.TotalSpend);
         Assert.Null(supplierEvaluation.ScoreBreakdown.Total);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceScoresLowestComparablePriceHighest()
+    {
+        var lineItems = new[]
+        {
+            new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m },
+            new LabelLineItem { SupplierName = "Beta Packaging", Spend = 100m, PricePerThousand = 20m },
+            new LabelLineItem { SupplierName = "Gamma Labels", Spend = 100m, PricePerThousand = 25m }
+        };
+
+        var evaluations = new LineEvaluationService().EvaluateMany(lineItems);
+
+        Assert.Equal(100m, evaluations[0].ScoreBreakdown.Commercial);
+        Assert.Equal(50m, evaluations[1].ScoreBreakdown.Commercial);
+        Assert.Equal(40m, evaluations[2].ScoreBreakdown.Commercial);
+        Assert.All(evaluations, evaluation => Assert.Equal(evaluation.ScoreBreakdown.Commercial, evaluation.ScoreBreakdown.Total));
+    }
+
+    [Fact]
+    public void LineEvaluationServiceCanUseFallbackValuesForCommercialPriceBasis()
+    {
+        var lineItems = new[]
+        {
+            new LabelLineItem
+            {
+                SupplierName = "Acme Labels",
+                Spend = 100m,
+                Quantity = 10_000m,
+                TheoreticalSpend = 100m
+            },
+            new LabelLineItem
+            {
+                SupplierName = "Beta Packaging",
+                Spend = 150m,
+                Quantity = 10_000m
+            },
+            new LabelLineItem
+            {
+                SupplierName = "Gamma Labels",
+                Spend = 200m,
+                Price = 20m
+            }
+        };
+
+        var evaluations = new LineEvaluationService().EvaluateMany(lineItems);
+
+        Assert.Equal(100m, evaluations[0].ScoreBreakdown.Commercial);
+        Assert.Equal(66.67m, evaluations[1].ScoreBreakdown.Commercial);
+        Assert.Equal(50m, evaluations[2].ScoreBreakdown.Commercial);
+    }
+
+    [Fact]
+    public void SupplierAggregationServiceAggregatesCommercialScoreBySpend()
+    {
+        var lineItems = new[]
+        {
+            new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 10m },
+            new LabelLineItem { SupplierName = "Acme Labels", Spend = 75m, PricePerThousand = 20m }
+        };
+        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems);
+
+        var supplierEvaluation = new SupplierAggregationService()
+            .AggregateBySupplierName(lineEvaluations)
+            .Single();
+
+        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Total);
+        Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Technical);
+        Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
     }
 }
