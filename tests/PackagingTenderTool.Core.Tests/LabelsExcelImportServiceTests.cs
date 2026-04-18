@@ -93,6 +93,35 @@ public sealed class LabelsExcelImportServiceTests
     }
 
     [Fact]
+    public void ImportTenderParsesCommaAndDotDecimalSeparators()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Price", "Theoretical spend"],
+            [
+                ["LBL-004", "Acme Labels", "100000,5", "1.250,50", "12,50", "0,0125", "1.250,50"],
+                ["LBL-005", "Beta Packaging", "100000.5", "1,250.50", "12.50", "0.0125", "1,250.50"]
+            ]);
+
+        var lineItems = new LabelsExcelImportService()
+            .ImportTender(stream)
+            .LabelLineItems;
+
+        Assert.Equal(100000.5m, lineItems[0].Quantity);
+        Assert.Equal(1250.50m, lineItems[0].Spend);
+        Assert.Equal(12.50m, lineItems[0].PricePerThousand);
+        Assert.Equal(0.0125m, lineItems[0].Price);
+        Assert.Equal(1250.50m, lineItems[0].TheoreticalSpend);
+        Assert.Empty(lineItems[0].SourceManualReviewFlags);
+
+        Assert.Equal(100000.5m, lineItems[1].Quantity);
+        Assert.Equal(1250.50m, lineItems[1].Spend);
+        Assert.Equal(12.50m, lineItems[1].PricePerThousand);
+        Assert.Equal(0.0125m, lineItems[1].Price);
+        Assert.Equal(1250.50m, lineItems[1].TheoreticalSpend);
+        Assert.Empty(lineItems[1].SourceManualReviewFlags);
+    }
+
+    [Fact]
     public void ImportedLineItemsCanBeEvaluatedWithManualReviewFlags()
     {
         using var stream = CreateWorkbookStream(

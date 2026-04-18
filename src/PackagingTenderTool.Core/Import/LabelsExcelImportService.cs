@@ -191,7 +191,8 @@ public sealed class LabelsExcelImportService
             return null;
         }
 
-        if (cell.TryGetValue<decimal>(out var numericValue))
+        if (cell.DataType == XLDataType.Number
+            && cell.TryGetValue<decimal>(out var numericValue))
         {
             return numericValue;
         }
@@ -251,6 +252,17 @@ public sealed class LabelsExcelImportService
 
     private static bool TryParseDecimal(string sourceValue, out decimal value)
     {
+        var normalizedValue = NormalizeDecimalValue(sourceValue);
+        if (normalizedValue is not null
+            && decimal.TryParse(
+                normalizedValue,
+                NumberStyles.Number,
+                CultureInfo.InvariantCulture,
+                out value))
+        {
+            return true;
+        }
+
         return decimal.TryParse(
                 sourceValue,
                 NumberStyles.Number,
@@ -261,6 +273,35 @@ public sealed class LabelsExcelImportService
                 NumberStyles.Number,
                 CultureInfo.CurrentCulture,
                 out value);
+    }
+
+    private static string? NormalizeDecimalValue(string sourceValue)
+    {
+        var value = sourceValue
+            .Trim()
+            .Replace(" ", string.Empty)
+            .Replace("\u00A0", string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var lastCommaIndex = value.LastIndexOf(',');
+        var lastDotIndex = value.LastIndexOf('.');
+
+        if (lastCommaIndex >= 0 && lastDotIndex >= 0)
+        {
+            return lastCommaIndex > lastDotIndex
+                ? value.Replace(".", string.Empty).Replace(',', '.')
+                : value.Replace(",", string.Empty);
+        }
+
+        if (lastCommaIndex >= 0)
+        {
+            return value.Replace(',', '.');
+        }
+
+        return value;
     }
 
     private static bool RowHasAnyContent(IXLRow row)

@@ -55,10 +55,10 @@ static MemoryStream CreateSampleLabelsWorkbook()
     };
     var rows = new object?[][]
     {
-        ["LBL-001", "Front label 80x120", "Acme Labels", "DK01", 100_000m, 1_250m, 12.50m, null, 1_250m, "80x120", "Left", "PP white", "300mm", 4, "Imported sample row."],
-        ["LBL-002", "Back label 60x90", "Acme Labels", "DK01", 80_000m, 740m, 9.25m, null, 740m, "80x120", "Left", "Paper", "300mm", 2, "Material mismatch for technical scoring."],
-        ["LBL-003", "Neck label 35x45", "Beta Packaging", "SE01", 60_000m, 690m, 11.50m, null, 690m, "80x120", "Right", "PP clear", "250mm", 3, "Winding and material mismatch."],
-        ["LBL-004", "Promo label 50x50", "Beta Packaging", "SE01", 25_000m, null, 8.75m, null, null, null, "Left", null, "200mm", 1, "Missing values demonstrate manual review."]
+        ["LBL-001", "Front label 80x120", "Acme Labels", "DK01", "100000", "1.250,00", "12,50", null, "1.250,00", "80x120", "Left", "PP white", "300mm", 4, "Imported sample row with comma decimals."],
+        ["LBL-002", "Back label 60x90", "Acme Labels", "DK01", "80000", "740.00", "9.25", null, "740.00", "80x120", "Left", "Paper", "300mm", 2, "Material mismatch with dot decimals."],
+        ["LBL-003", "Neck label 35x45", "Beta Packaging", "SE01", "60000", "690,00", "11,50", null, "690,00", "80x120", "Right", "PP clear", "250mm", 3, "Winding and material mismatch."],
+        ["LBL-004", "Promo label 50x50", "Beta Packaging", "SE01", "25000", null, "8.75", null, null, null, "Left", null, "200mm", 1, "Missing values demonstrate manual review."]
     };
 
     for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
