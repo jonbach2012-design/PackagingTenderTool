@@ -1,96 +1,117 @@
-PackagingTenderTool
-Formål
+> [!NOTE]
+> ## Bemærkning til underviser
+> Dette projekt er udviklet som en del af en læringsproces i C# og WinForms.  
+> Løsningen er bygget som en prototype med fokus på struktur, databehandling og beslutningsstøtte i forbindelse med evaluering af emballage-tenders.  
+> Den version, der ligger i repository nu, er den aktuelle version, som ønskes vurderet.
 
-Dette projekt er udviklet som en prototype til evaluering af leverandørtilbud (tenders) inden for emballage – med fokus på labels (Labels v1).
-Formålet er at kunne importere data fra Excel, evaluere leverandører på flere parametre og præsentere et samlet beslutningsgrundlag.
+# PackagingTenderTool
 
-Funktionalitet
+## Formål
+
+Dette projekt er udviklet som en prototype til evaluering af leverandørtilbud (tenders) inden for emballage med fokus på **labels**.
+
+Formålet er at kunne:
+
+- importere data fra Excel
+- evaluere leverandører på flere parametre
+- beregne en samlet vægtet score
+- klassificere leverandører efter anbefaling
+- præsentere et samlet beslutningsgrundlag i en WinForms-brugerflade
+
+---
+
+## Funktionalitet
 
 Applikationen kan:
 
-importere tender-data fra Excel
-håndtere forskellige talformater (fx 1.250,50 og 1,250.50)
-evaluere leverandører på:
-Commercial
-Technical
-Regulatory (PPWR/EPR inspireret)
-beregne samlet score (vægtet)
-klassificere leverandører:
-Recommended
-Conditional
-ManualReview
-håndtere manglende eller ugyldige data via Manual Review flags
-vise resultater via GUI (WinForms)
-Arkitektur (overblik)
+- importere tender-data fra Excel
+- håndtere forskellige talformater, fx `1,250.50` og `1.250,50`
+- evaluere leverandører inden for:
+  - Commercial
+  - Technical
+  - Regulatory
+- anvende regulatoriske vurderinger inspireret af **PPWR/EPR**
+- beregne samlet score baseret på vægtning
+- klassificere leverandører som:
+  - **Recommended**
+  - **Conditional**
+  - **Manual Review**
+- markere manglende eller ugyldige data via **Manual Review flags**
+- vise resultater i en grafisk brugerflade bygget i **WinForms**
+
+---
+
+## Teknologier
+
+Projektet er udviklet med:
+
+- C#
+- .NET
+- Windows Forms (WinForms)
+- Excel-import
+- Git og GitHub til versionsstyring
+
+---
+
+## Arkitektur
 
 Projektet er opdelt i flere lag for at sikre struktur og genbrug:
 
-Core (forretningslogik)
+- **UI-lag**  
+  Håndterer brugerfladen i WinForms og viser resultaterne.
 
-Indeholder:
+- **Application-lag**  
+  Styrer programflow og binder UI sammen med forretningslogikken.
 
-domænemodeller (fx Tender, Supplier, LabelLineItem)
-services til:
-evaluering (LineEvaluationService)
-aggregering (SupplierAggregationService)
-klassifikation (SupplierClassificationService)
-scoreberegning
-App (UI + entry point)
-WinForms GUI (MainForm)
-filvalg + evaluering
-visning af resultater pr. leverandør
-Import
-Excel-import via ClosedXML
-mapping fra Excel → domænemodeller
-håndtering af datakvalitet og regionale formater
-Tests
-unit tests for:
-scoring
-import
-evaluering
-sikrer at ændringer ikke ødelægger eksisterende funktionalitet
-Programmeringsmæssig kompleksitet
+- **Domain / Logic-lag**  
+  Indeholder regler for evaluering, scoring og klassificering.
 
-Projektet demonstrerer brug af flere centrale programmeringsstrukturer:
+- **Infrastructure / Data-lag**  
+  Håndterer import og parsing af Excel-data.
 
-objektorienteret design (flere klasser med ansvar)
-separation of concerns (models, services, UI)
-collections (lister af linjer, leverandører, flags)
-betinget logik (if/else i scoring og klassifikation)
-beregninger og vægtet aggregering
-datavalidering og fejlhåndtering
-filimport og parsing
-GUI-interaktion
-unit testing
+Denne opdeling gør løsningen mere overskuelig og lettere at videreudvikle.
 
-Det gør projektet væsentligt mere komplekst end en simpel konsolapplikation.
+---
 
-Status
+## Eksempel på vurderingsområder
 
-Projektet er en første fungerende prototype (v1):
+Ved evaluering af leverandører arbejdes der blandt andet med:
 
-✔ Import virker
-✔ Scoring virker (Commercial / Technical / Regulatory)
-✔ Klassifikation virker
-✔ GUI findes
-✔ Unit tests dækker kernefunktionalitet
+- pris og kommercielle forhold
+- tekniske krav og specifikationer
+- regulatoriske forhold
+- datavalidering og håndtering af usikkerhed
+- samlet vægtet leverandørscore
 
-Næste skridt:
+---
 
-forbedre GUI
-teste med rigtige data
-finpudse regler og validering
+## Output
 
-Kør projektet
-dotnet build PackagingTenderTool.sln
-dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
+Systemet leverer et samlet beslutningsgrundlag ved at:
 
+- vise scorer pr. leverandør
+- fremhæve dataproblemer
+- klassificere leverandører efter anbefalet status
+- understøtte hurtigere og mere ensartet tender-evaluering
 
+---
 
-Kort sagt
+## Versionsstyring
 
-Projektet viser, hvordan man kan kombinere:
+Projektet er versionsstyret med Git og GitHub.
 
-data → logik → evaluering → beslutningsgrundlag → visning
+Repository dokumenterer udviklingsforløbet fra idé og strukturering til prototype og forbedringer undervejs.
 
-… i en struktureret og testbar løsning.
+---
+
+## Mulige videreudviklinger
+
+Projektet kan senere udvides med fx:
+
+- flere tender-typer end labels
+- mere avanceret vægtning og scoring
+- eksport af resultater til Excel eller PDF
+- visualiseringer og dashboards
+- integration til andre datakilder eller systemer
+
+---
