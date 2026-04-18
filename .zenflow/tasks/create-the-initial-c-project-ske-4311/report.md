@@ -1,34 +1,52 @@
-# Regulatory Scoring Update
+# GUI Update
 
 ## Implementation Summary
 
-PackagingTenderTool now includes initial regulatory scoring for Labels profile v1.
+PackagingTenderTool now has a minimal Windows desktop interface for the Labels v1 import and evaluation flow.
 
-The service layer supports:
+The app host was changed from console output to a WinForms executable:
 
-- line-level regulatory scoring in `LineEvaluationService`
-- supplier-level regulatory aggregation in `SupplierAggregationService`
-- total weighted score calculation through `ScoreBreakdownCalculator`
-- supplier classification through `SupplierClassificationService`
-- demo output from the console host with non-zero regulatory scores
+- `src/PackagingTenderTool.App/PackagingTenderTool.App.csproj` now targets `net10.0-windows`
+- `UseWindowsForms` is enabled
+- `Program.cs` starts `MainForm`
+- `MainForm` provides the file picker, evaluation action, supplier result table, and status/error messaging
 
-The first regulatory criteria are represented as tender-level expected values and nullable supplier line values:
+The GUI reuses the existing core import, evaluation, aggregation, scoring, classification, and Manual Review behavior. It does not redesign the business logic.
 
-- lower label weight through `MaximumLabelWeightGrams` and `LabelWeightGrams`
-- mono-material design
-- easy separation
-- reusable or recyclable material direction
-- traceability
+## GUI Flow
 
-Regulatory scoring stays simple and explicit. Each configured criterion contributes equally to the line-level regulatory score. Matching values increase the score, mismatches reduce it, and missing or invalid values create manual review flags without blocking evaluation or applying hard exclusion behavior.
+1. Start the app:
 
-Supplier regulatory scores are aggregated using the existing spend-weighted supplier aggregation path. The total score continues to use the current weighting:
+```powershell
+dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
+```
 
-- Commercial: 30%
-- Technical: 30%
-- Regulatory: 40%
+2. Click `Browse...` and select a Labels v1 Excel workbook.
+3. Click `Import and evaluate`.
+4. Review supplier-level results in the table:
 
-Classification uses the updated total score while preserving manual review behavior. A supplier with manual review flags is classified as `ManualReview`, even when a numeric total score can still be calculated.
+- Supplier name
+- Total spend
+- Commercial score
+- Technical score
+- Regulatory score
+- Total score
+- Classification
+- Manual review required
+- Manual review flag count
+
+The status line reports successful imports, supplier counts, manual-review supplier counts, and import/evaluation errors.
+
+## Supporting Core Change
+
+Added `LabelsTenderEvaluationService` as a small workflow service that runs the existing sequence:
+
+- import Labels Excel data into a `Tender`
+- evaluate line items
+- aggregate supplier evaluations by supplier name
+- apply supplier classification
+
+Added `TenderEvaluationResult` to carry the tender, line evaluations, and supplier evaluations back to the app.
 
 ## Verification
 
@@ -44,28 +62,22 @@ Result: passed. Build succeeded with 0 warnings and 0 errors.
 dotnet test PackagingTenderTool.sln
 ```
 
-Result: passed. 41 tests passed, 0 failed, 0 skipped.
+Result: passed. 42 tests passed, 0 failed, 0 skipped.
+
+GUI smoke check:
 
 ```powershell
-dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
+Start-Process src\PackagingTenderTool.App\bin\Debug\net10.0-windows\PackagingTenderTool.App.exe
 ```
 
-Result: passed. The console demo printed supplier scores including non-zero regulatory values:
-
-```text
-Supplier: Acme Labels
-  Scores: Commercial=79.14, Technical=87.61, Regulatory=85.13, Total=84.08
-  Classification: Recommended
-
-Supplier: Beta Packaging
-  Scores: Commercial=76.09, Technical=33.33, Regulatory=80, Total=64.83
-  Classification: ManualReview
-```
+Result: passed. The WinForms app launched successfully and was closed after startup verification.
 
 ## Scope Notes
 
-No hard exclusion or knockout behavior was added.
+The UI is intentionally minimal and practical.
 
-No advanced PPWR/EPR rules, legal/regulatory engine behavior, or UI were implemented.
+No advanced charts or visualizations were added.
 
-Manual review remains non-blocking: flagged rows and suppliers can still receive numeric scores, but classification reflects the current manual review status.
+No tender-rule editing was added.
+
+Manual Review remains non-blocking and is surfaced in the supplier result table.
