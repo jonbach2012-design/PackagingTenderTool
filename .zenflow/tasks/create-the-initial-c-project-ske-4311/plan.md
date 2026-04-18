@@ -53,7 +53,8 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Create Solution and Project Structure
+### [x] Step: Create Solution and Project Structure
+<!-- chat-id: 40a2b79d-a355-4c2a-b40a-bfdfce48c0ba -->
 
 Implement the runnable skeleton from `{@artifacts_path}/spec.md`.
 
