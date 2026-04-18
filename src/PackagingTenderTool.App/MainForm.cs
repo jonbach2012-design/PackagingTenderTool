@@ -157,7 +157,7 @@ public sealed class MainForm : Form
             var result = evaluationService.ImportAndEvaluate(
                 filePathTextBox.Text,
                 Path.GetFileNameWithoutExtension(filePathTextBox.Text),
-                CreateDefaultTenderSettings());
+                LabelsV1DemoConfiguration.CreateTenderSettings());
             var rows = result.SupplierEvaluations
                 .Select(evaluation => SupplierResultRow.FromEvaluation(
                     evaluation,
@@ -184,23 +184,6 @@ public sealed class MainForm : Form
         {
             SetBusyState(false);
         }
-    }
-
-    private static TenderSettings CreateDefaultTenderSettings()
-    {
-        return new TenderSettings
-        {
-            PackagingProfile = PackagingProfile.Labels,
-            CurrencyCode = "EUR",
-            ExpectedMaterial = "PP white",
-            ExpectedWindingDirection = "Left",
-            ExpectedLabelSize = "80x120",
-            MaximumLabelWeightGrams = 2m,
-            ExpectedMonoMaterial = true,
-            ExpectedEasySeparation = true,
-            ExpectedReusableOrRecyclableMaterial = true,
-            ExpectedTraceability = true
-        };
     }
 
     private void SetBusyState(bool isBusy)

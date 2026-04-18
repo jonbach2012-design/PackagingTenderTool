@@ -9,7 +9,7 @@ internal static class RegulatoryConsoleDemo
 {
     public static void Run(TextWriter output)
     {
-        var tenderSettings = CreateSampleTenderSettings();
+        var tenderSettings = LabelsV1DemoConfiguration.CreateTenderSettings();
         using var importStream = CreateSampleLabelsWorkbook();
 
         var result = new LabelsTenderEvaluationService().ImportAndEvaluate(
@@ -18,23 +18,6 @@ internal static class RegulatoryConsoleDemo
             tenderSettings);
 
         PrintSummary(result, output);
-    }
-
-    private static TenderSettings CreateSampleTenderSettings()
-    {
-        return new TenderSettings
-        {
-            PackagingProfile = PackagingProfile.Labels,
-            CurrencyCode = "EUR",
-            ExpectedMaterial = "PP white",
-            ExpectedWindingDirection = "Left",
-            ExpectedLabelSize = "80x120",
-            MaximumLabelWeightGrams = 2m,
-            ExpectedMonoMaterial = true,
-            ExpectedEasySeparation = true,
-            ExpectedReusableOrRecyclableMaterial = true,
-            ExpectedTraceability = true
-        };
     }
 
     private static MemoryStream CreateSampleLabelsWorkbook()
