@@ -4,25 +4,28 @@ namespace PackagingTenderTool.Core.Services;
 
 public sealed class LineEvaluationService
 {
-    public LineEvaluation Evaluate(LabelLineItem lineItem)
+    public LineEvaluation Evaluate(LabelLineItem lineItem, TenderSettings? tenderSettings = null)
     {
-        return Evaluate(lineItem, [lineItem]);
+        return Evaluate(lineItem, [lineItem], tenderSettings);
     }
 
-    public IReadOnlyList<LineEvaluation> EvaluateMany(IEnumerable<LabelLineItem> lineItems)
+    public IReadOnlyList<LineEvaluation> EvaluateMany(
+        IEnumerable<LabelLineItem> lineItems,
+        TenderSettings? tenderSettings = null)
     {
         ArgumentNullException.ThrowIfNull(lineItems);
 
         var lineItemList = lineItems.ToList();
 
         return lineItemList
-            .Select(lineItem => Evaluate(lineItem, lineItemList))
+            .Select(lineItem => Evaluate(lineItem, lineItemList, tenderSettings))
             .ToList();
     }
 
     private static LineEvaluation Evaluate(
         LabelLineItem lineItem,
-        IReadOnlyCollection<LabelLineItem> comparisonLines)
+        IReadOnlyCollection<LabelLineItem> comparisonLines,
+        TenderSettings? tenderSettings)
     {
         ArgumentNullException.ThrowIfNull(lineItem);
 
@@ -30,24 +33,26 @@ public sealed class LineEvaluationService
         {
             LineItemId = lineItem.Id,
             LineItem = lineItem,
-            ScoreBreakdown = CreateScoreBreakdown(lineItem, comparisonLines)
+            ScoreBreakdown = CreateScoreBreakdown(lineItem, comparisonLines, tenderSettings)
         };
 
-        AddManualReviewFlags(lineItem, evaluation.ManualReviewFlags);
+        AddManualReviewFlags(lineItem, tenderSettings, evaluation.ManualReviewFlags);
 
         return evaluation;
     }
 
     private static ScoreBreakdown CreateScoreBreakdown(
         LabelLineItem lineItem,
-        IEnumerable<LabelLineItem> comparisonLines)
+        IEnumerable<LabelLineItem> comparisonLines,
+        TenderSettings? tenderSettings)
     {
         var commercialScore = CalculateCommercialScore(lineItem, comparisonLines);
+        var technicalScore = CalculateTechnicalScore(lineItem, tenderSettings);
 
         return new ScoreBreakdown
         {
             Commercial = commercialScore,
-            Technical = 0m,
+            Technical = technicalScore,
             Regulatory = 0m,
             Total = commercialScore
         };
@@ -97,8 +102,36 @@ public sealed class LineEvaluationService
         return null;
     }
 
+    private static decimal CalculateTechnicalScore(
+        LabelLineItem lineItem,
+        TenderSettings? tenderSettings)
+    {
+        if (tenderSettings is null)
+        {
+            return 0m;
+        }
+
+        var expectedFields = new[]
+        {
+            (Expected: tenderSettings.ExpectedMaterial, Actual: lineItem.Material),
+            (Expected: tenderSettings.ExpectedWindingDirection, Actual: lineItem.WindingDirection),
+            (Expected: tenderSettings.ExpectedLabelSize, Actual: lineItem.LabelSize)
+        }.Where(field => !string.IsNullOrWhiteSpace(field.Expected)).ToList();
+
+        if (expectedFields.Count == 0)
+        {
+            return 0m;
+        }
+
+        var matches = expectedFields.Count(field =>
+            string.Equals(field.Expected, field.Actual, StringComparison.OrdinalIgnoreCase));
+
+        return decimal.Round(matches / (decimal)expectedFields.Count * 100m, 2);
+    }
+
     private static void AddManualReviewFlags(
         LabelLineItem lineItem,
+        TenderSettings? tenderSettings,
         ICollection<ManualReviewFlag> manualReviewFlags)
     {
         if (string.IsNullOrWhiteSpace(lineItem.SupplierName))
@@ -196,5 +229,41 @@ public sealed class LineEvaluationService
                 Severity = ManualReviewSeverity.Warning
             });
         }
+
+        AddMissingTechnicalReferenceFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.Material),
+            lineItem.Material,
+            tenderSettings?.ExpectedMaterial);
+        AddMissingTechnicalReferenceFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.WindingDirection),
+            lineItem.WindingDirection,
+            tenderSettings?.ExpectedWindingDirection);
+        AddMissingTechnicalReferenceFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.LabelSize),
+            lineItem.LabelSize,
+            tenderSettings?.ExpectedLabelSize);
+    }
+
+    private static void AddMissingTechnicalReferenceFlag(
+        ICollection<ManualReviewFlag> manualReviewFlags,
+        string fieldName,
+        string? actualValue,
+        string? expectedValue)
+    {
+        if (string.IsNullOrWhiteSpace(expectedValue) || !string.IsNullOrWhiteSpace(actualValue))
+        {
+            return;
+        }
+
+        manualReviewFlags.Add(new ManualReviewFlag
+        {
+            FieldName = fieldName,
+            SourceValue = actualValue,
+            Reason = $"A value is missing for technical comparison against expected {fieldName}.",
+            Severity = ManualReviewSeverity.Warning
+        });
     }
 }

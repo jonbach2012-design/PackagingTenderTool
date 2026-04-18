@@ -6,7 +6,7 @@ var tender = CreateSampleTender();
 var lineEvaluationService = new LineEvaluationService();
 var supplierAggregationService = new SupplierAggregationService();
 
-var lineEvaluations = lineEvaluationService.EvaluateMany(tender.LabelLineItems);
+var lineEvaluations = lineEvaluationService.EvaluateMany(tender.LabelLineItems, tender.Settings);
 
 var supplierEvaluations = supplierAggregationService.AggregateBySupplierName(lineEvaluations);
 
@@ -20,7 +20,10 @@ static Tender CreateSampleTender()
         Settings = new TenderSettings
         {
             PackagingProfile = PackagingProfile.Labels,
-            CurrencyCode = "EUR"
+            CurrencyCode = "EUR",
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
         },
         LabelLineItems =
         [
@@ -32,6 +35,8 @@ static Tender CreateSampleTender()
                 Quantity = 100_000m,
                 Spend = 1_250m,
                 PricePerThousand = 12.50m,
+                LabelSize = "80x120",
+                WindingDirection = "Left",
                 Material = "PP white",
                 NumberOfColors = 4
             },
@@ -43,6 +48,8 @@ static Tender CreateSampleTender()
                 Quantity = 80_000m,
                 Spend = 740m,
                 PricePerThousand = 9.25m,
+                LabelSize = "80x120",
+                WindingDirection = "Left",
                 Material = "Paper",
                 NumberOfColors = 2
             },
@@ -54,6 +61,8 @@ static Tender CreateSampleTender()
                 Quantity = 60_000m,
                 Spend = 690m,
                 PricePerThousand = 11.50m,
+                LabelSize = "80x120",
+                WindingDirection = "Right",
                 Material = "PP clear",
                 NumberOfColors = 3
             },
@@ -65,6 +74,8 @@ static Tender CreateSampleTender()
                 Quantity = 25_000m,
                 Spend = null,
                 PricePerThousand = 8.75m,
+                LabelSize = null,
+                WindingDirection = "Left",
                 Material = null,
                 NumberOfColors = 1,
                 Comment = "Spend intentionally missing to demonstrate manual review."

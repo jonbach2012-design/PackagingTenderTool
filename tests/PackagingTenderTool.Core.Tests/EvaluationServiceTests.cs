@@ -219,4 +219,122 @@ public sealed class EvaluationServiceTests
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
     }
+
+    [Fact]
+    public void LineEvaluationServiceScoresTechnicalExactMatches()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            Material = "PP white",
+            WindingDirection = "Left",
+            LabelSize = "80x120"
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
+        Assert.False(evaluation.RequiresManualReview);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceReducesTechnicalScoreForMismatches()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            Material = "Paper",
+            WindingDirection = "Left",
+            LabelSize = "80x120"
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Equal(66.67m, evaluation.ScoreBreakdown.Technical);
+        Assert.False(evaluation.RequiresManualReview);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceFlagsMissingTechnicalValuesForManualReview()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            Material = null,
+            WindingDirection = "Left",
+            LabelSize = null
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.True(evaluation.RequiresManualReview);
+        Assert.Equal(33.33m, evaluation.ScoreBreakdown.Technical);
+        Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.Material));
+        Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.LabelSize));
+    }
+
+    [Fact]
+    public void SupplierAggregationServiceAggregatesTechnicalScoreBySpend()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItems = new[]
+        {
+            new LabelLineItem
+            {
+                SupplierName = "Acme Labels",
+                Spend = 25m,
+                PricePerThousand = 10m,
+                Material = "PP white",
+                WindingDirection = "Left",
+                LabelSize = "80x120"
+            },
+            new LabelLineItem
+            {
+                SupplierName = "Acme Labels",
+                Spend = 75m,
+                PricePerThousand = 20m,
+                Material = "Paper",
+                WindingDirection = "Left",
+                LabelSize = "80x120"
+            }
+        };
+        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems, tenderSettings);
+
+        var supplierEvaluation = new SupplierAggregationService()
+            .AggregateBySupplierName(lineEvaluations)
+            .Single();
+
+        Assert.Equal(75m, supplierEvaluation.ScoreBreakdown.Technical);
+        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
+    }
 }

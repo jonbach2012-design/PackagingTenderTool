@@ -78,7 +78,7 @@ public sealed class SupplierAggregationService
             weightedScore += score.Value * spend;
         }
 
-        return weightedScore / totalSpend;
+        return decimal.Round(weightedScore / totalSpend, 2);
     }
 
     private static decimal GetValidSpend(LineEvaluation lineEvaluation)
