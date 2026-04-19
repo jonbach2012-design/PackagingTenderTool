@@ -7,6 +7,8 @@ internal static class AppTheme
     public static readonly Color PrimaryLight = Color.FromArgb(220, 228, 207);
     public static readonly Color PageBackground = Color.FromArgb(246, 247, 243);
     public static readonly Color CardBackground = Color.White;
+    public static readonly Color CardBorder = Color.FromArgb(224, 229, 218);
+    public static readonly Color ChartGrid = Color.FromArgb(232, 236, 226);
     public static readonly Color MainText = Color.FromArgb(47, 53, 47);
     public static readonly Color MutedText = Color.FromArgb(102, 112, 95);
     public static readonly Color Warning = Color.FromArgb(201, 138, 46);

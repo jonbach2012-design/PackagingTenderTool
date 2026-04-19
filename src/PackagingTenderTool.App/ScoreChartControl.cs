@@ -61,10 +61,12 @@ internal sealed class ScoreChartControl : Control
         bounds.Inflate(-12, -10);
         using var titleFont = AppTheme.TitleFont(10F);
         using var titleBrush = new SolidBrush(AppTheme.MainText);
-        using var axisPen = new Pen(AppTheme.PrimaryLight, 1);
+        using var axisPen = new Pen(AppTheme.CardBorder, 1);
 
         graphics.DrawString(ShortText(ChartTitle, 42), titleFont, titleBrush, bounds.Location);
-        var plot = new Rectangle(bounds.Left, bounds.Top + 34, Math.Max(1, bounds.Width), Math.Max(1, bounds.Height - 40));
+        using var subtitleBrush = new SolidBrush(AppTheme.MutedText);
+        graphics.DrawString(Mode == ScoreChartMode.TotalScoreBySupplier ? "Weighted total score, 0-100" : "Commercial / Technical / Regulatory, 0-100", Font, subtitleBrush, bounds.Left, bounds.Top + 22);
+        var plot = new Rectangle(bounds.Left + 28, bounds.Top + 48, Math.Max(1, bounds.Width - 34), Math.Max(1, bounds.Height - 56));
         if (plot.Width < 80 || plot.Height < 60)
         {
             PaintPlaceholder(graphics, "Chart area is too small.");
@@ -77,7 +79,9 @@ internal sealed class ScoreChartControl : Control
             return;
         }
 
+        DrawGrid(graphics, plot);
         graphics.DrawLine(axisPen, plot.Left, plot.Bottom - 22, plot.Right, plot.Bottom - 22);
+        graphics.DrawLine(axisPen, plot.Left, plot.Top, plot.Left, plot.Bottom - 22);
         if (Mode == ScoreChartMode.TotalScoreBySupplier)
         {
             DrawTotalScoreBars(graphics, plot);
@@ -99,6 +103,7 @@ internal sealed class ScoreChartControl : Control
         var barAreaHeight = Math.Max(30, plot.Height - 44);
         var visibleRows = rows.Take(Math.Max(1, Math.Min(rows.Count, plot.Width / 80))).ToList();
         var slotWidth = Math.Max(70, plot.Width / visibleRows.Count);
+        DrawAverageLine(graphics, plot, visibleRows.Select(row => ClampScore(row.TotalScore)).ToList(), barAreaHeight);
 
         for (var index = 0; index < visibleRows.Count; index++)
         {
@@ -113,6 +118,7 @@ internal sealed class ScoreChartControl : Control
             using var textBrush = new SolidBrush(AppTheme.MainText);
             using var mutedBrush = new SolidBrush(AppTheme.MutedText);
             graphics.FillRectangle(brush, x, y, barWidth, Math.Max(1, barHeight));
+            graphics.DrawRectangle(new Pen(AppTheme.CardBackground), x, y, barWidth, Math.Max(1, barHeight));
             if (barAreaHeight > 50)
             {
                 graphics.DrawString($"{value:0}", Font, textBrush, x, Math.Max(plot.Top, y - 18));
@@ -160,6 +166,7 @@ internal sealed class ScoreChartControl : Control
                 var barY = plot.Bottom - 24 - barHeight;
                 using var brush = new SolidBrush(colors[valueIndex]);
                 graphics.FillRectangle(brush, barX, barY, barWidth, Math.Max(1, barHeight));
+                graphics.DrawRectangle(new Pen(AppTheme.CardBackground), barX, barY, barWidth, Math.Max(1, barHeight));
             }
 
             using var mutedBrush = new SolidBrush(AppTheme.MutedText);
@@ -189,6 +196,35 @@ internal sealed class ScoreChartControl : Control
             graphics.FillRectangle(brush, x + index * 88, plot.Top - 24, 10, 10);
             graphics.DrawString(labels[index], SystemFonts.MessageBoxFont ?? SystemFonts.DefaultFont, textBrush, x + 14 + index * 88, plot.Top - 28);
         }
+    }
+
+    private void DrawGrid(Graphics graphics, Rectangle plot)
+    {
+        using var gridPen = new Pen(AppTheme.ChartGrid, 1);
+        using var textBrush = new SolidBrush(AppTheme.MutedText);
+        var bottom = plot.Bottom - 22;
+        var height = Math.Max(1, bottom - plot.Top);
+        foreach (var tick in new[] { 0, 50, 100 })
+        {
+            var y = bottom - (int)(height * tick / 100m);
+            graphics.DrawLine(gridPen, plot.Left, y, plot.Right, y);
+            graphics.DrawString(tick.ToString(), Font, textBrush, plot.Left - 26, y - 8);
+        }
+    }
+
+    private void DrawAverageLine(Graphics graphics, Rectangle plot, IReadOnlyCollection<decimal> values, int barAreaHeight)
+    {
+        if (values.Count == 0 || plot.Width < 240)
+        {
+            return;
+        }
+
+        var average = values.Average();
+        var y = plot.Bottom - 24 - (int)(barAreaHeight * average / 100m);
+        using var pen = new Pen(AppTheme.Warning, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        using var brush = new SolidBrush(AppTheme.Warning);
+        graphics.DrawLine(pen, plot.Left, y, plot.Right, y);
+        graphics.DrawString($"Avg {average:0}", Font, brush, plot.Right - 52, Math.Max(plot.Top, y - 18));
     }
 
     private void PaintPlaceholder(Graphics graphics, string message)

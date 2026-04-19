@@ -18,6 +18,10 @@ internal sealed class MainForm : Form
     private readonly Button tableViewButton = new();
     private readonly Button settingsButton = new();
     private readonly Button clearComparisonButton = new();
+    private readonly Button importButton = new();
+    private readonly Label importStatusLabel = new();
+    private readonly Label importSummaryLabel = new();
+    private readonly ProgressBar importProgressBar = new();
     private readonly DataGridView resultsGrid = new();
     private readonly FlowLayoutPanel supplierCardsPanel = new();
     private readonly FlowLayoutPanel comparisonPanel = new();
@@ -72,7 +76,7 @@ internal sealed class MainForm : Form
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 98));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
         root.Controls.Add(BuildHeader(), 0, 0);
         root.Controls.Add(BuildBody(), 0, 1);
         root.Controls.Add(BuildStatusBar(), 0, 2);
@@ -150,7 +154,7 @@ internal sealed class MainForm : Form
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        var importButton = PrimaryButton("Import Excel");
+        StylePrimaryButton(importButton, "Import Excel");
         importButton.Click += ImportButton_Click;
         settingsButton.Text = "Settings";
         settingsButton.Click += (_, _) => ToggleSettingsPanel();
@@ -203,9 +207,9 @@ internal sealed class MainForm : Form
     private Control BuildDashboardView()
     {
         var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
-        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 208));
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 262));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 172));
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 186));
         dashboard.Controls.Add(BuildChartsPanel(), 0, 0);
         dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 1);
         dashboard.Controls.Add(BuildComparisonPanel(), 0, 2);
@@ -226,12 +230,24 @@ internal sealed class MainForm : Form
 
     private Control BuildSupplierCardsPanel()
     {
+        var host = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Padding = new Padding(0, 4, 0, 0) };
+        host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        host.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        host.Controls.Add(new Label
+        {
+            Text = "Supplier overview",
+            AutoSize = true,
+            Font = AppTheme.TitleFont(10.5F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 8)
+        }, 0, 0);
         supplierCardsPanel.Dock = DockStyle.Fill;
         supplierCardsPanel.AutoScroll = true;
         supplierCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         supplierCardsPanel.WrapContents = true;
         supplierCardsPanel.BackColor = AppTheme.CardBackground;
-        return supplierCardsPanel;
+        host.Controls.Add(supplierCardsPanel, 0, 1);
+        return host;
     }
 
     private Control BuildComparisonPanel()
@@ -290,11 +306,16 @@ internal sealed class MainForm : Form
         resultsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         resultsGrid.MultiSelect = false;
         resultsGrid.EnableHeadersVisualStyles = false;
+        resultsGrid.GridColor = AppTheme.CardBorder;
+        resultsGrid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        resultsGrid.ColumnHeadersHeight = 38;
         resultsGrid.ColumnHeadersDefaultCellStyle.BackColor = AppTheme.PrimaryLight;
         resultsGrid.ColumnHeadersDefaultCellStyle.ForeColor = AppTheme.MainText;
         resultsGrid.ColumnHeadersDefaultCellStyle.Font = AppTheme.TitleFont(9F);
+        resultsGrid.DefaultCellStyle.Padding = new Padding(4, 2, 4, 2);
         resultsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(229, 235, 217);
         resultsGrid.DefaultCellStyle.SelectionForeColor = AppTheme.MainText;
+        resultsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 251, 248);
         resultsGrid.SelectionChanged += (_, _) => SelectRow(SelectedTableRow());
         resultsGrid.CellFormatting += ResultsGrid_CellFormatting;
         resultsGrid.CellValueChanged += ResultsGrid_CellValueChanged;
@@ -422,12 +443,53 @@ internal sealed class MainForm : Form
 
     private Control BuildStatusBar()
     {
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 2,
+            BackColor = AppTheme.PrimaryLight,
+            Padding = new Padding(18, 8, 18, 6)
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+        importStatusLabel.Text = "Import ready";
+        importStatusLabel.Dock = DockStyle.Fill;
+        importStatusLabel.Font = AppTheme.TitleFont(9.5F);
+        importStatusLabel.ForeColor = AppTheme.PrimaryDark;
+        importStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
+
+        importSummaryLabel.Text = "No file imported in this session.";
+        importSummaryLabel.Dock = DockStyle.Fill;
+        importSummaryLabel.ForeColor = AppTheme.MutedText;
+        importSummaryLabel.TextAlign = ContentAlignment.MiddleLeft;
+        importSummaryLabel.AutoEllipsis = true;
+
+        statusLabel.Text = "Dashboard ready.";
         statusLabel.Dock = DockStyle.Fill;
-        statusLabel.BackColor = AppTheme.PrimaryLight;
         statusLabel.ForeColor = AppTheme.MainText;
         statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-        statusLabel.Padding = new Padding(18, 0, 18, 0);
-        return statusLabel;
+        statusLabel.AutoEllipsis = true;
+
+        importProgressBar.Dock = DockStyle.Fill;
+        importProgressBar.Style = ProgressBarStyle.Marquee;
+        importProgressBar.MarqueeAnimationSpeed = 0;
+        importProgressBar.Visible = false;
+
+        panel.Controls.Add(importStatusLabel, 0, 0);
+        panel.SetRowSpan(importStatusLabel, 2);
+        panel.Controls.Add(statusLabel, 1, 0);
+        panel.SetColumnSpan(statusLabel, 2);
+        panel.Controls.Add(importSummaryLabel, 1, 1);
+        panel.SetColumnSpan(importSummaryLabel, 2);
+        panel.Controls.Add(importProgressBar, 3, 0);
+        panel.SetRowSpan(importProgressBar, 2);
+        return panel;
     }
 
     private Control BuildSettingsHeader()
@@ -469,14 +531,19 @@ internal sealed class MainForm : Form
     {
         try
         {
-            UpdateDashboardFromResult(
-                DemoSupplierDataProvider.Create(settings),
-                "Demo supplier data loaded. Import an Excel file when ready.");
+            var result = DemoSupplierDataProvider.Create(settings);
+            UpdateDashboardFromResult(result, "Demo supplier data loaded. Import an Excel file when ready.");
+            SetImportFeedback(
+                "Demo data",
+                BuildResultSummary(result, "Generated sample data"),
+                AppTheme.PrimaryDark,
+                isBusy: false);
         }
         catch (Exception ex)
         {
             AppExceptionReporter.Handle(ex);
             UpdateDashboardFromResult(new TenderEvaluationResult(), "Demo data could not be loaded. Dashboard is in a safe empty state.");
+            SetImportFeedback("Demo failed", ex.Message, AppTheme.Error, isBusy: false);
         }
     }
 
@@ -821,11 +888,21 @@ internal sealed class MainForm : Form
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
+            SetImportFeedback("Import canceled", "No file selected.", AppTheme.MutedText, isBusy: false);
             return;
         }
 
         try
         {
+            SetImportFeedback(
+                "Import running",
+                $"Reading {Path.GetFileName(dialog.FileName)} and evaluating supplier results...",
+                AppTheme.Warning,
+                isBusy: true);
+            UseWaitCursor = true;
+            importButton.Enabled = false;
+            Application.DoEvents();
+
             if (!settings.TenderType.Equals("Labels", StringComparison.OrdinalIgnoreCase))
             {
                 statusLabel.Text = $"{settings.TenderType} is presentation-only in this prototype. Labels v1 import logic will be used.";
@@ -834,13 +911,23 @@ internal sealed class MainForm : Form
             var tenderSettings = LabelsV1DemoConfiguration.CreateTenderSettings();
             tenderSettings.CurrencyCode = settings.CurrencyCode;
             var result = CreateEvaluationService().ImportAndEvaluate(dialog.FileName, settings.TenderName, tenderSettings);
-            UpdateDashboardFromResult(result, $"Imported and evaluated {Path.GetFileName(dialog.FileName)}.");
+            var fileName = Path.GetFileName(dialog.FileName);
+            UpdateDashboardFromResult(result, $"Imported and evaluated {fileName}.");
+            SetImportFeedback("Import succeeded", BuildResultSummary(result, fileName), AppTheme.PrimaryDark, isBusy: false);
         }
         catch (Exception ex)
         {
             statusLabel.Text = $"Import failed: {ex.Message}";
+            SetImportFeedback("Import failed", ex.Message, AppTheme.Error, isBusy: false);
             AppExceptionReporter.LogSilently(ex);
             MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            UseWaitCursor = false;
+            importButton.Enabled = true;
+            importProgressBar.Visible = false;
+            importProgressBar.MarqueeAnimationSpeed = 0;
         }
     }
 
@@ -851,6 +938,24 @@ internal sealed class MainForm : Form
             new LineEvaluationService(),
             new SupplierAggregationService(),
             new SupplierClassificationService(settings.RecommendedThreshold, settings.ConditionalThreshold));
+    }
+
+    private void SetImportFeedback(string state, string summary, Color stateColor, bool isBusy)
+    {
+        importStatusLabel.Text = state;
+        importStatusLabel.ForeColor = stateColor;
+        importSummaryLabel.Text = string.IsNullOrWhiteSpace(summary) ? "No import details available." : summary;
+        importProgressBar.Visible = isBusy;
+        importProgressBar.MarqueeAnimationSpeed = isBusy ? 30 : 0;
+    }
+
+    private static string BuildResultSummary(TenderEvaluationResult result, string sourceName)
+    {
+        var supplierCount = result.SupplierEvaluations?.Count ?? 0;
+        var lineCount = result.LineEvaluations?.Count ?? result.Tender?.LabelLineItems?.Count ?? 0;
+        var flagCount = result.SupplierEvaluations?.Sum(supplier => supplier.ManualReviewFlags?.Count ?? 0) ?? 0;
+        var validation = flagCount == 0 ? "No manual review flags" : $"{flagCount} manual review flags";
+        return $"{sourceName} | Lines: {lineCount} | Suppliers: {supplierCount} | Validation: {validation}";
     }
 
     private void ResultsGrid_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
@@ -925,11 +1030,39 @@ internal sealed class MainForm : Form
     {
         var card = Card();
         card.Margin = new Padding(0, 0, 10, 0);
-        card.Padding = new Padding(12);
-        var valueLabel = new Label { Text = "-", Dock = DockStyle.Top, Height = 34, Font = AppTheme.TitleFont(16F), ForeColor = AppTheme.MainText };
-        var title = new Label { Text = label, Dock = DockStyle.Bottom, Height = 24, ForeColor = AppTheme.MutedText };
-        card.Controls.Add(valueLabel);
-        card.Controls.Add(title);
+        card.Padding = new Padding(0);
+
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, BackColor = AppTheme.CardBackground };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 6));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 62));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 38));
+
+        var accent = new Panel { Dock = DockStyle.Fill, BackColor = KpiAccentColor(key) };
+        layout.Controls.Add(accent, 0, 0);
+        layout.SetRowSpan(accent, 2);
+
+        var valueLabel = new Label
+        {
+            Text = "-",
+            Dock = DockStyle.Fill,
+            Font = AppTheme.TitleFont(18F),
+            ForeColor = AppTheme.MainText,
+            TextAlign = ContentAlignment.BottomLeft,
+            Padding = new Padding(12, 0, 8, 0)
+        };
+        var title = new Label
+        {
+            Text = label,
+            Dock = DockStyle.Fill,
+            ForeColor = AppTheme.MutedText,
+            TextAlign = ContentAlignment.TopLeft,
+            Padding = new Padding(12, 0, 8, 0),
+            AutoEllipsis = true
+        };
+        layout.Controls.Add(valueLabel, 1, 0);
+        layout.Controls.Add(title, 1, 1);
+        card.Controls.Add(layout);
         panel.Controls.Add(card, column, 0);
         kpis[key] = valueLabel;
     }
@@ -938,9 +1071,21 @@ internal sealed class MainForm : Form
     {
         var card = Card();
         card.Margin = new Padding(0, 0, 12, 0);
-        card.Padding = new Padding(8);
+        card.Padding = new Padding(12);
         card.Controls.Add(chart);
         return card;
+    }
+
+    private static Color KpiAccentColor(string key)
+    {
+        return key switch
+        {
+            "Recommended" => AppTheme.PrimaryDark,
+            "Conditional" => AppTheme.Warning,
+            "ManualReview" => AppTheme.Error,
+            "BestScore" => AppTheme.Primary,
+            _ => AppTheme.PrimaryLight
+        };
     }
 
     private static Label SectionTitle(string text)
@@ -990,9 +1135,21 @@ internal sealed class MainForm : Form
 
     private static Button PrimaryButton(string text)
     {
-        var button = new Button { Text = text, Width = 128, Height = 38, BackColor = AppTheme.Primary, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 8, 10, 8) };
-        button.FlatAppearance.BorderSize = 0;
+        var button = new Button();
+        StylePrimaryButton(button, text);
         return button;
+    }
+
+    private static void StylePrimaryButton(Button button, string text)
+    {
+        button.Text = text;
+        button.Width = 128;
+        button.Height = 38;
+        button.BackColor = AppTheme.Primary;
+        button.ForeColor = Color.White;
+        button.FlatStyle = FlatStyle.Flat;
+        button.Margin = new Padding(0, 8, 10, 8);
+        button.FlatAppearance.BorderSize = 0;
     }
 
     private static Button SecondaryButton(string text)
