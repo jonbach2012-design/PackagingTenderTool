@@ -4,8 +4,25 @@ namespace PackagingTenderTool.Core.Services;
 
 public sealed class SupplierClassificationService
 {
-    public const decimal RecommendedThreshold = 70m;
-    public const decimal ConditionalThreshold = 50m;
+    public const decimal DefaultRecommendedThreshold = 70m;
+    public const decimal DefaultConditionalThreshold = 50m;
+
+    public SupplierClassificationService(
+        decimal recommendedThreshold = DefaultRecommendedThreshold,
+        decimal conditionalThreshold = DefaultConditionalThreshold)
+    {
+        if (recommendedThreshold < conditionalThreshold)
+        {
+            throw new ArgumentException("Recommended threshold must be greater than or equal to conditional threshold.");
+        }
+
+        RecommendedThreshold = recommendedThreshold;
+        ConditionalThreshold = conditionalThreshold;
+    }
+
+    public decimal RecommendedThreshold { get; }
+
+    public decimal ConditionalThreshold { get; }
 
     public SupplierClassification Classify(SupplierEvaluation supplierEvaluation)
     {
@@ -55,7 +72,7 @@ public sealed class SupplierClassificationService
         return supplierEvaluationList;
     }
 
-    private static string CreateReason(SupplierEvaluation supplierEvaluation)
+    private string CreateReason(SupplierEvaluation supplierEvaluation)
     {
         if (supplierEvaluation.RequiresManualReview)
         {
