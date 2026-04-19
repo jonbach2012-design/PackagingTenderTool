@@ -17,9 +17,11 @@ internal sealed class MainForm : Form
     private readonly Button dashboardViewButton = new();
     private readonly Button tableViewButton = new();
     private readonly Button settingsButton = new();
+    private readonly Button clearComparisonButton = new();
     private readonly DataGridView resultsGrid = new();
     private readonly FlowLayoutPanel supplierCardsPanel = new();
     private readonly FlowLayoutPanel comparisonPanel = new();
+    private readonly Label comparisonStateLabel = new();
     private readonly ScoreChartControl totalScoreChart = new() { ChartTitle = "Total score by supplier", Mode = ScoreChartMode.TotalScoreBySupplier };
     private readonly ScoreChartControl dimensionChart = new() { ChartTitle = "Score dimension comparison", Mode = ScoreChartMode.ScoreDimensions };
     private readonly Panel dashboardViewPanel = new();
@@ -44,16 +46,18 @@ internal sealed class MainForm : Form
     private readonly CheckBox missingDataManualReviewInput = new();
     private readonly CheckBox normalizeInputValuesInput = new();
     private readonly CheckBox strictModeInput = new();
+    private readonly CheckBox demoModeInput = new();
 
     private string? selectedSupplierName;
+    private bool suppressSelectionEvents;
 
     public MainForm(DashboardSettings settings)
     {
         this.settings = settings;
 
         Text = "Tender Evaluation Dashboard";
-        ClientSize = new Size(1440, 860);
-        MinimumSize = new Size(1320, 780);
+        ClientSize = new Size(1560, 920);
+        MinimumSize = new Size(1360, 820);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = AppTheme.PageBackground;
         Font = AppTheme.BodyFont();
@@ -110,7 +114,7 @@ internal sealed class MainForm : Form
         bodyLayout.Padding = new Padding(16);
         bodyLayout.BackColor = AppTheme.PageBackground;
         bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350));
+        bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360));
         bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0));
         bodyLayout.Controls.Add(BuildMainArea(), 0, 0);
         bodyLayout.Controls.Add(BuildDetailsPanel(), 1, 0);
@@ -235,7 +239,12 @@ internal sealed class MainForm : Form
         var host = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Padding = new Padding(0, 8, 0, 0) };
         host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         host.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        host.Controls.Add(new Label
+
+        var header = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 3, AutoSize = true };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.Controls.Add(new Label
         {
             Text = "Selected supplier comparison",
             AutoSize = true,
@@ -243,6 +252,21 @@ internal sealed class MainForm : Form
             ForeColor = AppTheme.MainText,
             Margin = new Padding(0, 0, 0, 8)
         }, 0, 0);
+        comparisonStateLabel.AutoSize = true;
+        comparisonStateLabel.ForeColor = AppTheme.MutedText;
+        comparisonStateLabel.Margin = new Padding(12, 3, 0, 0);
+        header.Controls.Add(comparisonStateLabel, 1, 0);
+        clearComparisonButton.Text = "Clear";
+        clearComparisonButton.Width = 72;
+        clearComparisonButton.Height = 28;
+        clearComparisonButton.FlatStyle = FlatStyle.Flat;
+        clearComparisonButton.BackColor = AppTheme.CardBackground;
+        clearComparisonButton.ForeColor = AppTheme.MainText;
+        clearComparisonButton.FlatAppearance.BorderColor = AppTheme.PrimaryLight;
+        clearComparisonButton.Click += (_, _) => ClearComparisonSelection();
+        header.Controls.Add(clearComparisonButton, 2, 0);
+        host.Controls.Add(header, 0, 0);
+
         comparisonPanel.Dock = DockStyle.Fill;
         comparisonPanel.AutoScroll = true;
         comparisonPanel.WrapContents = false;
@@ -337,38 +361,61 @@ internal sealed class MainForm : Form
     private Control BuildSettingsPanel()
     {
         settingsPanel.Dock = DockStyle.Fill;
-        settingsPanel.BackColor = AppTheme.CardBackground;
-        settingsPanel.Padding = new Padding(18);
+        settingsPanel.BackColor = AppTheme.PageBackground;
+        settingsPanel.Padding = new Padding(0, 0, 0, 0);
         settingsPanel.Visible = false;
 
-        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 12, ColumnCount = 1, BackColor = AppTheme.CardBackground };
-        for (var index = 0; index < 9; index++)
-        {
-            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        }
-
+        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1, BackColor = AppTheme.PageBackground, Padding = new Padding(16, 0, 0, 0) };
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        panel.Controls.Add(SectionTitle("Settings"));
-        AddInput(panel, "Tender name", tenderNameInput);
-        AddInput(panel, "Currency", currencyInput);
-        AddInput(panel, "Recommended threshold", ConfigurePercentInput(recommendedThresholdInput));
-        AddInput(panel, "Conditional threshold", ConfigurePercentInput(conditionalThresholdInput));
+        panel.Controls.Add(BuildSettingsHeader(), 0, 0);
+        panel.Controls.Add(BuildSettingsGroup("General", group =>
+        {
+            AddInput(group, "Tender name", tenderNameInput);
+            AddInput(group, "Currency", currencyInput);
+            group.Controls.Add(new Label { Text = $"Tender type: {settings.TenderType}", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 6, 0, 8) });
+            demoModeInput.Text = "Demo mode";
+            group.Controls.Add(demoModeInput);
+        }), 0, 1);
+
         missingDataManualReviewInput.Text = "Missing data = Manual Review";
         normalizeInputValuesInput.Text = "Normalize input values";
         strictModeInput.Text = "Strict mode";
-        panel.Controls.Add(missingDataManualReviewInput);
-        panel.Controls.Add(normalizeInputValuesInput);
-        panel.Controls.Add(strictModeInput);
+        panel.Controls.Add(BuildSettingsGroup("Evaluation behavior", group =>
+        {
+            group.Controls.Add(missingDataManualReviewInput);
+            group.Controls.Add(normalizeInputValuesInput);
+            group.Controls.Add(strictModeInput);
+        }), 0, 2);
 
+        panel.Controls.Add(BuildSettingsGroup("Advanced", group =>
+        {
+            group.Controls.Add(new Label
+            {
+                Text = "Provisional classification thresholds. Keep Recommended greater than or equal to Conditional.",
+                AutoSize = true,
+                MaximumSize = new Size(320, 0),
+                ForeColor = AppTheme.MutedText,
+                Margin = new Padding(0, 0, 0, 8)
+            });
+            AddInput(group, "Recommended threshold", ConfigurePercentInput(recommendedThresholdInput));
+            AddInput(group, "Conditional threshold", ConfigurePercentInput(conditionalThresholdInput));
+        }), 0, 3);
+
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, BackColor = AppTheme.PageBackground };
         var applyButton = PrimaryButton("Apply settings");
         applyButton.Click += (_, _) => ApplySettings();
-        var closeButton = SecondaryButton("Close settings");
+        var closeButton = SecondaryButton("Back");
         closeButton.Click += (_, _) => ToggleSettingsPanel(forceOpen: false);
-        panel.Controls.Add(applyButton);
-        panel.Controls.Add(closeButton);
+        actions.Controls.Add(applyButton);
+        actions.Controls.Add(closeButton);
+        panel.Controls.Add(actions, 0, 5);
+
         settingsPanel.Controls.Add(panel);
         return settingsPanel;
     }
@@ -383,40 +430,98 @@ internal sealed class MainForm : Form
         return statusLabel;
     }
 
+    private Control BuildSettingsHeader()
+    {
+        var header = new Panel { Dock = DockStyle.Fill, BackColor = AppTheme.PrimaryDark, Padding = new Padding(16, 10, 16, 10) };
+        header.Controls.Add(new Label
+        {
+            Text = "Settings environment\r\nAdjust prototype behavior, then return to dashboard.",
+            Dock = DockStyle.Fill,
+            ForeColor = Color.White,
+            Font = AppTheme.TitleFont(10F)
+        });
+        return header;
+    }
+
+    private static Control BuildSettingsGroup(string title, Action<TableLayoutPanel> buildContent)
+    {
+        var card = Card();
+        card.Dock = DockStyle.Top;
+        card.AutoSize = true;
+        card.Margin = new Padding(0, 0, 0, 12);
+        card.Padding = new Padding(14);
+
+        var group = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, BackColor = AppTheme.CardBackground };
+        group.Controls.Add(new Label
+        {
+            Text = title,
+            AutoSize = true,
+            Font = AppTheme.TitleFont(10.5F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 8)
+        });
+        buildContent(group);
+        card.Controls.Add(group);
+        return card;
+    }
+
     private void LoadDemoData()
     {
-        UpdateDashboardFromResult(
-            DemoSupplierDataProvider.Create(settings),
-            "Demo supplier data loaded. Import an Excel file when ready.");
+        try
+        {
+            UpdateDashboardFromResult(
+                DemoSupplierDataProvider.Create(settings),
+                "Demo supplier data loaded. Import an Excel file when ready.");
+        }
+        catch (Exception ex)
+        {
+            AppExceptionReporter.Handle(ex);
+            UpdateDashboardFromResult(new TenderEvaluationResult(), "Demo data could not be loaded. Dashboard is in a safe empty state.");
+        }
     }
 
     private void UpdateDashboardFromResult(TenderEvaluationResult result, string statusText)
     {
+        result ??= new TenderEvaluationResult();
+        result.Tender ??= new Tender();
+        result.Tender.Settings ??= new TenderSettings();
+        result.SupplierEvaluations ??= [];
+        result.LineEvaluations ??= [];
+
         var existingCompare = currentRows.Where(row => row.Compare).Select(row => row.SupplierName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var rows = result.SupplierEvaluations
+            .Where(supplier => supplier is not null)
             .OrderByDescending(supplier => supplier.ScoreBreakdown.Total ?? -1)
-            .Select(supplier => SupplierResultRow.FromSupplier(supplier, result.Tender.Settings.CurrencyCode))
+            .Select(supplier => SupplierResultRow.FromSupplier(supplier, SafeCurrency(result.Tender.Settings.CurrencyCode)))
             .ToList();
         foreach (var row in rows.Where(row => existingCompare.Contains(row.SupplierName)).Take(4))
         {
             row.Compare = true;
         }
 
-        currentRows.RaiseListChangedEvents = false;
-        currentRows.Clear();
-        foreach (var row in rows)
+        try
         {
-            currentRows.Add(row);
-        }
+            suppressSelectionEvents = true;
+            currentRows.RaiseListChangedEvents = false;
+            currentRows.Clear();
+            foreach (var row in rows)
+            {
+                currentRows.Add(row);
+            }
 
-        currentRows.RaiseListChangedEvents = true;
-        currentRows.ResetBindings();
+            currentRows.RaiseListChangedEvents = true;
+            currentRows.ResetBindings();
+        }
+        finally
+        {
+            suppressSelectionEvents = false;
+        }
 
         BuildSupplierCards();
         UpdateKpis(result, rows);
-        UpdateHeader(result.Tender.Name, result.Tender.Settings.CurrencyCode);
+        UpdateHeader(string.IsNullOrWhiteSpace(result.Tender.Name) ? settings.TenderName : result.Tender.Name, SafeCurrency(result.Tender.Settings.CurrencyCode));
         UpdateChartsAndComparison();
-        statusLabel.Text = statusText;
+        statusLabel.Text = string.IsNullOrWhiteSpace(statusText) ? "Dashboard updated." : statusText;
         SelectRow(rows.FirstOrDefault(row => row.SupplierName == selectedSupplierName) ?? rows.FirstOrDefault());
         ShowResultView(dashboardViewPanel.Visible || !tableViewPanel.Visible);
     }
@@ -425,9 +530,22 @@ internal sealed class MainForm : Form
     {
         supplierCardsPanel.SuspendLayout();
         supplierCardsPanel.Controls.Clear();
-        foreach (var row in currentRows)
+        if (currentRows.Count == 0)
         {
-            supplierCardsPanel.Controls.Add(CreateSupplierCard(row));
+            supplierCardsPanel.Controls.Add(new Label
+            {
+                Text = "No supplier results are available. Load demo data or import an Excel file.",
+                AutoSize = true,
+                ForeColor = AppTheme.MutedText,
+                Margin = new Padding(0, 12, 0, 0)
+            });
+        }
+        else
+        {
+            foreach (var row in currentRows)
+            {
+                supplierCardsPanel.Controls.Add(CreateSupplierCard(row));
+            }
         }
 
         supplierCardsPanel.ResumeLayout();
@@ -441,19 +559,20 @@ internal sealed class MainForm : Form
         card.Margin = new Padding(0, 0, 14, 14);
         card.Padding = new Padding(14);
         card.Cursor = Cursors.Hand;
+        card.BackColor = row.Compare ? AppTheme.PrimaryLight : AppTheme.CardBackground;
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1, BackColor = AppTheme.CardBackground };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1, BackColor = card.BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(new Label { Text = row.SupplierName, AutoSize = true, Font = AppTheme.TitleFont(11F), ForeColor = AppTheme.MainText });
+        layout.Controls.Add(new Label { Text = row.SupplierName, AutoSize = false, Height = 24, Dock = DockStyle.Top, AutoEllipsis = true, Font = AppTheme.TitleFont(11F), ForeColor = AppTheme.MainText });
         layout.Controls.Add(new Label { Text = row.Classification.ToString(), AutoSize = true, Font = AppTheme.TitleFont(9.5F), ForeColor = ClassificationColor(row.Classification), Margin = new Padding(0, 4, 0, 8) });
         layout.Controls.Add(new Label { Text = $"Spend: {row.TotalSpendDisplay}", AutoSize = true, ForeColor = AppTheme.MutedText });
         layout.Controls.Add(new Label { Text = $"Total score: {row.TotalScoreDisplay}", AutoSize = true, Font = AppTheme.TitleFont(10F), ForeColor = AppTheme.MainText });
-        layout.Controls.Add(new Label { Text = $"C {row.CommercialScoreDisplay} | T {row.TechnicalScoreDisplay} | R {row.RegulatoryScoreDisplay}", Dock = DockStyle.Fill, ForeColor = AppTheme.MutedText });
+        layout.Controls.Add(new Label { Text = $"C {row.CommercialScoreDisplay} | T {row.TechnicalScoreDisplay} | R {row.RegulatoryScoreDisplay}", Dock = DockStyle.Fill, AutoEllipsis = true, ForeColor = AppTheme.MutedText });
 
         var compare = new CheckBox { Text = "Compare", Checked = row.Compare, AutoSize = true, ForeColor = AppTheme.MainText };
         compare.CheckedChanged += (_, _) => SetCompare(row, compare.Checked);
@@ -484,6 +603,8 @@ internal sealed class MainForm : Form
     {
         comparisonPanel.SuspendLayout();
         comparisonPanel.Controls.Clear();
+        comparisonStateLabel.Text = $"{compared.Count}/4 selected";
+        clearComparisonButton.Enabled = compared.Count > 0;
 
         if (compared.Count < 2)
         {
@@ -506,6 +627,19 @@ internal sealed class MainForm : Form
         comparisonPanel.ResumeLayout();
     }
 
+    private void ClearComparisonSelection()
+    {
+        foreach (var row in currentRows)
+        {
+            row.Compare = false;
+        }
+
+        currentRows.ResetBindings();
+        BuildSupplierCards();
+        UpdateChartsAndComparison();
+        statusLabel.Text = "Comparison selection cleared.";
+    }
+
     private Control CreateComparisonCard(SupplierResultRow row)
     {
         var panel = new TableLayoutPanel
@@ -518,7 +652,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(10),
             BackColor = AppTheme.PageBackground
         };
-        panel.Controls.Add(new Label { Text = row.SupplierName, AutoSize = true, Font = AppTheme.TitleFont(9.5F), ForeColor = AppTheme.MainText });
+        panel.Controls.Add(new Label { Text = row.SupplierName, AutoSize = false, Height = 22, Dock = DockStyle.Top, AutoEllipsis = true, Font = AppTheme.TitleFont(9.5F), ForeColor = AppTheme.MainText });
         panel.Controls.Add(new Label { Text = row.Classification.ToString(), AutoSize = true, ForeColor = ClassificationColor(row.Classification) });
         panel.Controls.Add(new Label { Text = $"Spend {row.TotalSpendDisplay}", AutoSize = true, ForeColor = AppTheme.MutedText });
         panel.Controls.Add(new Label { Text = $"Total {row.TotalScoreDisplay} | Flags {row.ManualReviewFlagCount}", AutoSize = true, ForeColor = AppTheme.MainText });
@@ -528,12 +662,20 @@ internal sealed class MainForm : Form
 
     private void UpdateKpis(TenderEvaluationResult result, IReadOnlyCollection<SupplierResultRow> rows)
     {
-        kpis["Suppliers"].Text = rows.Count.ToString(CultureInfo.InvariantCulture);
-        kpis["ImportedLines"].Text = result.LineEvaluations.Count > 0 ? result.LineEvaluations.Count.ToString(CultureInfo.InvariantCulture) : "Demo";
-        kpis["Recommended"].Text = rows.Count(row => row.Classification == SupplierClassification.Recommended).ToString(CultureInfo.InvariantCulture);
-        kpis["Conditional"].Text = rows.Count(row => row.Classification == SupplierClassification.Conditional).ToString(CultureInfo.InvariantCulture);
-        kpis["ManualReview"].Text = rows.Count(row => row.Classification == SupplierClassification.ManualReview).ToString(CultureInfo.InvariantCulture);
-        kpis["BestScore"].Text = rows.MaxBy(row => row.TotalScore)?.TotalScoreDisplay ?? "-";
+        SetKpi("Suppliers", rows.Count.ToString(CultureInfo.InvariantCulture));
+        SetKpi("ImportedLines", result.LineEvaluations.Count > 0 ? result.LineEvaluations.Count.ToString(CultureInfo.InvariantCulture) : settings.DemoMode ? "Demo" : "0");
+        SetKpi("Recommended", rows.Count(row => row.Classification == SupplierClassification.Recommended).ToString(CultureInfo.InvariantCulture));
+        SetKpi("Conditional", rows.Count(row => row.Classification == SupplierClassification.Conditional).ToString(CultureInfo.InvariantCulture));
+        SetKpi("ManualReview", rows.Count(row => row.Classification == SupplierClassification.ManualReview).ToString(CultureInfo.InvariantCulture));
+        SetKpi("BestScore", rows.MaxBy(row => row.TotalScore)?.TotalScoreDisplay ?? "-");
+    }
+
+    private void SetKpi(string key, string value)
+    {
+        if (kpis.TryGetValue(key, out var label))
+        {
+            label.Text = value;
+        }
     }
 
     private void UpdateHeader(string tenderName, string currencyCode)
@@ -543,11 +685,24 @@ internal sealed class MainForm : Form
 
     private void SelectRow(SupplierResultRow? row)
     {
+        if (suppressSelectionEvents)
+        {
+            return;
+        }
+
         selectedSupplierName = row?.SupplierName;
         UpdateDetailsPanel(row);
-        foreach (DataGridViewRow gridRow in resultsGrid.Rows)
+        try
         {
-            gridRow.Selected = row is not null && gridRow.DataBoundItem is SupplierResultRow bound && bound.SupplierName == row.SupplierName;
+            suppressSelectionEvents = true;
+            foreach (DataGridViewRow gridRow in resultsGrid.Rows)
+            {
+                gridRow.Selected = row is not null && gridRow.DataBoundItem is SupplierResultRow bound && bound.SupplierName == row.SupplierName;
+            }
+        }
+        finally
+        {
+            suppressSelectionEvents = false;
         }
     }
 
@@ -582,18 +737,36 @@ internal sealed class MainForm : Form
 
     private void ShowResultView(bool showDashboard)
     {
-        dashboardViewPanel.Visible = showDashboard;
-        tableViewPanel.Visible = !showDashboard;
-        StyleSegmentButton(dashboardViewButton, showDashboard);
-        StyleSegmentButton(tableViewButton, !showDashboard);
+        if (dashboardViewPanel.IsDisposed || tableViewPanel.IsDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            dashboardViewPanel.Visible = showDashboard;
+            tableViewPanel.Visible = !showDashboard;
+            StyleSegmentButton(dashboardViewButton, showDashboard);
+            StyleSegmentButton(tableViewButton, !showDashboard);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Ignore late events during form shutdown.
+        }
     }
 
     private void ToggleSettingsPanel(bool? forceOpen = null)
     {
+        if (settingsPanel.IsDisposed || bodyLayout.ColumnStyles.Count < 3)
+        {
+            return;
+        }
+
         var open = forceOpen ?? !settingsPanel.Visible;
         settingsPanel.Visible = open;
-        bodyLayout.ColumnStyles[2].Width = open ? 330 : 0;
+        bodyLayout.ColumnStyles[2].Width = open ? 430 : 0;
         settingsButton.Text = open ? "Hide settings" : "Settings";
+        statusLabel.Text = open ? "Settings environment open. Apply changes or return to dashboard." : "Returned to dashboard.";
     }
 
     private void ApplySettings()
@@ -611,12 +784,22 @@ internal sealed class MainForm : Form
         settings.MissingDataManualReview = missingDataManualReviewInput.Checked;
         settings.NormalizeInputValues = normalizeInputValuesInput.Checked;
         settings.StrictMode = strictModeInput.Checked;
-        LoadDemoData();
-        statusLabel.Text = "Settings applied. Demo data refreshed with current thresholds.";
+        settings.DemoMode = demoModeInput.Checked;
+        if (settings.DemoMode)
+        {
+            LoadDemoData();
+            statusLabel.Text = "Settings applied. Demo data refreshed with current thresholds.";
+        }
+        else
+        {
+            UpdateDashboardFromResult(new TenderEvaluationResult(), "Settings applied. Demo mode is off; import an Excel file to evaluate suppliers.");
+        }
     }
 
     private void LoadSettingsInputs()
     {
+        tenderNameInput.MaxLength = 80;
+        currencyInput.MaxLength = 3;
         tenderNameInput.Text = settings.TenderName;
         currencyInput.Text = settings.CurrencyCode;
         recommendedThresholdInput.Value = settings.RecommendedThreshold;
@@ -624,6 +807,7 @@ internal sealed class MainForm : Form
         missingDataManualReviewInput.Checked = settings.MissingDataManualReview;
         normalizeInputValuesInput.Checked = settings.NormalizeInputValues;
         strictModeInput.Checked = settings.StrictMode;
+        demoModeInput.Checked = settings.DemoMode;
     }
 
     private void ImportButton_Click(object? sender, EventArgs e)
@@ -642,14 +826,20 @@ internal sealed class MainForm : Form
 
         try
         {
+            if (!settings.TenderType.Equals("Labels", StringComparison.OrdinalIgnoreCase))
+            {
+                statusLabel.Text = $"{settings.TenderType} is presentation-only in this prototype. Labels v1 import logic will be used.";
+            }
+
             var tenderSettings = LabelsV1DemoConfiguration.CreateTenderSettings();
             tenderSettings.CurrencyCode = settings.CurrencyCode;
             var result = CreateEvaluationService().ImportAndEvaluate(dialog.FileName, settings.TenderName, tenderSettings);
             UpdateDashboardFromResult(result, $"Imported and evaluated {Path.GetFileName(dialog.FileName)}.");
         }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or ArgumentException)
+        catch (Exception ex)
         {
             statusLabel.Text = $"Import failed: {ex.Message}";
+            AppExceptionReporter.LogSilently(ex);
             MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -665,6 +855,11 @@ internal sealed class MainForm : Form
 
     private void ResultsGrid_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
     {
+        if (suppressSelectionEvents)
+        {
+            return;
+        }
+
         if (e.RowIndex < 0 || resultsGrid.Columns[e.ColumnIndex].DataPropertyName != nameof(SupplierResultRow.Compare))
         {
             return;
@@ -678,6 +873,11 @@ internal sealed class MainForm : Form
 
     private void SetCompare(SupplierResultRow row, bool compare)
     {
+        if (row is null)
+        {
+            return;
+        }
+
         if (compare && ComparedRows().Count(comparedRow => comparedRow != row) >= 4)
         {
             row.Compare = false;
@@ -699,7 +899,12 @@ internal sealed class MainForm : Form
 
     private SupplierResultRow? SelectedTableRow()
     {
-        return resultsGrid.SelectedRows.Count == 0 ? null : resultsGrid.SelectedRows[0].DataBoundItem as SupplierResultRow;
+        if (suppressSelectionEvents || resultsGrid.IsDisposed || resultsGrid.SelectedRows.Count == 0)
+        {
+            return null;
+        }
+
+        return resultsGrid.SelectedRows[0].DataBoundItem as SupplierResultRow;
     }
 
     private void ResultsGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
@@ -831,6 +1036,11 @@ internal sealed class MainForm : Form
         input.Increment = 5;
         input.TextAlign = HorizontalAlignment.Right;
         return input;
+    }
+
+    private static string SafeCurrency(string? currencyCode)
+    {
+        return string.IsNullOrWhiteSpace(currencyCode) ? "EUR" : currencyCode.Trim().ToUpperInvariant();
     }
 
     private static Color ClassificationColor(SupplierClassification? classification)

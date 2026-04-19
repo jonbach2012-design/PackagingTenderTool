@@ -43,24 +43,25 @@ internal sealed class SupplierResultRow
 
     public static SupplierResultRow FromSupplier(SupplierEvaluation supplier, string currencyCode)
     {
+        var scoreBreakdown = supplier.ScoreBreakdown ?? new ScoreBreakdown();
         return new SupplierResultRow
         {
-            SupplierName = supplier.SupplierName,
+            SupplierName = string.IsNullOrWhiteSpace(supplier.SupplierName) ? "(missing supplier)" : supplier.SupplierName,
             TotalSpend = supplier.TotalSpend,
-            CommercialScore = supplier.ScoreBreakdown.Commercial,
-            TechnicalScore = supplier.ScoreBreakdown.Technical,
-            RegulatoryScore = supplier.ScoreBreakdown.Regulatory,
-            TotalScore = supplier.ScoreBreakdown.Total,
+            CommercialScore = scoreBreakdown.Commercial,
+            TechnicalScore = scoreBreakdown.Technical,
+            RegulatoryScore = scoreBreakdown.Regulatory,
+            TotalScore = scoreBreakdown.Total,
             Classification = supplier.Classification,
-            ManualReviewFlagCount = supplier.ManualReviewFlags.Count,
-            CurrencyCode = currencyCode,
+            ManualReviewFlagCount = supplier.ManualReviewFlags?.Count ?? 0,
+            CurrencyCode = string.IsNullOrWhiteSpace(currencyCode) ? "EUR" : currencyCode,
             Notes = BuildNotes(supplier)
         };
     }
 
     private static string BuildNotes(SupplierEvaluation supplier)
     {
-        if (supplier.ManualReviewFlags.Count > 0)
+        if (supplier.ManualReviewFlags?.Count > 0)
         {
             var firstFlag = supplier.ManualReviewFlags[0];
             return $"Manual review is required. First flag: {firstFlag.FieldName ?? "Source data"} - {firstFlag.Reason}";

@@ -97,23 +97,23 @@ internal sealed class StartForm : Form
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
 
-        AddTenderTypeButton(panel, "Labels", "Label tender scoring and comparison", 0);
-        AddTenderTypeButton(panel, "Trays", "Prepared for tray tender workflows", 1);
-        AddTenderTypeButton(panel, "Flexibles", "Prepared for flexible packaging", 2);
+        AddTenderTypeButton(panel, "Labels", 0);
+        AddTenderTypeButton(panel, "Trays", 1);
+        AddTenderTypeButton(panel, "Flexibles", 2);
         return panel;
     }
 
-    private void AddTenderTypeButton(TableLayoutPanel panel, string tenderType, string caption, int column)
+    private void AddTenderTypeButton(TableLayoutPanel panel, string tenderType, int column)
     {
         var button = new Button
         {
-            Text = $"{tenderType}\r\n{caption}",
+            Text = tenderType,
             Dock = DockStyle.Fill,
             Margin = new Padding(column == 0 ? 0 : 8, 0, column == 2 ? 0 : 8, 0),
             FlatStyle = FlatStyle.Flat,
-            TextAlign = ContentAlignment.MiddleLeft,
+            TextAlign = ContentAlignment.MiddleCenter,
             Padding = new Padding(18),
-            Font = AppTheme.TitleFont(11F),
+            Font = AppTheme.TitleFont(16F),
             Tag = tenderType
         };
         button.Click += (_, _) =>

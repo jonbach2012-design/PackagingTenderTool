@@ -19,4 +19,6 @@ internal sealed class DashboardSettings
     public bool NormalizeInputValues { get; set; } = true;
 
     public bool StrictMode { get; set; }
+
+    public bool DemoMode { get; set; } = true;
 }
