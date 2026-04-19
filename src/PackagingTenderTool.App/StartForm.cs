@@ -2,13 +2,15 @@ namespace PackagingTenderTool.App;
 
 internal sealed class StartForm : Form
 {
-    private readonly ComboBox tenderTypeComboBox = new();
+    private readonly Dictionary<string, Button> tenderTypeButtons = [];
+    private string selectedTenderType = "Labels";
 
     public StartForm()
     {
         Text = "Tender Evaluation Dashboard";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(760, 460);
+        ClientSize = new Size(920, 560);
+        MinimumSize = new Size(920, 560);
         BackColor = AppTheme.PageBackground;
         Font = AppTheme.BodyFont();
 
@@ -34,11 +36,10 @@ internal sealed class StartForm : Form
             BorderStyle = BorderStyle.FixedSingle
         };
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -53,33 +54,20 @@ internal sealed class StartForm : Form
 
         layout.Controls.Add(new Label
         {
-            Text = "Choose the packaging tender context before entering the evaluation workspace.",
+            Text = "Select packaging tender type to enter dashboard overview.",
             AutoSize = true,
             ForeColor = AppTheme.MutedText,
             Font = AppTheme.BodyFont(11F),
             Margin = new Padding(0, 8, 0, 0)
         }, 0, 1);
 
-        layout.Controls.Add(new Label
-        {
-            Text = "Tender type",
-            AutoSize = true,
-            ForeColor = AppTheme.MainText,
-            Font = AppTheme.TitleFont(11F)
-        }, 0, 3);
-
-        tenderTypeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        tenderTypeComboBox.Items.AddRange(["Labels", "Trays", "Flexibles"]);
-        tenderTypeComboBox.SelectedIndex = 0;
-        tenderTypeComboBox.Width = 260;
-        tenderTypeComboBox.Margin = new Padding(0, 8, 0, 0);
-        layout.Controls.Add(tenderTypeComboBox, 0, 4);
+        layout.Controls.Add(BuildTenderTypeSelector(), 0, 3);
 
         var continueButton = new Button
         {
             Text = "Continue",
-            Width = 132,
-            Height = 40,
+            Width = 148,
+            Height = 44,
             BackColor = AppTheme.Primary,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -88,19 +76,74 @@ internal sealed class StartForm : Form
         };
         continueButton.FlatAppearance.BorderSize = 0;
         continueButton.Click += ContinueButton_Click;
-        layout.Controls.Add(continueButton, 0, 6);
+        layout.Controls.Add(continueButton, 0, 5);
 
         card.Controls.Add(layout);
         root.Controls.Add(card, 0, 0);
         Controls.Add(root);
+        UpdateTenderTypeSelection();
+    }
+
+    private Control BuildTenderTypeSelector()
+    {
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 150,
+            ColumnCount = 3,
+            Margin = new Padding(0, 0, 0, 18)
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+
+        AddTenderTypeButton(panel, "Labels", "Label tender scoring and comparison", 0);
+        AddTenderTypeButton(panel, "Trays", "Prepared for tray tender workflows", 1);
+        AddTenderTypeButton(panel, "Flexibles", "Prepared for flexible packaging", 2);
+        return panel;
+    }
+
+    private void AddTenderTypeButton(TableLayoutPanel panel, string tenderType, string caption, int column)
+    {
+        var button = new Button
+        {
+            Text = $"{tenderType}\r\n{caption}",
+            Dock = DockStyle.Fill,
+            Margin = new Padding(column == 0 ? 0 : 8, 0, column == 2 ? 0 : 8, 0),
+            FlatStyle = FlatStyle.Flat,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(18),
+            Font = AppTheme.TitleFont(11F),
+            Tag = tenderType
+        };
+        button.Click += (_, _) =>
+        {
+            selectedTenderType = tenderType;
+            UpdateTenderTypeSelection();
+        };
+
+        tenderTypeButtons[tenderType] = button;
+        panel.Controls.Add(button, column, 0);
+    }
+
+    private void UpdateTenderTypeSelection()
+    {
+        foreach (var (tenderType, button) in tenderTypeButtons)
+        {
+            var selected = tenderType == selectedTenderType;
+            button.BackColor = selected ? AppTheme.PrimaryLight : AppTheme.CardBackground;
+            button.ForeColor = selected ? AppTheme.PrimaryDark : AppTheme.MainText;
+            button.FlatAppearance.BorderColor = selected ? AppTheme.PrimaryDark : AppTheme.PrimaryLight;
+            button.FlatAppearance.BorderSize = selected ? 2 : 1;
+        }
     }
 
     private void ContinueButton_Click(object? sender, EventArgs e)
     {
         var settings = new DashboardSettings
         {
-            TenderType = tenderTypeComboBox.SelectedItem?.ToString() ?? "Labels",
-            TenderName = $"{tenderTypeComboBox.SelectedItem} Tender"
+            TenderType = selectedTenderType,
+            TenderName = $"{selectedTenderType} Tender"
         };
 
         Hide();
