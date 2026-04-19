@@ -6,29 +6,19 @@ using PackagingTenderTool.Core.Services;
 
 namespace PackagingTenderTool.App;
 
-public sealed class MainForm : Form
+internal sealed class MainForm : Form
 {
-    private static readonly Color HeaderGreen = Color.FromArgb(16, 64, 46);
-    private static readonly Color AccentGreen = Color.FromArgb(39, 126, 82);
-    private static readonly Color AccentOrange = Color.FromArgb(213, 126, 33);
-    private static readonly Color AccentRed = Color.FromArgb(174, 53, 53);
-    private static readonly Color PageBackground = Color.FromArgb(244, 246, 244);
-    private static readonly Color CardBackground = Color.White;
-    private static readonly Color MutedText = Color.FromArgb(99, 108, 101);
-
-    private readonly ComboBox tenderTypeComboBox = new();
-    private readonly TextBox tenderNameTextBox = new();
-    private readonly TextBox currencyTextBox = new();
-    private readonly TextBox filePathTextBox = new();
-    private readonly NumericUpDown recommendedThresholdInput = new();
-    private readonly NumericUpDown conditionalThresholdInput = new();
-    private readonly Button browseButton = new();
-    private readonly Button evaluateButton = new();
-    private readonly DataGridView resultsGrid = new();
+    private readonly DashboardSettings settings;
+    private readonly Label titleLabel = new();
+    private readonly Label contextLabel = new();
     private readonly Label statusLabel = new();
-    private readonly Label headerContextLabel = new();
+    private readonly DataGridView resultsGrid = new();
+    private readonly FlowLayoutPanel supplierCardsPanel = new();
+    private readonly Panel dashboardViewPanel = new();
+    private readonly Panel tableViewPanel = new();
+    private readonly Button dashboardViewButton = new();
+    private readonly Button tableViewButton = new();
     private readonly Dictionary<string, Label> kpis = [];
-
     private readonly Label detailSupplier = DetailValueLabel();
     private readonly Label detailClassification = DetailValueLabel();
     private readonly Label detailSpend = DetailValueLabel();
@@ -38,164 +28,132 @@ public sealed class MainForm : Form
     private readonly Label detailTotal = DetailValueLabel();
     private readonly Label detailFlags = DetailValueLabel();
     private readonly TextBox detailNotes = new();
+    private readonly BindingList<SupplierResultRow> currentRows = [];
 
-    public MainForm()
+    private string? selectedSupplierName;
+
+    public MainForm(DashboardSettings settings)
     {
+        this.settings = settings;
+
         Text = "Tender Evaluation Dashboard";
-        MinimumSize = new Size(1280, 760);
+        MinimumSize = new Size(1260, 760);
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = PageBackground;
-        Font = new Font("Segoe UI", 9F);
+        BackColor = AppTheme.PageBackground;
+        Font = AppTheme.BodyFont();
 
         BuildLayout();
-        ClearDashboard();
-        UpdateTenderTypeContext();
+        LoadDemoData();
     }
 
     private void BuildLayout()
     {
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 98));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.Controls.Add(BuildHeader(), 0, 0);
-        root.Controls.Add(BuildWorkspace(), 0, 1);
+        root.Controls.Add(BuildBody(), 0, 1);
         root.Controls.Add(BuildStatusBar(), 0, 2);
         Controls.Add(root);
     }
 
     private Control BuildHeader()
     {
-        var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = HeaderGreen, Padding = new Padding(24, 14, 24, 14) };
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 66));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-
-        var title = new Label
+        var header = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Text = "Tender Evaluation Dashboard\r\nImport, score, classify, and review supplier performance.",
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleLeft
+            ColumnCount = 2,
+            Padding = new Padding(24, 14, 24, 14),
+            BackColor = AppTheme.PrimaryDark
         };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
 
-        headerContextLabel.Dock = DockStyle.Fill;
-        headerContextLabel.ForeColor = Color.FromArgb(221, 236, 228);
-        headerContextLabel.TextAlign = ContentAlignment.MiddleRight;
+        titleLabel.Dock = DockStyle.Fill;
+        titleLabel.ForeColor = Color.White;
+        titleLabel.Font = AppTheme.TitleFont(18F);
+        titleLabel.TextAlign = ContentAlignment.MiddleLeft;
 
-        header.Controls.Add(title, 0, 0);
-        header.Controls.Add(headerContextLabel, 1, 0);
+        contextLabel.Dock = DockStyle.Fill;
+        contextLabel.ForeColor = AppTheme.PrimaryLight;
+        contextLabel.Font = AppTheme.BodyFont(9.5F);
+        contextLabel.TextAlign = ContentAlignment.MiddleRight;
+
+        header.Controls.Add(titleLabel, 0, 0);
+        header.Controls.Add(contextLabel, 1, 0);
         return header;
     }
 
-    private Control BuildWorkspace()
+    private Control BuildBody()
     {
-        var workspace = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, BackColor = PageBackground, Padding = new Padding(16) };
-        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
-        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
-        workspace.Controls.Add(BuildControlPanel(), 0, 0);
-        workspace.Controls.Add(BuildMainDashboardArea(), 1, 0);
-        workspace.Controls.Add(BuildDetailsPanel(), 2, 0);
-        return workspace;
+        var body = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            Padding = new Padding(16),
+            BackColor = AppTheme.PageBackground
+        };
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350));
+        body.Controls.Add(BuildMainArea(), 0, 0);
+        body.Controls.Add(BuildDetailsPanel(), 1, 0);
+        return body;
     }
 
-    private Control BuildControlPanel()
+    private Control BuildMainArea()
     {
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PageBackground, Padding = new Padding(0, 0, 12, 0) };
-        var stack = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-
-        stack.Controls.Add(BuildTenderSetupSection());
-        stack.Controls.Add(BuildEvaluationSettingsSection());
-        stack.Controls.Add(BuildThresholdSection());
-        stack.Controls.Add(BuildOptionsSection());
-        stack.Controls.Add(BuildActionSection());
-        scroll.Controls.Add(stack);
-        return scroll;
-    }
-
-    private Control BuildTenderSetupSection()
-    {
-        var section = Section("Tender setup");
-        tenderTypeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        tenderTypeComboBox.Items.AddRange(["Labels", "Trays", "Flexibles"]);
-        tenderTypeComboBox.SelectedIndex = 0;
-        tenderTypeComboBox.SelectedIndexChanged += (_, _) => UpdateTenderTypeContext();
-        tenderNameTextBox.Text = "Labels Tender v1";
-        currencyTextBox.Text = "EUR";
-        currencyTextBox.MaxLength = 3;
-        filePathTextBox.ReadOnly = true;
-        browseButton.Text = "Browse...";
-        browseButton.Click += BrowseButton_Click;
-
-        AddField(section, "Tender type", tenderTypeComboBox);
-        AddField(section, "Tender name", tenderNameTextBox);
-        AddField(section, "Currency", currencyTextBox);
-        AddField(section, "Excel file", filePathTextBox);
-        AddWide(section, browseButton);
-        return section;
-    }
-
-    private Control BuildEvaluationSettingsSection()
-    {
-        var section = Section("Evaluation settings");
-        AddField(section, "Commercial weight", PercentBox(30));
-        AddField(section, "Technical weight", PercentBox(30));
-        AddField(section, "Regulatory weight", PercentBox(40));
-        AddNote(section, "Labels v1 currently uses the established 30 / 30 / 40 score weighting.");
-        return section;
-    }
-
-    private Control BuildThresholdSection()
-    {
-        var section = Section("Thresholds");
-        SetupPercentBox(recommendedThresholdInput, SupplierClassificationService.DefaultRecommendedThreshold);
-        SetupPercentBox(conditionalThresholdInput, SupplierClassificationService.DefaultConditionalThreshold);
-        AddField(section, "Recommended", recommendedThresholdInput);
-        AddField(section, "Conditional", conditionalThresholdInput);
-        AddNote(section, "Provisional thresholds are used for supplier classification.");
-        return section;
-    }
-
-    private Control BuildOptionsSection()
-    {
-        var section = Section("Options");
-        AddWide(section, new CheckBox { Text = "Missing data = Manual Review", Checked = true, AutoSize = true });
-        AddWide(section, new CheckBox { Text = "Normalize input values", Checked = true, AutoSize = true });
-        AddWide(section, new CheckBox { Text = "Strict mode", AutoSize = true });
-        AddNote(section, "Strict mode is reserved for future validation rules.");
-        return section;
-    }
-
-    private Control BuildActionSection()
-    {
-        var section = Section("Run evaluation");
-        evaluateButton.Text = "Import and evaluate";
-        evaluateButton.Height = 42;
-        evaluateButton.BackColor = AccentGreen;
-        evaluateButton.ForeColor = Color.White;
-        evaluateButton.FlatStyle = FlatStyle.Flat;
-        evaluateButton.FlatAppearance.BorderSize = 0;
-        evaluateButton.Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold);
-        evaluateButton.Click += EvaluateButton_Click;
-        AddWide(section, evaluateButton);
-        return section;
-    }
-
-    private Control BuildMainDashboardArea()
-    {
-        var main = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = PageBackground, Padding = new Padding(0, 0, 16, 0) };
-        main.RowStyles.Add(new RowStyle(SizeType.Absolute, 122));
+        var main = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 3,
+            ColumnCount = 1,
+            Padding = new Padding(0, 0, 16, 0)
+        };
+        main.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        main.RowStyles.Add(new RowStyle(SizeType.Absolute, 124));
         main.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        main.Controls.Add(BuildKpiPanel(), 0, 0);
-        main.Controls.Add(BuildResultsGrid(), 0, 1);
+        main.Controls.Add(BuildToolbar(), 0, 0);
+        main.Controls.Add(BuildKpiPanel(), 0, 1);
+        main.Controls.Add(BuildResultArea(), 0, 2);
         return main;
+    }
+
+    private Control BuildToolbar()
+    {
+        var toolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 5 };
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        var importButton = CreatePrimaryButton("Import Excel");
+        importButton.Click += ImportButton_Click;
+        var settingsButton = CreateSecondaryButton("Settings");
+        settingsButton.Click += SettingsButton_Click;
+
+        ConfigureToggleButton(dashboardViewButton, "Dashboard");
+        ConfigureToggleButton(tableViewButton, "Table");
+        dashboardViewButton.Click += (_, _) => ShowResultView(showDashboard: true);
+        tableViewButton.Click += (_, _) => ShowResultView(showDashboard: false);
+
+        toolbar.Controls.Add(importButton, 0, 0);
+        toolbar.Controls.Add(settingsButton, 1, 0);
+        toolbar.Controls.Add(new Panel(), 2, 0);
+        toolbar.Controls.Add(dashboardViewButton, 3, 0);
+        toolbar.Controls.Add(tableViewButton, 4, 0);
+        return toolbar;
     }
 
     private Control BuildKpiPanel()
     {
-        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, BackColor = PageBackground, Margin = new Padding(0, 0, 0, 12) };
-        for (var i = 0; i < 6; i++) panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 6));
+        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, Margin = new Padding(0, 0, 0, 12) };
+        for (var index = 0; index < 6; index++)
+        {
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 6f));
+        }
+
         AddKpi(panel, 0, "Suppliers", "Suppliers");
         AddKpi(panel, 1, "ImportedLines", "Imported lines");
         AddKpi(panel, 2, "Recommended", "Recommended");
@@ -205,156 +163,355 @@ public sealed class MainForm : Form
         return panel;
     }
 
-    private Control BuildResultsGrid()
+    private Control BuildResultArea()
     {
-        var card = Card();
-        card.Padding = new Padding(12);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.Controls.Add(PanelTitle("Supplier results"), 0, 0);
-        ConfigureResultsGrid();
-        layout.Controls.Add(resultsGrid, 0, 1);
-        card.Controls.Add(layout);
-        return card;
+        var host = Card();
+        host.Padding = new Padding(14);
+        dashboardViewPanel.Dock = DockStyle.Fill;
+        tableViewPanel.Dock = DockStyle.Fill;
+        dashboardViewPanel.Controls.Add(BuildDashboardView());
+        tableViewPanel.Controls.Add(BuildTableView());
+        host.Controls.Add(dashboardViewPanel);
+        host.Controls.Add(tableViewPanel);
+        return host;
     }
 
-    private void ConfigureResultsGrid()
+    private Control BuildDashboardView()
     {
+        supplierCardsPanel.Dock = DockStyle.Fill;
+        supplierCardsPanel.AutoScroll = true;
+        supplierCardsPanel.FlowDirection = FlowDirection.LeftToRight;
+        supplierCardsPanel.WrapContents = true;
+        supplierCardsPanel.BackColor = AppTheme.CardBackground;
+        return supplierCardsPanel;
+    }
+
+    private Control BuildTableView()
+    {
+        resultsGrid.Dock = DockStyle.Fill;
         resultsGrid.AllowUserToAddRows = false;
         resultsGrid.AllowUserToDeleteRows = false;
-        resultsGrid.AllowUserToResizeRows = false;
         resultsGrid.AutoGenerateColumns = false;
         resultsGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        resultsGrid.BackgroundColor = CardBackground;
+        resultsGrid.BackgroundColor = AppTheme.CardBackground;
         resultsGrid.BorderStyle = BorderStyle.None;
-        resultsGrid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-        resultsGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 241, 236);
-        resultsGrid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-        resultsGrid.ColumnHeadersHeight = 34;
-        resultsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(215, 233, 221);
-        resultsGrid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(37, 43, 39);
-        resultsGrid.Dock = DockStyle.Fill;
-        resultsGrid.EnableHeadersVisualStyles = false;
-        resultsGrid.MultiSelect = false;
         resultsGrid.ReadOnly = true;
         resultsGrid.RowHeadersVisible = false;
         resultsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        resultsGrid.DataSource = new BindingList<SupplierResultRow>();
-        resultsGrid.SelectionChanged += (_, _) => UpdateDetailsPanel(SelectedRow());
+        resultsGrid.MultiSelect = false;
+        resultsGrid.EnableHeadersVisualStyles = false;
+        resultsGrid.ColumnHeadersDefaultCellStyle.BackColor = AppTheme.PrimaryLight;
+        resultsGrid.ColumnHeadersDefaultCellStyle.ForeColor = AppTheme.MainText;
+        resultsGrid.ColumnHeadersDefaultCellStyle.Font = AppTheme.TitleFont(9F);
+        resultsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(229, 235, 217);
+        resultsGrid.DefaultCellStyle.SelectionForeColor = AppTheme.MainText;
+        resultsGrid.SelectionChanged += (_, _) => SelectRow(SelectedTableRow());
         resultsGrid.CellFormatting += ResultsGrid_CellFormatting;
 
-        AddColumn(nameof(SupplierResultRow.SupplierName), "Supplier name", 150);
-        AddColumn(nameof(SupplierResultRow.TotalSpend), "Total spend", 90);
-        AddColumn(nameof(SupplierResultRow.CommercialScore), "Commercial", 80);
-        AddColumn(nameof(SupplierResultRow.TechnicalScore), "Technical", 80);
-        AddColumn(nameof(SupplierResultRow.RegulatoryScore), "Regulatory", 80);
-        AddColumn(nameof(SupplierResultRow.TotalScore), "Total", 80);
+        AddColumn(nameof(SupplierResultRow.SupplierName), "Supplier", 150);
+        AddColumn(nameof(SupplierResultRow.TotalSpendDisplay), "Spend", 90);
+        AddColumn(nameof(SupplierResultRow.CommercialScoreDisplay), "Commercial", 80);
+        AddColumn(nameof(SupplierResultRow.TechnicalScoreDisplay), "Technical", 80);
+        AddColumn(nameof(SupplierResultRow.RegulatoryScoreDisplay), "Regulatory", 80);
+        AddColumn(nameof(SupplierResultRow.TotalScoreDisplay), "Total", 80);
         AddColumn(nameof(SupplierResultRow.Classification), "Classification", 105);
-        AddColumn(nameof(SupplierResultRow.ManualReviewRequired), "Manual review", 90);
         AddColumn(nameof(SupplierResultRow.ManualReviewFlagCount), "Flags", 60);
+        resultsGrid.DataSource = currentRows;
+
+        return resultsGrid;
     }
 
     private Control BuildDetailsPanel()
     {
         var card = Card();
-        card.Padding = new Padding(16);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.Controls.Add(PanelTitle("Supplier details"), 0, 0);
-        layout.Controls.Add(BuildDetailFields(), 0, 1);
+        card.Padding = new Padding(18);
+
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 11,
+            ColumnCount = 1,
+            BackColor = AppTheme.CardBackground
+        };
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        panel.Controls.Add(new Label
+        {
+            Text = "Supplier details",
+            AutoSize = true,
+            Font = AppTheme.TitleFont(13F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 12)
+        });
+        AddDetail(panel, "Supplier", detailSupplier);
+        AddDetail(panel, "Classification", detailClassification);
+        AddDetail(panel, "Spend", detailSpend);
+        AddDetail(panel, "Commercial", detailCommercial);
+        AddDetail(panel, "Technical", detailTechnical);
+        AddDetail(panel, "Regulatory", detailRegulatory);
+        AddDetail(panel, "Total", detailTotal);
+        AddDetail(panel, "Manual review flags", detailFlags);
 
         detailNotes.Dock = DockStyle.Fill;
         detailNotes.Multiline = true;
         detailNotes.ReadOnly = true;
-        detailNotes.BackColor = Color.FromArgb(249, 250, 249);
-        detailNotes.BorderStyle = BorderStyle.FixedSingle;
+        detailNotes.BorderStyle = BorderStyle.None;
+        detailNotes.BackColor = AppTheme.PageBackground;
+        detailNotes.ForeColor = AppTheme.MutedText;
         detailNotes.Margin = new Padding(0, 14, 0, 0);
-        layout.Controls.Add(detailNotes, 0, 2);
+        panel.Controls.Add(detailNotes, 0, 9);
 
-        card.Controls.Add(layout);
+        card.Controls.Add(panel);
         return card;
-    }
-
-    private Control BuildDetailFields()
-    {
-        var fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-        AddDetail(fields, "Supplier", detailSupplier);
-        AddDetail(fields, "Classification", detailClassification);
-        AddDetail(fields, "Spend", detailSpend);
-        AddDetail(fields, "Commercial", detailCommercial);
-        AddDetail(fields, "Technical", detailTechnical);
-        AddDetail(fields, "Regulatory", detailRegulatory);
-        AddDetail(fields, "Total", detailTotal);
-        AddDetail(fields, "Flag count", detailFlags);
-        return fields;
     }
 
     private Control BuildStatusBar()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(232, 237, 232), Padding = new Padding(16, 6, 16, 6) };
         statusLabel.Dock = DockStyle.Fill;
-        statusLabel.ForeColor = MutedText;
-        statusLabel.Text = "Select a Labels v1 Excel file, then import and evaluate.";
-        panel.Controls.Add(statusLabel);
-        return panel;
+        statusLabel.BackColor = AppTheme.PrimaryLight;
+        statusLabel.ForeColor = AppTheme.MainText;
+        statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        statusLabel.Padding = new Padding(18, 0, 18, 0);
+        return statusLabel;
     }
 
-    private void BrowseButton_Click(object? sender, EventArgs e)
+    private void LoadDemoData()
+    {
+        UpdateDashboardFromResult(
+            DemoSupplierDataProvider.Create(settings),
+            "Demo supplier data loaded. Import an Excel file when ready.");
+    }
+
+    private void UpdateDashboardFromResult(TenderEvaluationResult result, string statusText)
+    {
+        var rows = result.SupplierEvaluations
+            .OrderByDescending(supplier => supplier.ScoreBreakdown.Total ?? -1)
+            .Select(supplier => SupplierResultRow.FromSupplier(supplier, result.Tender.Settings.CurrencyCode))
+            .ToList();
+
+        currentRows.RaiseListChangedEvents = false;
+        currentRows.Clear();
+        foreach (var row in rows)
+        {
+            currentRows.Add(row);
+        }
+
+        currentRows.RaiseListChangedEvents = true;
+        currentRows.ResetBindings();
+
+        BuildSupplierCards();
+        UpdateKpis(result, rows);
+        UpdateHeader(result.Tender.Name, result.Tender.Settings.CurrencyCode);
+        statusLabel.Text = statusText;
+        SelectRow(rows.FirstOrDefault(row => row.SupplierName == selectedSupplierName) ?? rows.FirstOrDefault());
+        ShowResultView(dashboardViewPanel.Visible || !tableViewPanel.Visible);
+    }
+
+    private void BuildSupplierCards()
+    {
+        supplierCardsPanel.SuspendLayout();
+        supplierCardsPanel.Controls.Clear();
+
+        foreach (var row in currentRows)
+        {
+            supplierCardsPanel.Controls.Add(CreateSupplierCard(row));
+        }
+
+        supplierCardsPanel.ResumeLayout();
+    }
+
+    private Control CreateSupplierCard(SupplierResultRow row)
+    {
+        var card = Card();
+        card.Width = 270;
+        card.Height = 182;
+        card.Margin = new Padding(0, 0, 14, 14);
+        card.Padding = new Padding(14);
+        card.Cursor = Cursors.Hand;
+        card.Tag = row;
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 5,
+            ColumnCount = 1,
+            BackColor = AppTheme.CardBackground
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        layout.Controls.Add(new Label
+        {
+            Text = row.SupplierName,
+            AutoSize = true,
+            Font = AppTheme.TitleFont(11F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 8)
+        });
+        layout.Controls.Add(new Label
+        {
+            Text = row.Classification.ToString(),
+            AutoSize = true,
+            Font = AppTheme.TitleFont(9.5F),
+            ForeColor = ClassificationColor(row.Classification),
+            Margin = new Padding(0, 0, 0, 10)
+        });
+        layout.Controls.Add(new Label
+        {
+            Text = $"Spend: {row.TotalSpendDisplay}",
+            AutoSize = true,
+            ForeColor = AppTheme.MutedText,
+            Margin = new Padding(0, 0, 0, 4)
+        });
+        layout.Controls.Add(new Label
+        {
+            Text = $"Total score: {row.TotalScoreDisplay}",
+            AutoSize = true,
+            Font = AppTheme.TitleFont(10F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 4)
+        });
+        layout.Controls.Add(new Label
+        {
+            Text = $"Commercial {row.CommercialScoreDisplay} | Technical {row.TechnicalScoreDisplay} | Regulatory {row.RegulatoryScoreDisplay}",
+            Dock = DockStyle.Fill,
+            ForeColor = AppTheme.MutedText
+        });
+
+        foreach (Control control in layout.Controls)
+        {
+            control.Click += (_, _) => SelectRow(row);
+        }
+
+        card.Click += (_, _) => SelectRow(row);
+        card.Controls.Add(layout);
+        return card;
+    }
+
+    private void UpdateKpis(TenderEvaluationResult result, IReadOnlyCollection<SupplierResultRow> rows)
+    {
+        kpis["Suppliers"].Text = rows.Count.ToString(CultureInfo.InvariantCulture);
+        kpis["ImportedLines"].Text = result.LineEvaluations.Count > 0
+            ? result.LineEvaluations.Count.ToString(CultureInfo.InvariantCulture)
+            : "Demo";
+        kpis["Recommended"].Text = rows.Count(row => row.Classification == SupplierClassification.Recommended).ToString(CultureInfo.InvariantCulture);
+        kpis["Conditional"].Text = rows.Count(row => row.Classification == SupplierClassification.Conditional).ToString(CultureInfo.InvariantCulture);
+        kpis["ManualReview"].Text = rows.Count(row => row.Classification == SupplierClassification.ManualReview).ToString(CultureInfo.InvariantCulture);
+        kpis["BestScore"].Text = rows.MaxBy(row => row.TotalScore)?.TotalScoreDisplay ?? "-";
+    }
+
+    private void UpdateHeader(string tenderName, string currencyCode)
+    {
+        titleLabel.Text = "Tender Evaluation Dashboard";
+        contextLabel.Text = $"{settings.TenderType} mode | {tenderName} | Currency {currencyCode}";
+    }
+
+    private void SelectRow(SupplierResultRow? row)
+    {
+        selectedSupplierName = row?.SupplierName;
+        UpdateDetailsPanel(row);
+
+        foreach (DataGridViewRow gridRow in resultsGrid.Rows)
+        {
+            gridRow.Selected = row is not null &&
+                gridRow.DataBoundItem is SupplierResultRow bound &&
+                bound.SupplierName == row.SupplierName;
+        }
+    }
+
+    private void UpdateDetailsPanel(SupplierResultRow? row)
+    {
+        if (row is null)
+        {
+            detailSupplier.Text = "Select a supplier";
+            detailClassification.Text = "-";
+            detailSpend.Text = "-";
+            detailCommercial.Text = "-";
+            detailTechnical.Text = "-";
+            detailRegulatory.Text = "-";
+            detailTotal.Text = "-";
+            detailFlags.Text = "-";
+            detailNotes.Text = "Choose a supplier from the dashboard or table to inspect the score breakdown and manual review status.";
+            detailClassification.ForeColor = AppTheme.MutedText;
+            return;
+        }
+
+        detailSupplier.Text = row.SupplierName;
+        detailClassification.Text = row.Classification.ToString();
+        detailClassification.ForeColor = ClassificationColor(row.Classification);
+        detailSpend.Text = row.TotalSpendDisplay;
+        detailCommercial.Text = row.CommercialScoreDisplay;
+        detailTechnical.Text = row.TechnicalScoreDisplay;
+        detailRegulatory.Text = row.RegulatoryScoreDisplay;
+        detailTotal.Text = row.TotalScoreDisplay;
+        detailFlags.Text = row.ManualReviewFlagCount.ToString(CultureInfo.InvariantCulture);
+        detailNotes.Text = row.Notes;
+    }
+
+    private void ShowResultView(bool showDashboard)
+    {
+        dashboardViewPanel.Visible = showDashboard;
+        tableViewPanel.Visible = !showDashboard;
+        StyleToggleButton(dashboardViewButton, showDashboard);
+        StyleToggleButton(tableViewButton, !showDashboard);
+    }
+
+    private void ImportButton_Click(object? sender, EventArgs e)
     {
         using var dialog = new OpenFileDialog
         {
             Title = "Select Labels v1 Excel file",
-            Filter = "Excel workbooks (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|All files (*.*)|*.*",
-            CheckFileExists = true,
-            Multiselect = false
+            Filter = "Excel files (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|All files (*.*)|*.*",
+            CheckFileExists = true
         };
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
-        filePathTextBox.Text = dialog.FileName;
-        tenderNameTextBox.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
-        SetInfo("File selected. Import and evaluate when ready.");
-        UpdateTenderTypeContext();
-    }
-
-    private void EvaluateButton_Click(object? sender, EventArgs e)
-    {
-        if (string.IsNullOrWhiteSpace(filePathTextBox.Text))
+        if (dialog.ShowDialog(this) != DialogResult.OK)
         {
-            SetError("Select a Labels v1 Excel file before evaluating.");
             return;
         }
-        if (!File.Exists(filePathTextBox.Text))
+
+        if (!settings.TenderType.Equals("Labels", StringComparison.OrdinalIgnoreCase))
         {
-            SetError("The selected Excel file no longer exists.");
-            return;
+            statusLabel.Text = $"{settings.TenderType} is configured for presentation only. Labels import logic is used in this prototype.";
         }
 
         try
         {
-            SetBusy(true);
-            var result = CreateEvaluationService().ImportAndEvaluate(
-                filePathTextBox.Text,
-                TenderName(),
-                CreateTenderSettingsFromInputs());
-            UpdateDashboardFromResult(result);
+            var tenderSettings = LabelsV1DemoConfiguration.CreateTenderSettings();
+            tenderSettings.CurrencyCode = settings.CurrencyCode;
+            var service = CreateEvaluationService();
+            var result = service.ImportAndEvaluate(dialog.FileName, settings.TenderName, tenderSettings);
+            UpdateDashboardFromResult(result, $"Imported and evaluated {Path.GetFileName(dialog.FileName)}.");
         }
-        catch (Exception exception) when (exception is IOException
-            or InvalidOperationException
-            or UnauthorizedAccessException
-            or ArgumentException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or ArgumentException)
         {
-            ClearDashboard();
-            SetError($"Import or evaluation failed: {exception.Message}");
+            statusLabel.Text = $"Import failed: {ex.Message}";
+            MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
-        finally
+    }
+
+    private void SettingsButton_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new SettingsDialog(settings);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
         {
-            SetBusy(false);
+            return;
         }
+
+        LoadDemoData();
     }
 
     private LabelsTenderEvaluationService CreateEvaluationService()
@@ -363,222 +520,84 @@ public sealed class MainForm : Form
             new LabelsExcelImportService(),
             new LineEvaluationService(),
             new SupplierAggregationService(),
-            new SupplierClassificationService(
-                recommendedThresholdInput.Value,
-                conditionalThresholdInput.Value));
+            new SupplierClassificationService(settings.RecommendedThreshold, settings.ConditionalThreshold));
     }
 
-    private TenderSettings CreateTenderSettingsFromInputs()
+    private SupplierResultRow? SelectedTableRow()
     {
-        var settings = LabelsV1DemoConfiguration.CreateTenderSettings();
-        settings.CurrencyCode = string.IsNullOrWhiteSpace(currencyTextBox.Text)
-            ? "EUR"
-            : currencyTextBox.Text.Trim().ToUpperInvariant();
-        return settings;
-    }
-
-    private void UpdateDashboardFromResult(TenderEvaluationResult result)
-    {
-        var rows = result.SupplierEvaluations
-            .Select(evaluation => SupplierResultRow.FromEvaluation(evaluation, result.Tender.Settings.CurrencyCode))
-            .ToList();
-
-        resultsGrid.DataSource = new BindingList<SupplierResultRow>(rows);
-        UpdateKpis(result);
-        SelectFirstRow();
-
-        var manualReviewCount = result.SupplierEvaluations.Count(evaluation => evaluation.RequiresManualReview);
-        SetInfo($"Imported {result.Tender.LabelLineItems.Count} line(s). "
-            + $"Evaluated {result.SupplierEvaluations.Count} supplier(s). "
-            + $"Manual review suppliers: {manualReviewCount}.");
-        UpdateTenderTypeContext();
-    }
-
-    private void UpdateKpis(TenderEvaluationResult result)
-    {
-        SetKpi("Suppliers", result.SupplierEvaluations.Count.ToString(CultureInfo.InvariantCulture));
-        SetKpi("ImportedLines", result.Tender.LabelLineItems.Count.ToString(CultureInfo.InvariantCulture));
-        SetKpi("Recommended", CountClassification(result, SupplierClassification.Recommended));
-        SetKpi("Conditional", CountClassification(result, SupplierClassification.Conditional));
-        SetKpi("ManualReview", CountClassification(result, SupplierClassification.ManualReview));
-        SetKpi("BestScore", FormatScore(result.SupplierEvaluations
-            .Select(evaluation => evaluation.ScoreBreakdown.Total)
-            .Where(score => score.HasValue)
-            .DefaultIfEmpty()
-            .Max()));
-    }
-
-    private void UpdateDetailsPanel(SupplierResultRow? row)
-    {
-        if (row is null)
-        {
-            detailSupplier.Text = "-";
-            detailClassification.Text = "-";
-            detailSpend.Text = "-";
-            detailCommercial.Text = "-";
-            detailTechnical.Text = "-";
-            detailRegulatory.Text = "-";
-            detailTotal.Text = "-";
-            detailFlags.Text = "-";
-            detailNotes.Text = "Select a supplier row to review score details, classification rationale, and manual review notes.";
-            ApplyClassificationStyle(null);
-            return;
-        }
-
-        var evaluation = row.Evaluation;
-        detailSupplier.Text = row.SupplierName;
-        detailClassification.Text = row.Classification;
-        detailSpend.Text = row.TotalSpend;
-        detailCommercial.Text = row.CommercialScore;
-        detailTechnical.Text = row.TechnicalScore;
-        detailRegulatory.Text = row.RegulatoryScore;
-        detailTotal.Text = row.TotalScore;
-        detailFlags.Text = row.ManualReviewFlagCount.ToString(CultureInfo.InvariantCulture);
-        detailNotes.Text = SupplierNotes(evaluation);
-        ApplyClassificationStyle(evaluation.Classification);
-    }
-
-    private void ClearDashboard()
-    {
-        resultsGrid.DataSource = new BindingList<SupplierResultRow>();
-        SetKpi("Suppliers", "0");
-        SetKpi("ImportedLines", "0");
-        SetKpi("Recommended", "0");
-        SetKpi("Conditional", "0");
-        SetKpi("ManualReview", "0");
-        SetKpi("BestScore", "n/a");
-        UpdateDetailsPanel(null);
-    }
-
-    private static string SupplierNotes(SupplierEvaluation evaluation)
-    {
-        var notes = new List<string>();
-        if (!string.IsNullOrWhiteSpace(evaluation.ClassificationReason))
-        {
-            notes.Add(evaluation.ClassificationReason);
-        }
-        if (evaluation.ManualReviewFlags.Count == 0)
-        {
-            notes.Add("No manual review flags are present for this supplier.");
-        }
-        else
-        {
-            notes.Add("Manual review flags:");
-            notes.AddRange(evaluation.ManualReviewFlags
-                .Take(6)
-                .Select(flag => $"- {flag.FieldName ?? "General"}: {flag.Reason}"));
-            if (evaluation.ManualReviewFlags.Count > 6)
-            {
-                notes.Add($"- {evaluation.ManualReviewFlags.Count - 6} additional flag(s).");
-            }
-        }
-        notes.Add("No hard exclusion rules are applied in this dashboard version.");
-        return string.Join(Environment.NewLine, notes);
-    }
-
-    private void UpdateTenderTypeContext()
-    {
-        var tenderType = tenderTypeComboBox.SelectedItem?.ToString() ?? "Labels";
-        var fileContext = string.IsNullOrWhiteSpace(filePathTextBox.Text)
-            ? "No file selected"
-            : Path.GetFileName(filePathTextBox.Text);
-        var engineContext = tenderType == "Labels"
-            ? "Labels v1 engine active"
-            : "Future tender type placeholder; Labels v1 engine active";
-        headerContextLabel.Text = $"{tenderType} | {engineContext}{Environment.NewLine}{fileContext}";
-    }
-
-    private void SelectFirstRow()
-    {
-        if (resultsGrid.Rows.Count == 0)
-        {
-            UpdateDetailsPanel(null);
-            return;
-        }
-        resultsGrid.ClearSelection();
-        resultsGrid.Rows[0].Selected = true;
-        resultsGrid.CurrentCell = resultsGrid.Rows[0].Cells[0];
-        UpdateDetailsPanel(SelectedRow());
-    }
-
-    private SupplierResultRow? SelectedRow()
-    {
-        if (resultsGrid.CurrentRow?.DataBoundItem is SupplierResultRow currentRow)
-        {
-            return currentRow;
-        }
-        return resultsGrid.SelectedRows.Count > 0
-            ? resultsGrid.SelectedRows[0].DataBoundItem as SupplierResultRow
-            : null;
+        return resultsGrid.SelectedRows.Count == 0
+            ? null
+            : resultsGrid.SelectedRows[0].DataBoundItem as SupplierResultRow;
     }
 
     private void ResultsGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
-        if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
-        if (resultsGrid.Columns[e.ColumnIndex].DataPropertyName != nameof(SupplierResultRow.Classification)) return;
-
-        var row = resultsGrid.Rows[e.RowIndex].DataBoundItem as SupplierResultRow;
-        e.CellStyle.ForeColor = ClassificationColor(row?.Evaluation.Classification);
-        e.CellStyle.Font = new Font(resultsGrid.Font, FontStyle.Bold);
-    }
-
-    private void ApplyClassificationStyle(SupplierClassification? classification)
-    {
-        detailClassification.ForeColor = ClassificationColor(classification);
-        detailClassification.Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold);
-    }
-
-    private static Color ClassificationColor(SupplierClassification? classification)
-    {
-        return classification switch
+        if (e.RowIndex < 0 || resultsGrid.Rows[e.RowIndex].DataBoundItem is not SupplierResultRow row)
         {
-            SupplierClassification.Recommended => AccentGreen,
-            SupplierClassification.Conditional => AccentOrange,
-            SupplierClassification.NotRecommended => AccentRed,
-            SupplierClassification.ManualReview => AccentOrange,
-            _ => MutedText
-        };
-    }
-
-    private void SetBusy(bool isBusy)
-    {
-        browseButton.Enabled = !isBusy;
-        evaluateButton.Enabled = !isBusy;
-        Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
-    }
-
-    private void SetInfo(string message)
-    {
-        statusLabel.ForeColor = MutedText;
-        statusLabel.Text = message;
-    }
-
-    private void SetError(string message)
-    {
-        statusLabel.ForeColor = AccentRed;
-        statusLabel.Text = message;
-    }
-
-    private string TenderName()
-    {
-        return string.IsNullOrWhiteSpace(tenderNameTextBox.Text)
-            ? Path.GetFileNameWithoutExtension(filePathTextBox.Text)
-            : tenderNameTextBox.Text.Trim();
-    }
-
-    private static string CountClassification(TenderEvaluationResult result, SupplierClassification classification)
-    {
-        return result.SupplierEvaluations
-            .Count(evaluation => evaluation.Classification == classification)
-            .ToString(CultureInfo.InvariantCulture);
-    }
-
-    private void SetKpi(string key, string value)
-    {
-        if (kpis.TryGetValue(key, out var label))
-        {
-            label.Text = value;
+            return;
         }
+
+        if (resultsGrid.Columns[e.ColumnIndex].DataPropertyName == nameof(SupplierResultRow.Classification))
+        {
+            e.CellStyle.ForeColor = ClassificationColor(row.Classification);
+            e.CellStyle.Font = AppTheme.TitleFont(9F);
+        }
+    }
+
+    private void AddKpi(TableLayoutPanel panel, int column, string key, string label)
+    {
+        var card = Card();
+        card.Margin = new Padding(0, 0, 10, 0);
+        card.Padding = new Padding(12);
+
+        var valueLabel = new Label
+        {
+            Text = "-",
+            Dock = DockStyle.Top,
+            Height = 36,
+            Font = AppTheme.TitleFont(17F),
+            ForeColor = AppTheme.MainText,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        var title = new Label
+        {
+            Text = label,
+            Dock = DockStyle.Bottom,
+            Height = 26,
+            ForeColor = AppTheme.MutedText,
+            TextAlign = ContentAlignment.BottomLeft
+        };
+
+        card.Controls.Add(valueLabel);
+        card.Controls.Add(title);
+        panel.Controls.Add(card, column, 0);
+        kpis[key] = valueLabel;
+    }
+
+    private static void AddDetail(TableLayoutPanel panel, string labelText, Label valueLabel)
+    {
+        var row = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        row.Controls.Add(new Label
+        {
+            Text = labelText,
+            AutoSize = true,
+            ForeColor = AppTheme.MutedText
+        }, 0, 0);
+        row.Controls.Add(valueLabel, 1, 0);
+        panel.Controls.Add(row);
+    }
+
+    private void AddColumn(string propertyName, string header, int width)
+    {
+        resultsGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = propertyName,
+            HeaderText = header,
+            MinimumWidth = width,
+            FillWeight = width
+        });
     }
 
     private static Panel Card()
@@ -586,145 +605,9 @@ public sealed class MainForm : Form
         return new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = CardBackground,
-            BorderStyle = BorderStyle.FixedSingle
+            BackColor = AppTheme.CardBackground,
+            Margin = new Padding(0)
         };
-    }
-
-    private static TableLayoutPanel Section(string title)
-    {
-        var section = new TableLayoutPanel
-        {
-            Width = 300,
-            AutoSize = true,
-            BackColor = CardBackground,
-            ColumnCount = 2,
-            Padding = new Padding(14),
-            Margin = new Padding(0, 0, 0, 12)
-        };
-        section.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-        section.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-
-        var titleLabel = new Label
-        {
-            Text = title,
-            AutoSize = true,
-            ForeColor = HeaderGreen,
-            Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold),
-            Margin = new Padding(0, 0, 0, 10)
-        };
-        section.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        section.Controls.Add(titleLabel, 0, 0);
-        section.SetColumnSpan(titleLabel, 2);
-        return section;
-    }
-
-    private static void AddField(TableLayoutPanel section, string labelText, Control control)
-    {
-        var row = section.RowCount++;
-        section.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        section.Controls.Add(new Label
-        {
-            Text = labelText,
-            AutoSize = true,
-            ForeColor = Color.FromArgb(37, 43, 39),
-            Margin = new Padding(0, 5, 8, 8),
-            Anchor = AnchorStyles.Left
-        }, 0, row);
-        control.Dock = DockStyle.Fill;
-        control.Margin = new Padding(0, 0, 0, 8);
-        section.Controls.Add(control, 1, row);
-    }
-
-    private static void AddWide(TableLayoutPanel section, Control control)
-    {
-        var row = section.RowCount++;
-        section.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        control.Dock = DockStyle.Fill;
-        control.Margin = new Padding(0, 4, 0, 8);
-        section.Controls.Add(control, 0, row);
-        section.SetColumnSpan(control, 2);
-    }
-
-    private static void AddNote(TableLayoutPanel section, string text)
-    {
-        var row = section.RowCount++;
-        section.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        var note = new Label
-        {
-            Text = text,
-            AutoSize = true,
-            MaximumSize = new Size(260, 0),
-            ForeColor = MutedText,
-            Margin = new Padding(0, 4, 0, 0)
-        };
-        section.Controls.Add(note, 0, row);
-        section.SetColumnSpan(note, 2);
-    }
-
-    private static Label PanelTitle(string text)
-    {
-        return new Label
-        {
-            Text = text,
-            AutoSize = true,
-            ForeColor = HeaderGreen,
-            Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
-            Margin = new Padding(0, 0, 0, 10)
-        };
-    }
-
-    private void AddKpi(TableLayoutPanel parent, int column, string key, string title)
-    {
-        var card = Card();
-        card.Margin = new Padding(column == 0 ? 0 : 6, 0, column == 5 ? 0 : 6, 0);
-        card.Padding = new Padding(12);
-        var value = new Label
-        {
-            Text = "0",
-            Dock = DockStyle.Fill,
-            ForeColor = HeaderGreen,
-            Font = new Font("Segoe UI Semibold", 20F, FontStyle.Bold),
-            TextAlign = ContentAlignment.BottomLeft
-        };
-        var caption = new Label
-        {
-            Text = title,
-            Dock = DockStyle.Bottom,
-            Height = 24,
-            ForeColor = MutedText,
-            TextAlign = ContentAlignment.TopLeft
-        };
-        card.Controls.Add(value);
-        card.Controls.Add(caption);
-        parent.Controls.Add(card, column, 0);
-        kpis[key] = value;
-    }
-
-    private void AddColumn(string propertyName, string headerText, int minimumWidth)
-    {
-        resultsGrid.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            DataPropertyName = propertyName,
-            HeaderText = headerText,
-            MinimumWidth = minimumWidth,
-            SortMode = DataGridViewColumnSortMode.Automatic
-        });
-    }
-
-    private static void AddDetail(TableLayoutPanel fields, string labelText, Label valueLabel)
-    {
-        var row = fields.RowCount++;
-        fields.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        fields.Controls.Add(new Label
-        {
-            Text = labelText,
-            AutoSize = true,
-            ForeColor = MutedText,
-            Margin = new Padding(0, 3, 8, 8)
-        }, 0, row);
-        valueLabel.Margin = new Padding(0, 3, 0, 8);
-        fields.Controls.Add(valueLabel, 1, row);
     }
 
     private static Label DetailValueLabel()
@@ -732,37 +615,64 @@ public sealed class MainForm : Form
         return new Label
         {
             AutoSize = true,
-            ForeColor = Color.FromArgb(37, 43, 39),
-            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold)
+            ForeColor = AppTheme.MainText,
+            Font = AppTheme.TitleFont(9F)
         };
     }
 
-    private static NumericUpDown PercentBox(decimal value)
+    private static Button CreatePrimaryButton(string text)
     {
-        var input = new NumericUpDown();
-        SetupPercentBox(input, value);
-        return input;
+        return new Button
+        {
+            Text = text,
+            Width = 128,
+            Height = 38,
+            BackColor = AppTheme.Primary,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0, 8, 10, 8)
+        };
     }
 
-    private static void SetupPercentBox(NumericUpDown input, decimal value)
+    private static Button CreateSecondaryButton(string text)
     {
-        input.Minimum = 0;
-        input.Maximum = 100;
-        input.Increment = 5;
-        input.Value = value;
-        input.TextAlign = HorizontalAlignment.Right;
+        return new Button
+        {
+            Text = text,
+            Width = 104,
+            Height = 38,
+            BackColor = AppTheme.CardBackground,
+            ForeColor = AppTheme.MainText,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0, 8, 10, 8)
+        };
     }
 
-    private static string FormatMoney(decimal amount, string currencyCode)
+    private static void ConfigureToggleButton(Button button, string text)
     {
-        return $"{amount.ToString("0.00", CultureInfo.InvariantCulture)} {currencyCode}";
+        button.Text = text;
+        button.Width = 104;
+        button.Height = 34;
+        button.FlatStyle = FlatStyle.Flat;
+        button.Margin = new Padding(0, 10, 8, 8);
     }
 
-    private static string FormatScore(decimal? score)
+    private static void StyleToggleButton(Button button, bool selected)
     {
-        return score.HasValue
-            ? score.Value.ToString("0.##", CultureInfo.InvariantCulture)
-            : "n/a";
+        button.BackColor = selected ? AppTheme.PrimaryDark : AppTheme.CardBackground;
+        button.ForeColor = selected ? Color.White : AppTheme.MainText;
+    }
+
+    private static Color ClassificationColor(SupplierClassification? classification)
+    {
+        return classification switch
+        {
+            SupplierClassification.Recommended => AppTheme.PrimaryDark,
+            SupplierClassification.Conditional => AppTheme.Warning,
+            SupplierClassification.ManualReview => AppTheme.Warning,
+            SupplierClassification.NotRecommended => AppTheme.Error,
+            _ => AppTheme.MutedText
+        };
     }
 
     private sealed class SupplierResultRow
@@ -771,44 +681,68 @@ public sealed class MainForm : Form
         {
         }
 
-        [Browsable(false)]
-        public SupplierEvaluation Evaluation { get; private init; } = new();
-
         public string SupplierName { get; private init; } = string.Empty;
 
-        public string TotalSpend { get; private init; } = string.Empty;
+        public decimal TotalSpend { get; private init; }
 
-        public string CommercialScore { get; private init; } = string.Empty;
+        public decimal? CommercialScore { get; private init; }
 
-        public string TechnicalScore { get; private init; } = string.Empty;
+        public decimal? TechnicalScore { get; private init; }
 
-        public string RegulatoryScore { get; private init; } = string.Empty;
+        public decimal? RegulatoryScore { get; private init; }
 
-        public string TotalScore { get; private init; } = string.Empty;
+        public decimal? TotalScore { get; private init; }
 
-        public string Classification { get; private init; } = string.Empty;
-
-        public string ManualReviewRequired { get; private init; } = string.Empty;
+        public SupplierClassification? Classification { get; private init; }
 
         public int ManualReviewFlagCount { get; private init; }
 
-        public static SupplierResultRow FromEvaluation(SupplierEvaluation supplierEvaluation, string currencyCode)
+        public string CurrencyCode { get; private init; } = "EUR";
+
+        public string Notes { get; private init; } = string.Empty;
+
+        public string TotalSpendDisplay => $"{TotalSpend:N2} {CurrencyCode}";
+
+        public string CommercialScoreDisplay => FormatScore(CommercialScore);
+
+        public string TechnicalScoreDisplay => FormatScore(TechnicalScore);
+
+        public string RegulatoryScoreDisplay => FormatScore(RegulatoryScore);
+
+        public string TotalScoreDisplay => FormatScore(TotalScore);
+
+        public static SupplierResultRow FromSupplier(SupplierEvaluation supplier, string currencyCode)
         {
             return new SupplierResultRow
             {
-                Evaluation = supplierEvaluation,
-                SupplierName = string.IsNullOrWhiteSpace(supplierEvaluation.SupplierName)
-                    ? "(missing supplier)"
-                    : supplierEvaluation.SupplierName,
-                TotalSpend = FormatMoney(supplierEvaluation.TotalSpend, currencyCode),
-                CommercialScore = FormatScore(supplierEvaluation.ScoreBreakdown.Commercial),
-                TechnicalScore = FormatScore(supplierEvaluation.ScoreBreakdown.Technical),
-                RegulatoryScore = FormatScore(supplierEvaluation.ScoreBreakdown.Regulatory),
-                TotalScore = FormatScore(supplierEvaluation.ScoreBreakdown.Total),
-                Classification = supplierEvaluation.Classification?.ToString() ?? "Unclassified",
-                ManualReviewRequired = supplierEvaluation.RequiresManualReview ? "Yes" : "No",
-                ManualReviewFlagCount = supplierEvaluation.ManualReviewFlags.Count
+                SupplierName = supplier.SupplierName,
+                TotalSpend = supplier.TotalSpend,
+                CommercialScore = supplier.ScoreBreakdown.Commercial,
+                TechnicalScore = supplier.ScoreBreakdown.Technical,
+                RegulatoryScore = supplier.ScoreBreakdown.Regulatory,
+                TotalScore = supplier.ScoreBreakdown.Total,
+                Classification = supplier.Classification,
+                ManualReviewFlagCount = supplier.ManualReviewFlags.Count,
+                CurrencyCode = currencyCode,
+                Notes = BuildNotes(supplier)
             };
+        }
+
+        private static string BuildNotes(SupplierEvaluation supplier)
+        {
+            if (supplier.ManualReviewFlags.Count > 0)
+            {
+                var firstFlag = supplier.ManualReviewFlags[0];
+                return $"Manual review is required. First flag: {firstFlag.FieldName ?? "Source data"} - {firstFlag.Reason}";
+            }
+
+            return supplier.ClassificationReason ??
+                "No manual review flags. Classification is based on the provisional total score thresholds.";
+        }
+
+        private static string FormatScore(decimal? value)
+        {
+            return value.HasValue ? value.Value.ToString("N2", CultureInfo.CurrentCulture) : "-";
         }
     }
 }
