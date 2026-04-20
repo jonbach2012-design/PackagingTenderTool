@@ -1,86 +1,267 @@
 # PackagingTenderTool
 
-## Formål
-PackagingTenderTool er et prototypeprojekt til evaluering af leverandørtilbud inden for packaging tender-materiale.
+## Overview
+PackagingTenderTool is a configurable, line-level evaluation engine for packaging tenders.
 
-Projektet er udviklet for at gøre tender-vurdering mere struktureret og mere genbrugelig end en ren Excel-baseret proces. 
-Fokus er på import, datavalidering, datarensning, analytics og et markant tydeligere beslutningsgrundlag.
+The solution replaces manual, Excel-based evaluations with a structured, traceable and reusable decision model, where supplier selection is based on price, technical fit and regulatory impact.
 
-## Hvad løsningen kan nu
-Løsningen understøtter i dag:
+---
 
-- import af tender-data fra Excel
-- validering af input og importrapportering
-- datarensning og normalisering
-- analyse af tender-data og spend
-- frontend-ready dashboard/view-model kontrakter
-- eksportretning via CSV for udvalgte outputs
-- automatiske tests af kernefunktionalitet
+## Business Context
+Packaging tenders involve:
+- multiple suppliers  
+- multiple specifications and sites  
+- varying data quality  
+- increasing regulatory pressure (e.g. PPWR and EPR)
 
-## Arkitekturretning
-Projektet er flyttet væk fra tung WinForms-finpolering.
+Traditional Excel-based evaluation leads to:
+- inconsistent decisions  
+- limited transparency  
+- dependency on individual knowledge  
+- weak handling of long-term cost drivers  
 
-Den nuværende WinForms-applikation fungerer som en midlertidig prototype og demonstrationsflade. Den egentlige værdi flyttes nu over i en mere genbrugelig arkitektur med fokus på:
+Regulatory factors such as recyclability, material composition and EPR fees are becoming direct economic drivers, not just compliance requirements.
 
-- **Core**
-- **Import**
-- **Analytics**
-- **frontend-ready view models**
+---
 
-Retningen fremad er en fremtidig **Blazor-frontend med Radzen**, så brugerfladen kan bygges på en mere velegnet platform til data- og dashboardvisning.
+## Solution
 
-## Projektstruktur
-### `src/PackagingTenderTool.Core`
-Kerneprojektet indeholder:
-- domænemodeller
-- importlogik
-- validering
-- datarensning
-- analytics
-- dashboard/view-model kontrakter
+The engine operates as a structured evaluation pipeline:
 
-### `src/PackagingTenderTool.App`
-WinForms-applikationen bruges som midlertidig prototype til at demonstrere, at motoren virker.
+### Input
+- standardized Excel templates for supplier submissions  
 
-### `tests/PackagingTenderTool.Core.Tests`
-Automatiske tests for kernefunktionalitet, import, rensning, analytics og frontend-ready kontrakter.
+### Processing
+- validation of structure and data  
+- cleaning and normalization  
+- line-level evaluation  
+- aggregation to supplier level (spend-weighted)  
 
-## Hvorfor retningen blev ændret
-WinForms var nyttig til hurtigt at få en prototype op at køre, men yderligere GUI-finjustering gav faldende værdi.
+### Output
+- comparable supplier scores  
+- structured decision support  
+- frontend-ready data models  
+- traceable evaluation results  
 
-Projektet er derfor bevidst drejet mod:
-- tydeligere separation of concerns
-- mere genbrugelig kode
-- stærkere datalag og analytics
-- forberedelse til Blazor + Radzen
+---
 
-Det gør løsningen mere velegnet til videreudvikling og bedre som programmeringsfagligt projekt.
+## Scoring Model
 
-## Faglig relevans
-Projektet er relevant i programmeringsfaget, fordi det arbejder med:
+Evaluation is based on three dimensions:
 
-- decomposition af et komplekst problem
-- separation of concerns
-- import og validering
-- datarensning og normalisering
-- analytics og beregningslogik
-- testbarhed
-- genbrugelige services og modeller
-- forberedelse til brug af eksterne frontend-biblioteker
+- **Commercial** – price and total cost  
+- **Technical** – match against specifications  
+- **Regulatory** – compliance and future cost/risk (PPWR, EPR)
 
-## Nuværende status
-Den aktuelle version i repository er den gældende version.
+### Weighting (example)
+- Commercial: 30%  
+- Technical: 30%  
+- Regulatory: 40%  
 
-Status lige nu:
-- `main` er synkroniseret
-- build er grøn
-- tests er grønne
-- der er **56 automatiske tests**
-- næste dokumentationsskridt er opdatering af `plan.md` og `spec.md`
+Weighting is configurable per tender and packaging type.
 
-## Mulige videreudviklinger
-- Blazor-frontend med Radzen
-- mere avanceret filtrering og drill-down
-- stærkere eksportfunktioner
-- tydeligere breakdowns pr. land, site, materiale og størrelse
-- videreudvikling af tender-logik og leverandørsammenligning
+### Key Principle
+Lowest price does not automatically win.  
+Regulatory and technical factors can outweigh short-term savings.
+
+---
+
+## Evaluation Logic
+- evaluation starts at line level  
+- results are aggregated to supplier level  
+- aggregation is spend-weighted  
+- incomplete or inconsistent data triggers **Manual Review**  
+
+---
+
+## Scenario Builder (What-if Analysis)
+
+The engine supports scenario-based evaluation.
+
+### Scenarios simulate:
+- material composition (e.g. virgin vs rPET)  
+- regulatory assumptions (EPR fees, PPWR thresholds)  
+- scoring weights  
+- supplier inputs  
+
+### Example
+Replacing virgin PET with 50% rPET:
+- recalculates line-level scores  
+- updates supplier rankings  
+- shows total cost impact  
+
+### Value
+- future-aware decision support  
+- proactive decision-making  
+- clearer trade-offs  
+
+---
+
+## Traceability and Versioned Configuration
+
+Each evaluation uses a specific configuration profile and version:
+- scoring model  
+- criteria  
+- regulatory assumptions  
+- review rules  
+
+### Enables:
+- traceability (result → config → input)  
+- comparison across tenders  
+- explanation of score differences  
+
+Each result can be traced to:
+- line-level data  
+- applied rules  
+- configuration version  
+- scenario assumptions  
+
+---
+
+## Architecture
+
+### Layers
+
+**1. Raw Import Layer**
+- Excel input  
+- structural validation  
+
+**2. Normalized Domain Layer**
+- cleaned and standardized data  
+
+**3. Evaluation & Analytics Layer**
+- scoring  
+- aggregation  
+- analytics  
+
+**4. Scenario Layer**
+- applies alternative assumptions  
+- recalculates results  
+
+**5. View Models**
+- frontend-ready structures  
+
+### Principles
+- separation of concerns  
+- UI-independent core  
+- reusable services  
+- extensibility  
+
+---
+
+## Strategy-Based Evaluation Extensions
+
+- **IndexationStrategy** – dynamic price modelling  
+- **RiskStrategy** – supplier dependency and risk  
+- **CircularityStrategy** – PPWR/EPR scoring  
+
+---
+
+## Advanced Evaluation Libraries
+
+### Dynamic Indexation Library
+- decomposes price into components  
+- links to indices (PIX, ICIS, Platts)  
+- simulates price development  
+
+### Supplier Risk & Resilience Library
+- financial health  
+- geographic exposure  
+- spend share  
+
+### Design for Circularity Maturity Index
+- material composition  
+- adhesives  
+- color detectability  
+- separability  
+
+---
+
+## Strategic Extension: Requirement-Based Substitution Logic
+
+Future capability:
+
+- target requirements  
+- acceptable ranges  
+- penalty logic  
+- hard constraints  
+
+### Enables:
+- alternative material evaluation  
+- better trade-off decisions  
+
+---
+
+## Soft Factors and Governance
+
+Handled as:
+- separate overlays or flags  
+- documented assessments  
+- traceable inputs  
+
+---
+
+## Frontend Strategy
+
+### Current
+- WinForms (verification only)
+
+### Future
+- Blazor frontend  
+- component-based UI (Radzen)
+
+---
+
+## Competitive Positioning
+
+| Capability | Traditional e-Sourcing | Analytics Tools | PackagingTenderTool |
+|----------|----------------------|----------------|---------------------|
+| Tender process | ✔ | ✖ | ✔ |
+| Spend analytics | Limited | ✔ | ✔ |
+| Line-level evaluation | ✖ | ✖ | ✔ |
+| Packaging-specific logic | ✖ | ✖ | ✔ |
+| Regulatory (PPWR/EPR) | Limited | Partial | ✔ |
+| Scenario analysis | ✖ | Limited | ✔ |
+| Dynamic price modelling | ✖ | ✖ | ✔ |
+| Supplier risk modelling | ✖ | Limited | ✔ |
+| Circularity scoring | ✖ | Partial | ✔ |
+| Decision model | Basic | ✖ | ✔ |
+
+---
+
+## Development Approach
+
+- Spec-Driven Development (SDD)  
+- Zenflow for planning and iteration  
+- iterative refinement  
+
+---
+
+## Status
+
+Implemented prototype with:
+- line-level evaluation  
+- configurable scoring  
+- scenario capability  
+- extensible architecture  
+
+---
+
+## Next Steps
+
+- Blazor frontend  
+- scenario visualization  
+- filtering  
+- integration (ERP / BI)  
+
+---
+
+## Summary
+
+PackagingTenderTool is a **decision engine**.
+
+From:
+- manual Excel evaluation  
+
+To:
+- structured, traceable and future-aware decision-making
