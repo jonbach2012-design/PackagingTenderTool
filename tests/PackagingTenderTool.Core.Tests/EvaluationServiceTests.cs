@@ -10,6 +10,14 @@ public sealed class EvaluationServiceTests
         return new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()));
     }
 
+    private static LabelLineItem WithValidEpr(LabelLineItem lineItem, string countryCode = "DK", string category = "Labels", decimal labelWeightGrams = 1000m)
+    {
+        // Neutral defaults: "Labels" uses mid placeholder rate (0.50) => no score adjustment, but avoids missing EPR flags.
+        lineItem.LabelWeightGrams ??= labelWeightGrams;
+        lineItem.EprSchemes.Add(new EprSchemeInfo { CountryCode = countryCode, Category = category });
+        return lineItem;
+    }
+
     [Fact]
     public void LineEvaluationServiceCreatesEvaluationForLabelLineItem()
     {
@@ -20,6 +28,7 @@ public sealed class EvaluationServiceTests
             Spend = 125m,
             PricePerThousand = 10m
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -46,6 +55,7 @@ public sealed class EvaluationServiceTests
             TheoreticalSpend = -4m,
             NumberOfColors = -1
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -69,6 +79,7 @@ public sealed class EvaluationServiceTests
             SupplierName = "Acme Labels",
             Spend = null
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -87,9 +98,9 @@ public sealed class EvaluationServiceTests
         var lineService = CreateLineService();
         var lineEvaluations = new[]
         {
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m }),
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Beta Labels", Spend = 50m, PricePerThousand = 12m }),
-            lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 11m })
+            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m })),
+            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Beta Labels", Spend = 50m, PricePerThousand = 12m })),
+            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 11m }))
         };
 
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
@@ -135,11 +146,11 @@ public sealed class EvaluationServiceTests
     public void SupplierAggregationServicePropagatesManualReviewFlagsFromLines()
     {
         var lineService = CreateLineService();
-        var flaggedLine = lineService.Evaluate(new LabelLineItem
+        var flaggedLine = lineService.Evaluate(WithValidEpr(new LabelLineItem
         {
             SupplierName = null,
             Spend = null
-        });
+        }, labelWeightGrams: 100m));
 
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName([flaggedLine])
@@ -161,9 +172,9 @@ public sealed class EvaluationServiceTests
     {
         var lineItems = new[]
         {
-            new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m },
-            new LabelLineItem { SupplierName = "Beta Packaging", Spend = 100m, PricePerThousand = 20m },
-            new LabelLineItem { SupplierName = "Gamma Labels", Spend = 100m, PricePerThousand = 25m }
+            WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m }),
+            WithValidEpr(new LabelLineItem { SupplierName = "Beta Packaging", Spend = 100m, PricePerThousand = 20m }),
+            WithValidEpr(new LabelLineItem { SupplierName = "Gamma Labels", Spend = 100m, PricePerThousand = 25m })
         };
 
         var evaluations = CreateLineService().EvaluateMany(lineItems);
@@ -181,25 +192,25 @@ public sealed class EvaluationServiceTests
     {
         var lineItems = new[]
         {
-            new LabelLineItem
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Acme Labels",
                 Spend = 100m,
                 Quantity = 10_000m,
                 TheoreticalSpend = 100m
-            },
-            new LabelLineItem
+            }),
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Beta Packaging",
                 Spend = 150m,
                 Quantity = 10_000m
-            },
-            new LabelLineItem
+            }),
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Gamma Labels",
                 Spend = 200m,
                 Price = 20m
-            }
+            })
         };
 
         var evaluations = CreateLineService().EvaluateMany(lineItems);
@@ -214,8 +225,8 @@ public sealed class EvaluationServiceTests
     {
         var lineItems = new[]
         {
-            new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 10m },
-            new LabelLineItem { SupplierName = "Acme Labels", Spend = 75m, PricePerThousand = 20m }
+            WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 10m }),
+            WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 75m, PricePerThousand = 20m })
         };
         var lineEvaluations = CreateLineService().EvaluateMany(lineItems);
 
@@ -281,8 +292,9 @@ public sealed class EvaluationServiceTests
             WindingDirection = "Left",
             LabelSize = "80x120"
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
         Assert.False(evaluation.RequiresManualReview);
@@ -306,8 +318,9 @@ public sealed class EvaluationServiceTests
             WindingDirection = "Left",
             LabelSize = "80x120"
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Equal(66.67m, evaluation.ScoreBreakdown.Technical);
         Assert.False(evaluation.RequiresManualReview);
@@ -331,8 +344,9 @@ public sealed class EvaluationServiceTests
             WindingDirection = "Left",
             LabelSize = null
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.True(evaluation.RequiresManualReview);
         Assert.Equal(33.33m, evaluation.ScoreBreakdown.Technical);
@@ -351,7 +365,7 @@ public sealed class EvaluationServiceTests
         };
         var lineItems = new[]
         {
-            new LabelLineItem
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Acme Labels",
                 Spend = 25m,
@@ -359,8 +373,8 @@ public sealed class EvaluationServiceTests
                 Material = "PP white",
                 WindingDirection = "Left",
                 LabelSize = "80x120"
-            },
-            new LabelLineItem
+            }, labelWeightGrams: 100m),
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Acme Labels",
                 Spend = 75m,
@@ -368,9 +382,9 @@ public sealed class EvaluationServiceTests
                 Material = "Paper",
                 WindingDirection = "Left",
                 LabelSize = "80x120"
-            }
+            }, labelWeightGrams: 100m)
         };
-        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems, tenderSettings);
+        var lineEvaluations = CreateLineService().EvaluateMany(lineItems, tenderSettings);
 
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName(lineEvaluations)
@@ -400,8 +414,9 @@ public sealed class EvaluationServiceTests
             WindingDirection = "Left",
             LabelSize = "80x120"
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Equal(100m, evaluation.ScoreBreakdown.Commercial);
         Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
@@ -426,8 +441,9 @@ public sealed class EvaluationServiceTests
             WindingDirection = "Left",
             LabelSize = "80x120"
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Null(evaluation.ScoreBreakdown.Commercial);
         Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
@@ -482,8 +498,9 @@ public sealed class EvaluationServiceTests
             IsReusableOrRecyclableMaterial = true,
             HasTraceability = true
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Equal(100m, evaluation.ScoreBreakdown.Regulatory);
         Assert.False(evaluation.RequiresManualReview);
@@ -505,8 +522,9 @@ public sealed class EvaluationServiceTests
             IsReusableOrRecyclableMaterial = false,
             HasTraceability = true
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.Equal(40m, evaluation.ScoreBreakdown.Regulatory);
         Assert.False(evaluation.RequiresManualReview);
@@ -528,8 +546,11 @@ public sealed class EvaluationServiceTests
             IsReusableOrRecyclableMaterial = null,
             HasTraceability = true
         };
+        // Provide scheme + weight so manual review is only about missing regulatory values under test.
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
+        lineItem.LabelWeightGrams = null;
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.True(evaluation.RequiresManualReview);
         Assert.Equal(40m, evaluation.ScoreBreakdown.Regulatory);
@@ -553,8 +574,10 @@ public sealed class EvaluationServiceTests
             IsReusableOrRecyclableMaterial = true,
             HasTraceability = true
         };
+        WithValidEpr(lineItem, labelWeightGrams: 100m);
+        lineItem.LabelWeightGrams = -1m;
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+        var evaluation = CreateLineService().Evaluate(lineItem, tenderSettings);
 
         Assert.True(evaluation.RequiresManualReview);
         Assert.Equal(80m, evaluation.ScoreBreakdown.Regulatory);
@@ -569,7 +592,7 @@ public sealed class EvaluationServiceTests
         var tenderSettings = CreateRegulatoryTenderSettings();
         var lineItems = new[]
         {
-            new LabelLineItem
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Acme Labels",
                 Spend = 25m,
@@ -579,8 +602,8 @@ public sealed class EvaluationServiceTests
                 IsEasyToSeparate = true,
                 IsReusableOrRecyclableMaterial = true,
                 HasTraceability = true
-            },
-            new LabelLineItem
+            }, labelWeightGrams: 100m),
+            WithValidEpr(new LabelLineItem
             {
                 SupplierName = "Acme Labels",
                 Spend = 75m,
@@ -590,9 +613,9 @@ public sealed class EvaluationServiceTests
                 IsEasyToSeparate = true,
                 IsReusableOrRecyclableMaterial = false,
                 HasTraceability = true
-            }
+            }, labelWeightGrams: 100m)
         };
-        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems, tenderSettings);
+        var lineEvaluations = CreateLineService().EvaluateMany(lineItems, tenderSettings);
 
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName(lineEvaluations)

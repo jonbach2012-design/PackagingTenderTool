@@ -403,6 +403,7 @@ internal sealed class MainForm : Form
         });
         AddColumn(nameof(SupplierResultRow.SupplierName), "Supplier", 150);
         AddColumn(nameof(SupplierResultRow.TotalSpendDisplay), "Spend", 95);
+        AddColumn(nameof(SupplierResultRow.EprFeeDisplay), "EPR fee", 95);
         AddColumn(nameof(SupplierResultRow.CommercialScoreDisplay), "Commercial", 82);
         AddColumn(nameof(SupplierResultRow.TechnicalScoreDisplay), "Technical", 82);
         AddColumn(nameof(SupplierResultRow.RegulatoryScoreDisplay), "Regulatory", 82);
@@ -548,15 +549,134 @@ internal sealed class MainForm : Form
         importProgressBar.MarqueeAnimationSpeed = 0;
         importProgressBar.Visible = false;
 
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            BackColor = AppTheme.PrimaryLight,
+            AutoSize = true,
+            Margin = new Padding(0)
+        };
+        var loadTestDataButton = SecondaryButton("Load test data");
+        loadTestDataButton.Click += (_, _) => LoadTestData();
+        loadTestDataButton.Margin = new Padding(0, 2, 0, 2);
+        importProgressBar.Width = 90;
+        actions.Controls.Add(loadTestDataButton);
+        actions.Controls.Add(importProgressBar);
+
         panel.Controls.Add(importStatusLabel, 0, 0);
         panel.SetRowSpan(importStatusLabel, 2);
         panel.Controls.Add(statusLabel, 1, 0);
         panel.SetColumnSpan(statusLabel, 2);
         panel.Controls.Add(importSummaryLabel, 1, 1);
         panel.SetColumnSpan(importSummaryLabel, 2);
-        panel.Controls.Add(importProgressBar, 3, 0);
-        panel.SetRowSpan(importProgressBar, 2);
+        panel.Controls.Add(actions, 3, 0);
+        panel.SetRowSpan(actions, 2);
         return panel;
+    }
+
+    private void LoadTestData()
+    {
+        try
+        {
+            var settings = new TenderSettings
+            {
+                PackagingProfile = PackagingProfile.Labels,
+                CurrencyCode = "EUR",
+                MaximumLabelWeightGrams = 2m,
+                ExpectedMonoMaterial = true,
+                ExpectedEasySeparation = true,
+                ExpectedReusableOrRecyclableMaterial = true,
+                ExpectedTraceability = true
+            };
+
+            var tender = new Tender
+            {
+                Name = "EPR Test Data",
+                Settings = settings,
+                LabelLineItems =
+                [
+                    new LabelLineItem
+                    {
+                        ItemNo = "TST-001",
+                        ItemName = "DK Flexibles (high fee => malus)",
+                        SupplierName = "Acme Labels",
+                        Site = "DK01",
+                        Spend = 100m,
+                        Quantity = 100_000m,
+                        PricePerThousand = 10m,
+                        LabelWeightGrams = 1000m,
+                        IsMonoMaterial = true,
+                        IsEasyToSeparate = true,
+                        IsReusableOrRecyclableMaterial = true,
+                        HasTraceability = true,
+                        EprSchemes = [new EprSchemeInfo { CountryCode = "DK", Category = "Flexibles" }]
+                    },
+                    new LabelLineItem
+                    {
+                        ItemNo = "TST-002",
+                        ItemName = "IE Cardboard (low fee => bonus)",
+                        SupplierName = "Acme Labels",
+                        Site = "IE01",
+                        Spend = 80m,
+                        Quantity = 80_000m,
+                        PricePerThousand = 11m,
+                        LabelWeightGrams = 1000m,
+                        IsMonoMaterial = true,
+                        IsEasyToSeparate = true,
+                        IsReusableOrRecyclableMaterial = true,
+                        HasTraceability = true,
+                        EprSchemes = [new EprSchemeInfo { CountryCode = "IE", Category = "Cardboard" }]
+                    },
+                    new LabelLineItem
+                    {
+                        ItemNo = "TST-003",
+                        ItemName = "SE unknown category (manual review)",
+                        SupplierName = "Beta Packaging",
+                        Site = "SE01",
+                        Spend = 60m,
+                        Quantity = 60_000m,
+                        PricePerThousand = 12m,
+                        LabelWeightGrams = 900m,
+                        IsMonoMaterial = true,
+                        IsEasyToSeparate = true,
+                        IsReusableOrRecyclableMaterial = true,
+                        HasTraceability = true,
+                        EprSchemes = [new EprSchemeInfo { CountryCode = "SE", Category = "UnknownCat" }]
+                    },
+                    new LabelLineItem
+                    {
+                        ItemNo = "TST-004",
+                        ItemName = "DK missing scheme (manual review)",
+                        SupplierName = "Beta Packaging",
+                        Site = "DK01",
+                        Spend = 50m,
+                        Quantity = 50_000m,
+                        PricePerThousand = 13m,
+                        LabelWeightGrams = 1100m,
+                        IsMonoMaterial = true,
+                        IsEasyToSeparate = true,
+                        IsReusableOrRecyclableMaterial = true,
+                        HasTraceability = true
+                    }
+                ]
+            };
+
+            var result = new LabelsTenderEvaluationService().Evaluate(tender);
+            UpdateDashboardFromResult(result, "Test data loaded (EPR fee + regulatory adjustments).");
+            SetImportFeedback(
+                "Test data",
+                BuildResultSummary(result, "Generated test lines"),
+                AppTheme.PrimaryDark,
+                isBusy: false);
+        }
+        catch (Exception ex)
+        {
+            AppExceptionReporter.Handle(ex);
+            UpdateDashboardFromResult(new TenderEvaluationResult(), "Test data could not be loaded. Dashboard is in a safe empty state.");
+            SetImportFeedback("Test data failed", ex.Message, AppTheme.Error, isBusy: false);
+        }
     }
 
     private Control BuildSettingsHeader()
@@ -623,11 +743,27 @@ internal sealed class MainForm : Form
         result.LineEvaluations ??= [];
 
         var existingCompare = currentRows.Where(row => row.Compare).Select(row => row.SupplierName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var eprFeeBySupplier = result.LineEvaluations
+            .GroupBy(line => line.LineItem.SupplierName ?? string.Empty)
+            .ToDictionary(
+                group => string.IsNullOrWhiteSpace(group.Key) ? "(missing supplier)" : group.Key,
+                group => group.Sum(line => line.EprFee ?? 0m),
+                StringComparer.OrdinalIgnoreCase);
+
         var rows = result.SupplierEvaluations
             .Where(supplier => supplier is not null)
             .OrderByDescending(supplier => supplier.ScoreBreakdown.Total ?? -1)
             .Select(supplier => SupplierResultRow.FromSupplier(supplier, SafeCurrency(result.Tender.Settings.CurrencyCode)))
             .ToList();
+
+        foreach (var row in rows)
+        {
+            if (eprFeeBySupplier.TryGetValue(row.SupplierName, out var fee))
+            {
+                row.EprFee = fee;
+            }
+        }
         foreach (var row in rows.Where(row => existingCompare.Contains(row.SupplierName)).Take(4))
         {
             row.Compare = true;
@@ -1157,6 +1293,11 @@ internal sealed class MainForm : Form
         if (e.RowIndex < 0 || resultsGrid.Rows[e.RowIndex].DataBoundItem is not SupplierResultRow row)
         {
             return;
+        }
+
+        if (row.ManualReviewFlagCount > 0)
+        {
+            e.CellStyle.BackColor = Color.FromArgb(255, 248, 204);
         }
 
         if (resultsGrid.Columns[e.ColumnIndex].DataPropertyName == nameof(SupplierResultRow.Classification))

@@ -107,6 +107,8 @@ public sealed class LabelsEvaluationStrategy : IEvaluationStrategy
             return baseScore;
         }
 
+        result.EprFee = fee;
+
         var effectiveRatePerKg = fee / weightKg;
 
         decimal adjusted = baseScore;

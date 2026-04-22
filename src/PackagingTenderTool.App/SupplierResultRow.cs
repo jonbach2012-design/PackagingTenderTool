@@ -15,6 +15,8 @@ internal sealed class SupplierResultRow
 
     public decimal TotalSpend { get; private init; }
 
+    public decimal? EprFee { get; set; }
+
     public decimal? CommercialScore { get; private init; }
 
     public decimal? TechnicalScore { get; private init; }
@@ -32,6 +34,8 @@ internal sealed class SupplierResultRow
     public string Notes { get; private init; } = string.Empty;
 
     public string TotalSpendDisplay => $"{TotalSpend:N2} {CurrencyCode}";
+
+    public string EprFeeDisplay => EprFee.HasValue ? $"{EprFee.Value:N2} {CurrencyCode}" : "-";
 
     public string CommercialScoreDisplay => FormatScore(CommercialScore);
 

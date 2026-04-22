@@ -138,6 +138,14 @@ public sealed class LabelsExcelImportServiceTests
         };
 
         var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender", settings);
+
+        // Strategy now applies EPR fee impact; ensure test data contains valid EPR inputs.
+        foreach (var lineItem in tender.LabelLineItems)
+        {
+            lineItem.LabelWeightGrams ??= 1.0m;
+            lineItem.EprSchemes.Add(new EprSchemeInfo { CountryCode = "DK", Category = "Labels" });
+        }
+
         var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
             .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
@@ -202,6 +210,13 @@ public sealed class LabelsExcelImportServiceTests
         };
 
         var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender", settings);
+
+        // Strategy now applies EPR fee impact; ensure test data contains valid EPR inputs.
+        foreach (var lineItem in tender.LabelLineItems)
+        {
+            lineItem.EprSchemes.Add(new EprSchemeInfo { CountryCode = "DK", Category = "Labels" });
+        }
+
         var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
             .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluation = new SupplierAggregationService()

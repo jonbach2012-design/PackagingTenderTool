@@ -35,7 +35,11 @@ public sealed class LabelsTenderEvaluationServiceTests
             IsMonoMaterial = true,
             IsEasyToSeparate = true,
             IsReusableOrRecyclableMaterial = true,
-            HasTraceability = true
+            HasTraceability = true,
+            EprSchemes =
+            [
+                new EprSchemeInfo { CountryCode = "DK", Category = "Labels" }
+            ]
         });
 
         var result = new LabelsTenderEvaluationService().Evaluate(tender);

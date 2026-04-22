@@ -44,6 +44,7 @@ public sealed class LineEvaluationService
             LineItemId = lineItem.Id,
             LineItem = lineItem,
             ScoreBreakdown = scoringResult.ScoreBreakdown,
+            EprFee = scoringResult.EprFee,
             Explanations = scoringResult.Explanations
         };
 
@@ -180,6 +181,31 @@ public sealed class LineEvaluationService
             tenderSettings?.ExpectedLabelSize);
 
         AddRegulatoryManualReviewFlags(lineItem, tenderSettings, manualReviewFlags);
+    }
+
+    private static decimal? GetComparablePrice(LabelLineItem lineItem)
+    {
+        if (lineItem.PricePerThousand is > 0m)
+        {
+            return lineItem.PricePerThousand.Value;
+        }
+
+        if (lineItem.Price is > 0m)
+        {
+            return lineItem.Price.Value;
+        }
+
+        if (lineItem.TheoreticalSpend is > 0m && lineItem.Quantity is > 0m)
+        {
+            return lineItem.TheoreticalSpend.Value / lineItem.Quantity.Value * 1_000m;
+        }
+
+        if (lineItem.Spend is > 0m && lineItem.Quantity is > 0m)
+        {
+            return lineItem.Spend.Value / lineItem.Quantity.Value * 1_000m;
+        }
+
+        return null;
     }
 
     private static void AddMissingTechnicalReferenceFlag(

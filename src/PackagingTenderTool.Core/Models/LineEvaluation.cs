@@ -10,6 +10,8 @@ public sealed class LineEvaluation
 
     public ScoreBreakdown ScoreBreakdown { get; set; } = new();
 
+    public decimal? EprFee { get; set; }
+
     public List<ScoreExplanation> Explanations { get; set; } = [];
 
     public List<ManualReviewFlag> ManualReviewFlags { get; set; } = [];
