@@ -1063,7 +1063,7 @@ internal sealed class MainForm : Form
     {
         return new LabelsTenderEvaluationService(
             new LabelsExcelImportService(),
-            new LineEvaluationService(),
+            new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService())),
             new SupplierAggregationService(),
             new SupplierClassificationService(settings.RecommendedThreshold, settings.ConditionalThreshold));
     }

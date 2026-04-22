@@ -16,7 +16,7 @@ public sealed class LabelsTenderEvaluationService
     public LabelsTenderEvaluationService()
         : this(
             new LabelsExcelImportService(),
-            new LineEvaluationService(),
+            new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService())),
             new SupplierAggregationService(),
             new SupplierClassificationService(),
             new LabelDataCleaningService(),

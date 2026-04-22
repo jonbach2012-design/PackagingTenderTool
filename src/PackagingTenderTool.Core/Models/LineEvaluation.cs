@@ -10,6 +10,8 @@ public sealed class LineEvaluation
 
     public ScoreBreakdown ScoreBreakdown { get; set; } = new();
 
+    public List<ScoreExplanation> Explanations { get; set; } = [];
+
     public List<ManualReviewFlag> ManualReviewFlags { get; set; } = [];
 
     public bool RequiresManualReview => ManualReviewFlags.Count > 0;

@@ -138,7 +138,8 @@ public sealed class LabelsExcelImportServiceTests
         };
 
         var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender", settings);
-        var lineEvaluations = new LineEvaluationService().EvaluateMany(tender.LabelLineItems, tender.Settings);
+        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
+            .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
 
         Assert.Equal(2, lineEvaluations.Count);
@@ -201,7 +202,8 @@ public sealed class LabelsExcelImportServiceTests
         };
 
         var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender", settings);
-        var lineEvaluations = new LineEvaluationService().EvaluateMany(tender.LabelLineItems, tender.Settings);
+        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
+            .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName(lineEvaluations)
             .Single();

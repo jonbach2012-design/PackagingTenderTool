@@ -5,6 +5,11 @@ namespace PackagingTenderTool.Core.Tests;
 
 public sealed class EvaluationServiceTests
 {
+    private static LineEvaluationService CreateLineService()
+    {
+        return new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()));
+    }
+
     [Fact]
     public void LineEvaluationServiceCreatesEvaluationForLabelLineItem()
     {
@@ -16,7 +21,7 @@ public sealed class EvaluationServiceTests
             PricePerThousand = 10m
         };
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem);
+        var evaluation = CreateLineService().Evaluate(lineItem);
 
         Assert.Equal(lineItem.Id, evaluation.LineItemId);
         Assert.Same(lineItem, evaluation.LineItem);
@@ -42,7 +47,7 @@ public sealed class EvaluationServiceTests
             NumberOfColors = -1
         };
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem);
+        var evaluation = CreateLineService().Evaluate(lineItem);
 
         Assert.True(evaluation.RequiresManualReview);
         Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.SupplierName));
@@ -65,7 +70,7 @@ public sealed class EvaluationServiceTests
             Spend = null
         };
 
-        var evaluation = new LineEvaluationService().Evaluate(lineItem);
+        var evaluation = CreateLineService().Evaluate(lineItem);
 
         Assert.Same(lineItem, evaluation.LineItem);
         Assert.Contains(evaluation.ManualReviewFlags, flag =>
@@ -79,7 +84,7 @@ public sealed class EvaluationServiceTests
     [Fact]
     public void SupplierAggregationServiceGroupsLineEvaluationsBySupplierName()
     {
-        var lineService = new LineEvaluationService();
+        var lineService = CreateLineService();
         var lineEvaluations = new[]
         {
             lineService.Evaluate(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m }),
@@ -129,7 +134,7 @@ public sealed class EvaluationServiceTests
     [Fact]
     public void SupplierAggregationServicePropagatesManualReviewFlagsFromLines()
     {
-        var lineService = new LineEvaluationService();
+        var lineService = CreateLineService();
         var flaggedLine = lineService.Evaluate(new LabelLineItem
         {
             SupplierName = null,
@@ -161,7 +166,7 @@ public sealed class EvaluationServiceTests
             new LabelLineItem { SupplierName = "Gamma Labels", Spend = 100m, PricePerThousand = 25m }
         };
 
-        var evaluations = new LineEvaluationService().EvaluateMany(lineItems);
+        var evaluations = CreateLineService().EvaluateMany(lineItems);
 
         Assert.Equal(100m, evaluations[0].ScoreBreakdown.Commercial);
         Assert.Equal(50m, evaluations[1].ScoreBreakdown.Commercial);
@@ -197,7 +202,7 @@ public sealed class EvaluationServiceTests
             }
         };
 
-        var evaluations = new LineEvaluationService().EvaluateMany(lineItems);
+        var evaluations = CreateLineService().EvaluateMany(lineItems);
 
         Assert.Equal(100m, evaluations[0].ScoreBreakdown.Commercial);
         Assert.Equal(66.67m, evaluations[1].ScoreBreakdown.Commercial);
@@ -212,7 +217,7 @@ public sealed class EvaluationServiceTests
             new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 10m },
             new LabelLineItem { SupplierName = "Acme Labels", Spend = 75m, PricePerThousand = 20m }
         };
-        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems);
+        var lineEvaluations = CreateLineService().EvaluateMany(lineItems);
 
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName(lineEvaluations)
@@ -222,6 +227,40 @@ public sealed class EvaluationServiceTests
         Assert.Equal(18.75m, supplierEvaluation.ScoreBreakdown.Total);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceAppliesEprMalusToRegulatoryAndTotalScore()
+    {
+        var settings = new TenderSettings
+        {
+            ExpectedMonoMaterial = true,
+            ExpectedEasySeparation = true,
+            ExpectedReusableOrRecyclableMaterial = true,
+            ExpectedTraceability = true
+        };
+
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            LabelWeightGrams = 1000m,
+            IsMonoMaterial = true,
+            IsEasyToSeparate = true,
+            IsReusableOrRecyclableMaterial = true,
+            HasTraceability = true,
+            EprSchemes =
+            [
+                new EprSchemeInfo { CountryCode = "DK", Category = "Flexibles" }
+            ]
+        };
+
+        var evaluation = CreateLineService().Evaluate(lineItem, settings);
+
+        Assert.Equal(90m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(66m, evaluation.ScoreBreakdown.Total);
+        Assert.True(evaluation.Explanations.Count > 0);
     }
 
     [Fact]

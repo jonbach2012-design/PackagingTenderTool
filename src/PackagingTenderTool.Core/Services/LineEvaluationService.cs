@@ -4,6 +4,13 @@ namespace PackagingTenderTool.Core.Services;
 
 public sealed class LineEvaluationService
 {
+    private readonly IEvaluationStrategy evaluationStrategy;
+
+    public LineEvaluationService(IEvaluationStrategy evaluationStrategy)
+    {
+        this.evaluationStrategy = evaluationStrategy;
+    }
+
     public LineEvaluation Evaluate(LabelLineItem lineItem, TenderSettings? tenderSettings = null)
     {
         return Evaluate(lineItem, [lineItem], tenderSettings);
@@ -22,18 +29,22 @@ public sealed class LineEvaluationService
             .ToList();
     }
 
-    private static LineEvaluation Evaluate(
+    private LineEvaluation Evaluate(
         LabelLineItem lineItem,
         IReadOnlyCollection<LabelLineItem> comparisonLines,
         TenderSettings? tenderSettings)
     {
         ArgumentNullException.ThrowIfNull(lineItem);
+        tenderSettings ??= new TenderSettings();
+
+        var scoringResult = evaluationStrategy.EvaluateLine(lineItem, comparisonLines, tenderSettings);
 
         var evaluation = new LineEvaluation
         {
             LineItemId = lineItem.Id,
             LineItem = lineItem,
-            ScoreBreakdown = CreateScoreBreakdown(lineItem, comparisonLines, tenderSettings)
+            ScoreBreakdown = scoringResult.ScoreBreakdown,
+            Explanations = scoringResult.Explanations
         };
 
         foreach (var sourceManualReviewFlag in lineItem.SourceManualReviewFlags)
@@ -41,200 +52,14 @@ public sealed class LineEvaluationService
             evaluation.ManualReviewFlags.Add(sourceManualReviewFlag);
         }
 
+        foreach (var flag in scoringResult.ManualReviewFlags)
+        {
+            evaluation.ManualReviewFlags.Add(flag);
+        }
+
         AddManualReviewFlags(lineItem, tenderSettings, evaluation.ManualReviewFlags);
 
         return evaluation;
-    }
-
-    private static ScoreBreakdown CreateScoreBreakdown(
-        LabelLineItem lineItem,
-        IEnumerable<LabelLineItem> comparisonLines,
-        TenderSettings? tenderSettings)
-    {
-        var commercialScore = CalculateCommercialScore(lineItem, comparisonLines);
-        var technicalScore = CalculateTechnicalScore(lineItem, tenderSettings);
-        var regulatoryScore = CalculateRegulatoryScore(lineItem, tenderSettings);
-
-        var scoreBreakdown = new ScoreBreakdown
-        {
-            Commercial = commercialScore,
-            Technical = technicalScore,
-            Regulatory = regulatoryScore
-        };
-
-        scoreBreakdown.Total = CalculateWeightedTotal(scoreBreakdown, tenderSettings);
-
-        return scoreBreakdown;
-    }
-
-    private static decimal? CalculateWeightedTotal(ScoreBreakdown scoreBreakdown, TenderSettings? tenderSettings)
-    {
-        if (scoreBreakdown.Commercial is null
-            || scoreBreakdown.Technical is null
-            || scoreBreakdown.Regulatory is null)
-        {
-            return null;
-        }
-
-        var commercialWeight = tenderSettings?.CommercialWeight ?? ScoreBreakdownCalculator.CommercialWeight;
-        var technicalWeight = tenderSettings?.TechnicalWeight ?? ScoreBreakdownCalculator.TechnicalWeight;
-        var regulatoryWeight = tenderSettings?.RegulatoryWeight ?? ScoreBreakdownCalculator.RegulatoryWeight;
-
-        var weightSum = commercialWeight + technicalWeight + regulatoryWeight;
-        if (weightSum <= 0m)
-        {
-            return null;
-        }
-
-        commercialWeight /= weightSum;
-        technicalWeight /= weightSum;
-        regulatoryWeight /= weightSum;
-
-        return decimal.Round(
-            scoreBreakdown.Commercial.Value * commercialWeight
-            + scoreBreakdown.Technical.Value * technicalWeight
-            + scoreBreakdown.Regulatory.Value * regulatoryWeight,
-            2);
-    }
-
-    private static decimal? CalculateCommercialScore(
-        LabelLineItem lineItem,
-        IEnumerable<LabelLineItem> comparisonLines)
-    {
-        var linePrice = GetComparablePrice(lineItem);
-        if (linePrice is null)
-        {
-            return null;
-        }
-
-        var lowestPrice = comparisonLines
-            .Select(GetComparablePrice)
-            .Where(price => price is > 0m)
-            .Select(price => price.GetValueOrDefault())
-            .Min();
-
-        return decimal.Round(lowestPrice / linePrice.Value * 100m, 2);
-    }
-
-    private static decimal? GetComparablePrice(LabelLineItem lineItem)
-    {
-        if (lineItem.PricePerThousand is > 0m)
-        {
-            return lineItem.PricePerThousand.Value;
-        }
-
-        if (lineItem.Price is > 0m)
-        {
-            return lineItem.Price.Value;
-        }
-
-        if (lineItem.TheoreticalSpend is > 0m && lineItem.Quantity is > 0m)
-        {
-            return lineItem.TheoreticalSpend.Value / lineItem.Quantity.Value * 1_000m;
-        }
-
-        if (lineItem.Spend is > 0m && lineItem.Quantity is > 0m)
-        {
-            return lineItem.Spend.Value / lineItem.Quantity.Value * 1_000m;
-        }
-
-        return null;
-    }
-
-    private static decimal CalculateTechnicalScore(
-        LabelLineItem lineItem,
-        TenderSettings? tenderSettings)
-    {
-        if (tenderSettings is null)
-        {
-            return 0m;
-        }
-
-        var expectedFields = new[]
-        {
-            (Expected: tenderSettings.ExpectedMaterial, Actual: lineItem.Material),
-            (Expected: tenderSettings.ExpectedWindingDirection, Actual: lineItem.WindingDirection),
-            (Expected: tenderSettings.ExpectedLabelSize, Actual: lineItem.LabelSize)
-        }.Where(field => !string.IsNullOrWhiteSpace(field.Expected)).ToList();
-
-        if (expectedFields.Count == 0)
-        {
-            return 0m;
-        }
-
-        var matches = expectedFields.Count(field =>
-            string.Equals(field.Expected, field.Actual, StringComparison.OrdinalIgnoreCase));
-
-        return decimal.Round(matches / (decimal)expectedFields.Count * 100m, 2);
-    }
-
-    private static decimal CalculateRegulatoryScore(
-        LabelLineItem lineItem,
-        TenderSettings? tenderSettings)
-    {
-        if (tenderSettings is null)
-        {
-            return 0m;
-        }
-
-        decimal configuredCriteria = 0m;
-        decimal matchingCriteria = 0m;
-
-        if (tenderSettings.MaximumLabelWeightGrams is not null)
-        {
-            configuredCriteria++;
-            if (lineItem.LabelWeightGrams is >= 0m
-                && lineItem.LabelWeightGrams <= tenderSettings.MaximumLabelWeightGrams)
-            {
-                matchingCriteria++;
-            }
-        }
-
-        AddBooleanRegulatoryScore(
-            tenderSettings.ExpectedMonoMaterial,
-            lineItem.IsMonoMaterial,
-            ref configuredCriteria,
-            ref matchingCriteria);
-        AddBooleanRegulatoryScore(
-            tenderSettings.ExpectedEasySeparation,
-            lineItem.IsEasyToSeparate,
-            ref configuredCriteria,
-            ref matchingCriteria);
-        AddBooleanRegulatoryScore(
-            tenderSettings.ExpectedReusableOrRecyclableMaterial,
-            lineItem.IsReusableOrRecyclableMaterial,
-            ref configuredCriteria,
-            ref matchingCriteria);
-        AddBooleanRegulatoryScore(
-            tenderSettings.ExpectedTraceability,
-            lineItem.HasTraceability,
-            ref configuredCriteria,
-            ref matchingCriteria);
-
-        if (configuredCriteria == 0m)
-        {
-            return 0m;
-        }
-
-        return decimal.Round(matchingCriteria / configuredCriteria * 100m, 2);
-    }
-
-    private static void AddBooleanRegulatoryScore(
-        bool? expectedValue,
-        bool? actualValue,
-        ref decimal configuredCriteria,
-        ref decimal matchingCriteria)
-    {
-        if (expectedValue is null)
-        {
-            return;
-        }
-
-        configuredCriteria++;
-        if (actualValue == expectedValue)
-        {
-            matchingCriteria++;
-        }
     }
 
     private static void AddManualReviewFlags(
