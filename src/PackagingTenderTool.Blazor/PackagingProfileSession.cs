@@ -21,10 +21,26 @@ public sealed class PackagingProfileSession
 
     public decimal MaxLeadTimeDays { get; private set; } = 30m;
 
+    public bool ApplyPpwr2030Scenario { get; private set; }
+
+    /// <summary>
+    /// Selected supplier ids (used to filter cockpit KPIs and the grid).
+    /// Defaults to "all" for the active profile.
+    /// </summary>
+    public IReadOnlySet<string> SelectedSuppliers => _selectedSupplierIds;
+
     /// <summary>Always 100 when weights are maintained via linked sliders.</summary>
     public int PillarSum => Commercial + Technical + Regulatory;
 
+    /// <summary>
+    /// Pending/clarification count surfaced in the sidebar badge.
+    /// Set by the cockpit page after running the Digital Auditor + workflow filters.
+    /// </summary>
+    public int PendingClarificationsCount { get; private set; }
+
     public event Action? Changed;
+
+    private readonly HashSet<string> _selectedSupplierIds = new(StringComparer.OrdinalIgnoreCase);
 
     public void SelectLabels()
     {
@@ -34,7 +50,36 @@ public sealed class PackagingProfileSession
         }
 
         SelectedProfile = ProfileLabels;
+        _selectedSupplierIds.Clear();
         Notify();
+    }
+
+    public void ReplaceSelectedSuppliers(IEnumerable<string> supplierIds)
+    {
+        ArgumentNullException.ThrowIfNull(supplierIds);
+        _selectedSupplierIds.Clear();
+        foreach (var n in supplierIds.Where(static s => !string.IsNullOrWhiteSpace(s)))
+        {
+            _selectedSupplierIds.Add(n.Trim());
+        }
+        Notify();
+    }
+
+    public void SetSupplierSelected(string supplierId, bool isSelected)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+        {
+            return;
+        }
+
+        var changed = isSelected
+            ? _selectedSupplierIds.Add(supplierId.Trim())
+            : _selectedSupplierIds.Remove(supplierId.Trim());
+
+        if (changed)
+        {
+            Notify();
+        }
     }
 
     public void SetCommercial(int value) => ApplyPrimaryWeight(value, which: 0);
@@ -100,6 +145,18 @@ public sealed class PackagingProfileSession
             value,
             LabelTenderAdvancedConstraints.LeadSliderMin,
             LabelTenderAdvancedConstraints.LeadSliderMax);
+        Notify();
+    }
+
+    public void SetApplyPpwr2030Scenario(bool value)
+    {
+        ApplyPpwr2030Scenario = value;
+        Notify();
+    }
+
+    public void SetPendingClarificationsCount(int value)
+    {
+        PendingClarificationsCount = Math.Max(0, value);
         Notify();
     }
 

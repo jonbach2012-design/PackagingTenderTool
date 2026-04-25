@@ -1,7 +1,9 @@
 using MudBlazor.Services;
 using PackagingTenderTool.Blazor;
 using PackagingTenderTool.Blazor.Components;
+using PackagingTenderTool.Core.Services;
 using PackagingTenderTool.Core.Services.LabelTenderScoring;
+using PackagingTenderTool.Core.Import;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,9 @@ builder.Services.AddMudServices();
 builder.Services.AddScoped<PackagingProfileSession>();
 builder.Services.AddSingleton<ILabelTenderScoringStrategy, RelativeToBestScoringStrategy>();
 builder.Services.AddSingleton<LabelTenderScoringService>();
+builder.Services.AddSingleton<IEprFeeService, EprFeeService>();
+builder.Services.AddSingleton<RegulatoryService>();
+builder.Services.AddSingleton<LabelsExcelImportService>();
 
 var app = builder.Build();
 

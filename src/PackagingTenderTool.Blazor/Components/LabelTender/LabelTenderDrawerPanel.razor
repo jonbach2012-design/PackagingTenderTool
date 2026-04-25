@@ -1,63 +1,163 @@
 @implements IDisposable
 
 @using PackagingTenderTool.Core.Models
+@using PackagingTenderTool.Core.Services.LabelTenderScoring
 
 @inject PackagingProfileSession Session
 
 @if (Session.SelectedProfile == PackagingProfileSession.ProfileLabels)
 {
-    <div class="cockpit-drawer-panel pa-4">
-        <div class="cockpit-drawer-weights">
-            <MudText Typo="Typo.subtitle2" Class="cockpit-drawer-heading mb-4">
-                Strategisk vægtning
+    <div class="cockpit-drawer-panel cockpit-drawer-panel--sharp pa-0">
+        <div class="cockpit-drawer-weights px-2 pt-2">
+            <MudText Typo="Typo.h6" Class="cockpit-drawer-section-title mb-2">
+                STRATEGIC WEIGHTING
             </MudText>
 
-            <MudStack Spacing="3">
+            <MudStack Spacing="1" Class="cockpit-drawer-stack">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Commercial</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2" Class="cockpit-pillar-label">Commercial</MudText>
+                            <MudTooltip Text="Price, Payment Terms, Volume Rebates, Currency Risk"
+                                        Placement="Placement.Right"
+                                        Delay="120"
+                                        Duration="12000">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Info"
+                                               Size="Size.Small"
+                                               Class="cockpit-info-icon-btn"
+                                               Color="Color.Inherit" />
+                            </MudTooltip>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="cockpit-pillar-percent">@Session.Commercial%</MudText>
+                    </MudStack>
                     <MudSlider T="int"
                                Min="0"
                                Max="100"
                                Step="1"
                                Value="Session.Commercial"
                                ValueChanged="OnCommercialChanged"
+                               valueLabelDisplay="ValueLabelDisplay.OnHover"
                                Color="Color.Primary"
                                Class="label-tender-slider-accent" />
                 </MudStack>
 
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Technical</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2" Class="cockpit-pillar-label">Technical</MudText>
+                            <MudTooltip Text="Lead Time, Quality Score, Machine Runability, MOQ"
+                                        Placement="Placement.Right"
+                                        Delay="120"
+                                        Duration="12000">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Info"
+                                               Size="Size.Small"
+                                               Class="cockpit-info-icon-btn"
+                                               Color="Color.Inherit" />
+                            </MudTooltip>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="cockpit-pillar-percent">@Session.Technical%</MudText>
+                    </MudStack>
                     <MudSlider T="int"
                                Min="0"
                                Max="100"
                                Step="1"
                                Value="Session.Technical"
                                ValueChanged="OnTechnicalChanged"
+                               valueLabelDisplay="ValueLabelDisplay.OnHover"
                                Color="Color.Primary"
                                Class="label-tender-slider-accent" />
                 </MudStack>
 
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Regulatory</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2" Class="cockpit-pillar-label">Regulatory</MudText>
+                            <MudTooltip Text="CO2 Footprint, Recyclability, FSC/PEFC, Compliance"
+                                        Placement="Placement.Right"
+                                        Delay="120"
+                                        Duration="12000">
+                                <MudIconButton Icon="@Icons.Material.Outlined.Info"
+                                               Size="Size.Small"
+                                               Class="cockpit-info-icon-btn"
+                                               Color="Color.Inherit" />
+                            </MudTooltip>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="cockpit-pillar-percent">@Session.Regulatory%</MudText>
+                    </MudStack>
                     <MudSlider T="int"
                                Min="0"
                                Max="100"
                                Step="1"
                                Value="Session.Regulatory"
                                ValueChanged="OnRegulatoryChanged"
+                               valueLabelDisplay="ValueLabelDisplay.OnHover"
                                Color="Color.Primary"
                                Class="label-tender-slider-accent" />
                 </MudStack>
 
-                <MudText Typo="Typo.body2" Class="label-tender-pillar-sum--ok">
-                    Samlet vægtning: @Session.PillarSum / 100
-                </MudText>
+                <MudStack Spacing="1" Class="cockpit-total-weight">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                        <MudText Typo="Typo.caption" Class="label-tender-slider-label">Total Weight</MudText>
+                        <MudText Typo="Typo.caption"
+                                 Class="@(Session.PillarSum == 100 ? "cockpit-total-weight-text cockpit-total-weight-text--ok" : "cockpit-total-weight-text")">
+                            @Session.PillarSum%
+                        </MudText>
+                    </MudStack>
+                    <MudProgressLinear Value="@Session.PillarSum"
+                                       Max="100"
+                                       Rounded="true"
+                                       Class="@(Session.PillarSum == 100 ? "cockpit-total-weight-bar cockpit-total-weight-bar--ok" : "cockpit-total-weight-bar cockpit-total-weight-bar--partial")" />
+                </MudStack>
             </MudStack>
         </div>
 
+        <MudDivider Class="my-2" />
+
+        <div class="cockpit-drawer-suppliers px-2">
+            <MudText Typo="Typo.h6" Class="cockpit-drawer-section-title mb-2">
+                SUPPLIER SELECTION
+            </MudText>
+
+            <MudStack Spacing="1" Class="cockpit-drawer-stack cockpit-drawer-supplier-stack">
+                <MudCheckBox T="bool"
+                             Value="@IsAllSelected"
+                             ValueChanged="OnSelectAllChanged"
+                             Label="Select All"
+                             Dense="true"
+                             Class="cockpit-checkbox" />
+
+                <MudDivider Class="my-1" />
+
+                <MudNavMenu Dense="true" Class="cockpit-supplier-nav">
+                    @foreach (var supplier in Suppliers)
+                    {
+                        var selected = Session.SelectedSuppliers.Contains(supplier.Id);
+                        <MudCheckBox T="bool"
+                                     @key="supplier.Id"
+                                     Dense="true"
+                                     Class="cockpit-checkbox"
+                                     Value="@selected"
+                                     ValueChanged="@(v => OnSupplierToggled(supplier.Id, v))"
+                                     Label="@supplier.Name" />
+                    }
+                </MudNavMenu>
+            </MudStack>
+        </div>
+
+        <MudDivider Class="my-2" />
+
+        <div class="px-2">
+            <MudCheckBox T="bool"
+                         Dense="true"
+                         Class="cockpit-checkbox"
+                         Value="@Session.ApplyPpwr2030Scenario"
+                         ValueChanged="@(v => Session.SetApplyPpwr2030Scenario(v))"
+                         Label="Apply 2030 PPWR scenario" />
+        </div>
+
         <div class="cockpit-drawer-advanced-wrap">
-            <MudExpansionPanel Text="Advanced settings" Class="cockpit-advanced-panel">
-                <MudStack Spacing="3" Class="pt-2">
+            <MudExpansionPanel Text="Advanced Settings" Dense="true" Class="cockpit-advanced-panel cockpit-advanced-panel--compact">
+                <MudStack Spacing="2" Class="pt-2">
                     <MudStack Spacing="0">
                         <MudText Typo="Typo.caption" Class="label-tender-slider-label">Max CO₂ impact</MudText>
                         <MudSlider T="decimal"
@@ -66,19 +166,21 @@
                                    Step="@(0.05m)"
                                    Value="Session.MaxCo2Impact"
                                    ValueChanged="OnMaxCo2Changed"
+                                   valueLabelDisplay="ValueLabelDisplay.OnHover"
                                    Color="Color.Primary"
                                    Class="label-tender-slider-accent" />
                         <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxCo2Impact.ToString("0.00")</MudText>
                     </MudStack>
 
                     <MudStack Spacing="0">
-                        <MudText Typo="Typo.caption" Class="label-tender-slider-label">Max lead time (dage)</MudText>
+                        <MudText Typo="Typo.caption" Class="label-tender-slider-label">Max lead time (days)</MudText>
                         <MudSlider T="decimal"
                                    Min="@LabelTenderAdvancedConstraints.LeadSliderMin"
                                    Max="@LabelTenderAdvancedConstraints.LeadSliderMax"
                                    Step="1m"
                                    Value="Session.MaxLeadTimeDays"
                                    ValueChanged="OnMaxLeadChanged"
+                                   valueLabelDisplay="ValueLabelDisplay.OnHover"
                                    Color="Color.Primary"
                                    Class="label-tender-slider-accent" />
                         <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxLeadTimeDays.ToString("0")</MudText>
@@ -91,10 +193,40 @@
 
 @code
 {
+    private static readonly SupplierOption[] Suppliers =
+        LabelTenderDemoSupplierData.Create()
+            .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
+            .GroupBy(s => s.SupplierId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Select(s => new SupplierOption(s.SupplierId, s.SupplierName))
+            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private bool IsAllSelected => Suppliers.Length > 0 && Suppliers.All(n => Session.SelectedSuppliers.Contains(n.Id));
+
+    private void OnSelectAllChanged(bool v)
+    {
+        Session.ReplaceSelectedSuppliers(v ? Suppliers.Select(s => s.Id).ToArray() : []);
+    }
+
+    private void OnSupplierToggled(string supplierId, bool v)
+    {
+        Session.SetSupplierSelected(supplierId, v);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
     protected override void OnInitialized()
     {
         Session.Changed += OnSessionChanged;
+
+        // Default: all suppliers selected (per cockpit requirement).
+        if (Session.SelectedSuppliers.Count == 0)
+        {
+            Session.ReplaceSelectedSuppliers(Suppliers.Select(s => s.Id).ToArray());
+        }
     }
+
+    private sealed record SupplierOption(string Id, string Name);
 
     public void Dispose()
     {

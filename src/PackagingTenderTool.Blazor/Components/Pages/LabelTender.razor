@@ -2,16 +2,24 @@
 @implements IDisposable
 
 @using System.Globalization
+@using System.Collections.Concurrent
 @using PackagingTenderTool.Core.Models
 @using PackagingTenderTool.Core.Services.LabelTenderScoring
+@using PackagingTenderTool.Core.Import
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@using PackagingTenderTool.Blazor.Components.LabelTender
 
 @inject PackagingProfileSession Session
+@inject NavigationManager Nav
+@inject PackagingTenderTool.Core.Services.RegulatoryService Regulatory
+@inject LabelsExcelImportService Importer
 
 @if (Session.SelectedProfile is null)
 {
     <div class="profile-landing">
         <MudText Typo="Typo.h3" Class="profile-landing-title mb-10">
-            Vælg Packaging Profil
+            Select Packaging Profile
         </MudText>
 
         <MudGrid Class="label-tender-profile-grid label-tender-profile-grid--landing" Spacing="4">
@@ -49,103 +57,365 @@ else
         <MudStack Spacing="8">
             <MudText Typo="Typo.h4" Class="cockpit-page-title">Tender Overview</MudText>
 
-            <MudGrid Spacing="4" Class="cockpit-kpi-row">
-                <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
-                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Total tender value</MudText>
-                        <MudText Typo="Typo.h5" Class="cockpit-kpi-value mt-2">@TenderValueFormatted</MudText>
-                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">
-                            Bedste leverandør × @TenderVolumeUnits.ToString("N0", Da) enheder
-                        </MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
-                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Geografisk scope</MudText>
-                        <MudText Typo="Typo.h6" Class="cockpit-kpi-value mt-2">@GeoLine1</MudText>
-                        <MudText Typo="Typo.body2" Class="cockpit-kpi-secondary mt-2">@GeoLine2</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
-                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Supplier readiness</MudText>
-                        <MudText Typo="Typo.h5" Class="cockpit-kpi-value mt-2">@ReadinessPassed af @_suppliers.Count</MudText>
-                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">Opfylder max CO₂ og max lead time</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
-                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Pris-spænd</MudText>
-                        <MudText Typo="Typo.h6" Class="cockpit-kpi-value mt-2">@PriceBandText</MudText>
-                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">Enhedspris (alle bud)</MudText>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
+            <MudPaper Elevation="0" Class="cockpit-global-slicers pa-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudSelect T="string"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Dense="true"
+                               Label="Country"
+                               Value="@_filterCountry"
+                               ValueChanged="OnCountryChanged"
+                               Class="cockpit-global-slicer">
+                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                        @foreach (var c in _filterCountries)
+                        {
+                            <MudSelectItem @key="c" Value="@c">@c</MudSelectItem>
+                        }
+                    </MudSelect>
 
-            <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0">
-                <MudDataGrid T="SupplierPillarAnalysisRow"
-                             Items="@_pillarRows"
-                             Dense="true"
-                             Hover="true"
-                             Class="cockpit-supplier-grid">
-                    <Columns>
-                        <HierarchyColumn T="SupplierPillarAnalysisRow" />
-                        <TemplateColumn Title="Leverandør">
-                            <CellTemplate>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.Item.Supplier.SupplierName</MudText>
-                            </CellTemplate>
-                        </TemplateColumn>
-                        <TemplateColumn Title="Commercial">
-                            <CellTemplate>
-                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.CommercialScore)</MudText>
-                            </CellTemplate>
-                        </TemplateColumn>
-                        <TemplateColumn Title="Technical">
-                            <CellTemplate>
-                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.TechnicalScore)</MudText>
-                            </CellTemplate>
-                        </TemplateColumn>
-                        <TemplateColumn Title="Regulatory">
-                            <CellTemplate>
-                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.RegulatoryScore)</MudText>
-                            </CellTemplate>
-                        </TemplateColumn>
-                        <TemplateColumn Title="Vægtet score">
-                            <CellTemplate>
-                                <MudText Typo="Typo.body2" Class="text-end d-block cockpit-total-cell">@FormatScore(context.Item.TotalScore)</MudText>
-                            </CellTemplate>
-                        </TemplateColumn>
-                    </Columns>
-                    <ChildRowContent>
-                        <div class="cockpit-drill pa-4">
-                            <MudSimpleTable Dense="true" Class="cockpit-drill-table">
-                                <tbody>
-                                    <tr>
-                                        <td>Pris (pr. enhed)</td>
-                                        <td class="text-end">@context.Item.Supplier.Price.ToString("N2", Da)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Leveringstid</td>
-                                        <td class="text-end">@context.Item.Supplier.DeliveryTimeDays.ToString("0") dage</td>
-                                    </tr>
-                                    <tr>
-                                        <td>CO₂-impact</td>
-                                        <td class="text-end">@context.Item.Supplier.Co2Impact.ToString("N2", Da)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Land</td>
-                                        <td class="text-end">@context.Item.Supplier.Country</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Sites</td>
-                                        <td class="text-end">@context.Item.Supplier.SiteCount</td>
-                                    </tr>
-                                </tbody>
-                            </MudSimpleTable>
-                        </div>
-                    </ChildRowContent>
-                </MudDataGrid>
+                    <MudSelect T="string"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Dense="true"
+                               Label="Site"
+                               Value="@_filterSite"
+                               ValueChanged="OnSiteChanged"
+                               Disabled="@(_filterSitesForCountry.Length == 0)"
+                               Class="cockpit-global-slicer">
+                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                        @foreach (var s in _filterSitesForCountry)
+                        {
+                            <MudSelectItem @key="s" Value="@s">@s</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
             </MudPaper>
+
+            <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
+                <MudTabPanel Text="Dashboard">
+                    <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
+                        <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
+                        <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
+
+                        <div class="cockpit-spend-wrap">
+                            @SpendBarSvg
+                        </div>
+                    </MudPaper>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Price Matrix">
+                    <PriceMatrix />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Full Table">
+                    <MudPaper Elevation="0" Class="cockpit-import-shell pa-3 mt-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Import Excel</MudText>
+                            <InputFile OnChange="OnExcelSelected" accept=".xlsx" />
+                            @if (!string.IsNullOrWhiteSpace(_importStatus))
+                            {
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">@_importStatus</MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-slicer-bar pa-3 mt-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="cockpit-slicer-stack">
+                            <MudTextField @bind-Value="_tableSearch"
+                                          dense="true"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="Search supplier / spec / sites"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Outlined.Search"
+                                          Class="cockpit-slicer-search" />
+
+                            <MudSelect T="string"
+                                       Dense="true"
+                                       Variant="Variant.Outlined"
+                                       Label="Site"
+                                       MultiSelection="true"
+                                       SelectedValues="@_tableSitesSelected"
+                                       SelectedValuesChanged="OnSitesSelectedChanged">
+                                @foreach (var s in _tableSites)
+                                {
+                                    <MudSelectItem @key="s" Value="@s">@s</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudSelect T="string"
+                                       Dense="true"
+                                       Variant="Variant.Outlined"
+                                       Label="Material type"
+                                       MultiSelection="true"
+                                       SelectedValues="@_tableMaterialsSelected"
+                                       SelectedValuesChanged="OnMaterialsSelectedChanged">
+                                @foreach (var m in _tableMaterials)
+                                {
+                                    <MudSelectItem @key="m" Value="@m">@m</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudSelect T="string"
+                                       Dense="true"
+                                       Variant="Variant.Outlined"
+                                       Label="Supplier"
+                                       MultiSelection="true"
+                                       SelectedValues="@_tableSuppliersSelected"
+                                       SelectedValuesChanged="OnSuppliersSelectedChanged">
+                                @foreach (var s in _tableSupplierOptions)
+                                {
+                                    <MudSelectItem @key="s.Id" Value="@s.Id">@s.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudStack Spacing="0" Class="cockpit-slicer-range">
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">Weighted score</MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudSlider T="int" Min="0" Max="100" Step="1" Value="@_scoreMin" ValueChanged="@(v => _scoreMin = Math.Min(v, _scoreMax))" Class="label-tender-slider-accent" valueLabelDisplay="ValueLabelDisplay.OnHover" />
+                                    <MudText Typo="Typo.caption" Class="cockpit-num cockpit-num-muted">@_scoreMin</MudText>
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">–</MudText>
+                                    <MudText Typo="Typo.caption" Class="cockpit-num cockpit-num-muted">@_scoreMax</MudText>
+                                    <MudSlider T="int" Min="0" Max="100" Step="1" Value="@_scoreMax" ValueChanged="@(v => _scoreMax = Math.Max(v, _scoreMin))" Class="label-tender-slider-accent" valueLabelDisplay="ValueLabelDisplay.OnHover" />
+                                </MudStack>
+                            </MudStack>
+                        </MudStack>
+
+                        @if (ActiveFilterChips.Count > 0)
+                        {
+                            <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                                @foreach (var chip in ActiveFilterChips)
+                                {
+                                    <MudChip T="string" @key="chip" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">@chip</MudChip>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0 mt-4">
+                        <MudDataGrid T="SupplierPillarAnalysisRow"
+                                     Items="@TableItems"
+                                     Dense="true"
+                                     Hover="true"
+                                     Filterable="true"
+                                     FilterMode="DataGridFilterMode.ColumnFilterRow"
+                                     selectionMode="DataGridSelectionMode.Single"
+                                     SelectedItem="@_tableSelectedRow"
+                                     SelectedItemChanged="OnTableSelectedRowChanged"
+                                     Class="cockpit-supplier-grid cockpit-supplier-grid--filter">
+                            <Columns>
+                                <HierarchyColumn T="SupplierPillarAnalysisRow" />
+
+                                <PropertyColumn Property="x => x.Supplier.SupplierName" Title="Supplier" />
+                                <PropertyColumn Property="x => x.Supplier.LabelType" Title="Type" />
+                                <PropertyColumn Property="x => x.Supplier.Material" Title="Material" />
+                                <PropertyColumn Property="x => x.Supplier.Adhesive" Title="Adhesive" />
+                                <TemplateColumn Title="Sites / Locations" SortBy="@(x => string.Join(", ", x.Supplier.Sites))">
+                                    <CellTemplate>
+                                        <MudText Typo="Typo.body2" Class="d-block">@string.Join(", ", context.Item.Supplier.Sites)</MudText>
+                                    </CellTemplate>
+                                </TemplateColumn>
+
+                                <TemplateColumn Title="Quantity (labels)">
+                                    <CellTemplate>
+                                        @{
+                                            var isOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
+                                            var cls = isOutlier ? "text-end d-block cockpit-outlier-cell" : "text-end d-block";
+                                            var key = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
+                                        }
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
+                                            <MudTooltip Text="@GetOutlierTooltip(context.Item.Supplier.SupplierId, OutlierFieldQuantity)" Disabled="@(!isOutlier)">
+                                                <MudText Typo="Typo.body2" Class="@($"{cls} cockpit-num")">@context.Item.Supplier.QuantityLabels.ToString("N0", Da)</MudText>
+                                            </MudTooltip>
+                                            @if (isOutlier)
+                                            {
+                                                <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Accepted))">Accept</MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
+                                                </MudMenu>
+                                            }
+                                        </MudStack>
+                                    </CellTemplate>
+                                </TemplateColumn>
+
+                                <TemplateColumn Title="Price">
+                                    <CellTemplate>
+                                        @{
+                                            var isOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldPrice) || IsExtremePrice(context.Item.Supplier.SupplierId);
+                                            var cls = isOutlier ? "text-end d-block cockpit-outlier-cell" : "text-end d-block";
+                                            var key = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldPrice);
+                                        }
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
+                                            <MudTooltip Text="@GetPriceTooltip(context.Item.Supplier.SupplierId)" Disabled="@(!isOutlier)">
+                                                <MudText Typo="Typo.body2" Class="@($"{cls} cockpit-num")">@context.Item.Supplier.Price.ToString("N2", Da)</MudText>
+                                            </MudTooltip>
+                                            @if (isOutlier)
+                                            {
+                                                <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Accepted))">Accept</MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
+                                                </MudMenu>
+                                            }
+                                        </MudStack>
+                                    </CellTemplate>
+                                </TemplateColumn>
+
+                                <PropertyColumn Property="x => x.Supplier.CommercialScore" Title="Commercial" />
+                                <PropertyColumn Property="x => x.Supplier.TechnicalScore" Title="Technical" />
+                                <PropertyColumn Property="x => x.Supplier.RegulatoryScore" Title="Regulatory" />
+
+                                <TemplateColumn Title="Weighted score">
+                                    <CellTemplate>
+                                        <MudStack Spacing="0" Class="w-100">
+                                            <MudProgressLinear Value="@((double)context.Item.TotalScore)"
+                                                               Max="100"
+                                                               Rounded="true"
+                                                               Color="Color.Primary"
+                                                               Class="cockpit-weighted-bar" />
+                                            <MudText Typo="Typo.caption" Class="text-end cockpit-weighted-caption cockpit-num cockpit-num-muted">@FormatScore(context.Item.TotalScore)</MudText>
+                                        </MudStack>
+                                    </CellTemplate>
+                                </TemplateColumn>
+                            </Columns>
+
+                            <ChildRowContent>
+                                <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                    <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Technical insight</MudText>
+
+                                    <MudGrid Spacing="3">
+                                        <MudItem xs="12" md="4">
+                                            <MudText Typo="Typo.caption" Class="cockpit-muted">Quantity breakpoints</MudText>
+                                            <MudSimpleTable Dense="true">
+                                                <tbody>
+                                                    <tr><td>1k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt1k.ToString("N2", Da)</td></tr>
+                                                    <tr><td>5k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt5k.ToString("N2", Da)</td></tr>
+                                                    <tr><td>10k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt10k.ToString("N2", Da)</td></tr>
+                                                </tbody>
+                                            </MudSimpleTable>
+                                        </MudItem>
+
+                                        <MudItem xs="12" md="4">
+                                            <MudText Typo="Typo.caption" Class="cockpit-muted">AI summary (technical deviations)</MudText>
+                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@SummarizeTechnical(context.Item.Supplier.SupplierComments)</MudText>
+                                        </MudItem>
+
+                                        <MudItem xs="12" md="4">
+                                            <MudText Typo="Typo.caption" Class="cockpit-muted">Logistics info</MudText>
+                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@context.Item.Supplier.LogisticsConstraints</MudText>
+                                        </MudItem>
+                                    </MudGrid>
+                                </MudPaper>
+                            </ChildRowContent>
+                        </MudDataGrid>
+                    </MudPaper>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Audit Board">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-audit-shell pa-5 mt-4">
+                        <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Audit Board</MudText>
+                        <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Active clarifications flagged by the Digital Auditor.</MudText>
+
+                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Negotiation summary</MudText>
+                        @if (!NegotiationSummary.Any())
+                        {
+                            <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">No clarifications pending.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1" Class="mb-4">
+                                @foreach (var group in NegotiationSummary)
+                                {
+                                    <MudPaper @key="group.SupplierName" Elevation="0" Outlined="true" Class="pa-3 cockpit-negotiation-card">
+                                        <MudText Typo="Typo.body1" Style="font-weight:700;">@group.SupplierName</MudText>
+                                        <MudList T="string" Dense="true">
+                                            @foreach (var item in group.Items)
+                                            {
+                                                <MudListItem @key="item.Field" T="string">
+                                                    <MudText Typo="Typo.body2">@item.Field — @item.Message</MudText>
+                                                </MudListItem>
+                                            }
+                                        </MudList>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        }
+
+                        <MudTable T="AuditItem" Dense="true" Hover="true" Items="@AuditItems" Class="cockpit-audit-table">
+                            <HeaderContent>
+                                <MudTh>Supplier</MudTh>
+                                <MudTh>Field</MudTh>
+                                <MudTh>Flag</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>AI reasoning</MudTh>
+                                <MudTh>Note</MudTh>
+                                <MudTh class="text-end">Actions</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Supplier">@context.SupplierName</MudTd>
+                                <MudTd DataLabel="Field">@context.Field</MudTd>
+                                <MudTd DataLabel="Flag">
+                                    <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">Potential Unit Error</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Status">
+                                    <MudChip T="string"
+                                             Color="@(context.Status is AnomalyStatus.Clarification ? Color.Warning : Color.Default)"
+                                             Variant="Variant.Outlined"
+                                             Size="Size.Small">
+                                        @context.Status.ToString()
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="AI reasoning" Style="min-width: 20rem;">
+                                    <MudTextField T="string"
+                                                  Value="@GetAuditReasoning(context.Key)"
+                                                  ValueChanged="@( (string v) => SetAuditReasoning(context.Key, v) )"
+                                                  Variant="Variant.Outlined"
+                                                  dense="true"
+                                                  Lines="2"
+                                                  Class="cockpit-ai-reasoning"
+                                                  Placeholder="AI reasoning…" />
+                                </MudTd>
+                                <MudTd DataLabel="Note" Style="min-width: 18rem;">
+                                    <MudTextField T="string"
+                                                  Value="@GetAuditNote(context.Key)"
+                                                  ValueChanged="@( (string v) => SetAuditNote(context.Key, v) )"
+                                                  Variant="Variant.Outlined"
+                                                  dense="true"
+                                                  Placeholder="Clarification note…"
+                                                  Disabled="@(context.Status is not AnomalyStatus.Clarification)"
+                                                  Lines="1" />
+                                </MudTd>
+                                <MudTd DataLabel="Actions" Class="text-end">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" dense="true" Class="cockpit-action-btn" OnClick="@(() => AuditAccept(context.Key))">Accept</MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" dense="true" Class="ml-2 cockpit-action-btn" OnClick="@(() => AuditReject(context.Key))">Exclude</MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" dense="true" Class="ml-2 cockpit-action-btn" OnClick="@(() => AuditClarify(context.Key))">Clarify</MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">History</MudText>
+                        @if (_history.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="cockpit-muted">No actions recorded yet.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1" Class="cockpit-history">
+                                @foreach (var h in _history)
+                                {
+                                    <MudStack @key="h.Timestamp" Spacing="0" Class="cockpit-history-item">
+                                        <MudText Typo="Typo.caption" Class="cockpit-muted">@h.Timestamp.ToString("yyyy-MM-dd HH:mm")</MudText>
+                                        <MudText Typo="Typo.body2">@h.Message</MudText>
+                                    </MudStack>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudTabPanel>
+            </MudTabs>
         </MudStack>
     </div>
 }
@@ -159,14 +429,66 @@ else
     private static readonly string[] _profiles =
         [PackagingProfileSession.ProfileLabels, "Trays", "Flexibles", "Cardboard", "Mixed"];
 
-    private List<SupplierModel> _suppliers = [];
+    private List<SupplierModel> _suppliersAll = [];
+
+    private List<SupplierModel> _suppliersSelected = [];
 
     private List<SupplierPillarAnalysisRow> _pillarRows = [];
+
+    private List<SupplierPillarAnalysisRow> _tableRows = [];
+
+    private SupplierPillarAnalysisRow? _tableSelectedRow;
+
+    private int _activePanelIndex = 0;
+
+    private string _filterCountry = string.Empty;
+    private string _filterSite = string.Empty;
+    private string[] _filterCountries = [];
+    private string[] _filterSitesForCountry = [];
+
+    private readonly List<SupplierSpendRow> _spendRows = [];
+
+    private List<LabelLineItem> _importedLineItems = [];
+    private string _importStatus = string.Empty;
+    private readonly List<ImportUnitMismatchFlag> _importFlags = [];
+
+    private SupplierOutlierReport _outliers = new(new Dictionary<string, IReadOnlyList<SupplierOutlierFlag>>(StringComparer.OrdinalIgnoreCase));
+
+    private const string OutlierFieldPrice = "Price";
+    private const string OutlierFieldQuantity = "Quantity";
+
+    private string _tableSearch = string.Empty;
+    private HashSet<string> _tableSitesSelected = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _tableMaterialsSelected = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _tableSuppliersSelected = new(StringComparer.OrdinalIgnoreCase);
+    private string[] _tableSites = [];
+    private string[] _tableMaterials = [];
+    private SupplierOption[] _tableSupplierOptions = [];
+    private int _scoreMin = 0;
+    private int _scoreMax = 100;
+
+    private readonly ConcurrentDictionary<string, string> _auditNotes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _auditReasoning = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _auditDecisions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<HistoryEntry> _history = [];
+
+    private readonly ConcurrentDictionary<string, AnomalyState> _anomalies = new(StringComparer.OrdinalIgnoreCase);
+
+    private volatile bool _isCalculating;
 
     protected override void OnInitialized()
     {
         Session.Changed += OnSessionChanged;
         RefreshData();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Deep-link support: /labeltender#audit takes you directly to Audit Board tab.
+        if (Nav.Uri.Contains("#audit", StringComparison.OrdinalIgnoreCase))
+        {
+            _activePanelIndex = 3;
+        }
     }
 
     public void Dispose()
@@ -176,75 +498,806 @@ else
 
     private void OnSessionChanged()
     {
+        if (_isCalculating)
+            return;
+
+        RecordWeightHistory();
         RefreshData();
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private void RefreshData()
+    private void OnActivePanelChanged(int v) => _activePanelIndex = v;
+
+    private void OnCountryChanged(string v)
     {
-        if (Session.SelectedProfile != PackagingProfileSession.ProfileLabels)
+        _filterCountry = v ?? string.Empty;
+        _filterSite = string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSiteChanged(string v)
+    {
+        _filterSite = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetCountryFromSite(string site)
+    {
+        if (string.IsNullOrWhiteSpace(site))
+            return string.Empty;
+
+        var dash = site.IndexOf('-');
+        return dash > 0 ? site[..dash].ToUpperInvariant() : site.Length >= 2 ? site[..2].ToUpperInvariant() : site.ToUpperInvariant();
+    }
+
+    private void OnTableSelectedRowChanged(SupplierPillarAnalysisRow? v) => _tableSelectedRow = v;
+
+    private async Task OnExcelSelected(InputFileChangeEventArgs e)
+    {
+        try
         {
-            _suppliers = [];
-            _pillarRows = [];
-            return;
+            _importStatus = "Importing…";
+            _importFlags.Clear();
+
+            await using var fileStream = e.File.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            await using var ms = new MemoryStream();
+            await fileStream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            // Importer expects a seekable stream. MemoryStream avoids "synchronous reads" crashes.
+            var result = Importer.ImportTenderWithReport(ms);
+            _importedLineItems = result.Tender.LabelLineItems.ToList();
+
+            NormalizePricePerThousand(_importedLineItems);
+            BuildImportFlags(_importedLineItems);
+
+            if (_importedLineItems.Count > 0)
+            {
+                _suppliersAll = BuildSuppliersFromImportedLines(_importedLineItems);
+
+                // Keep "all suppliers selected" behavior when importing.
+                if (Session.SelectedSuppliers.Count == 0)
+                    Session.ReplaceSelectedSuppliers(_suppliersAll.Select(s => s.SupplierId).ToArray());
+
+                RefreshData();
+            }
+
+            _importStatus = $"Imported {_importedLineItems.Count} rows • Flags: {_importFlags.Count}";
+        }
+        catch (Exception ex)
+        {
+            _importStatus = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static void NormalizePricePerThousand(List<LabelLineItem> items)
+    {
+        foreach (var it in items)
+        {
+            if (it.PricePerThousand is > 0)
+                continue;
+
+            if (it.Price is not > 0)
+                continue;
+
+            if (!TryParsePcsPerRoll(it.ReelDiameterOrPcsPerRoll, out var pcsPerRoll) || pcsPerRoll <= 0m)
+                continue;
+
+            it.PricePerThousand = decimal.Round((it.Price.Value / pcsPerRoll) * 1000m, 2, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    private void BuildImportFlags(List<LabelLineItem> items)
+    {
+        var byItem = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.ItemNo) && i.PricePerThousand is > 0)
+            .GroupBy(i => i.ItemNo!.Trim(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var g in byItem)
+        {
+            var avg = g.Average(i => i.PricePerThousand!.Value);
+            if (avg <= 0.0001m)
+                continue;
+
+            foreach (var it in g)
+            {
+                var ratio = it.PricePerThousand!.Value / avg;
+                if (ratio > 1.5m || ratio < 0.5m)
+                {
+                    var supplier = it.SupplierName?.Trim() ?? "Unknown supplier";
+                    var site = it.Site?.Trim() ?? "Unknown site";
+                    var key = $"import|{g.Key}|{supplier}|{site}";
+
+                    _importFlags.Add(new ImportUnitMismatchFlag(
+                        key,
+                        supplier,
+                        g.Key,
+                        site,
+                        "Potential unit mismatch (>50% deviation from item average)."));
+
+                    _anomalies.TryAdd(key, new AnomalyState(AnomalyStatus.Pending, note: string.Empty));
+                }
+            }
+        }
+    }
+
+    private static bool TryParsePcsPerRoll(string? raw, out decimal pcsPerRoll)
+    {
+        pcsPerRoll = 0m;
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        var span = raw.AsSpan();
+        var buf = new char[span.Length];
+        var bi = 0;
+        var inNum = false;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (char.IsDigit(ch) || ch is '.' or ',')
+            {
+                inNum = true;
+                buf[bi++] = ch == ',' ? '.' : ch;
+            }
+            else if (inNum)
+            {
+                break;
+            }
         }
 
-        _suppliers = LabelTenderDemoSupplierData.Create().ToList();
-        _pillarRows = SupplierPillarAnalysis.BuildOrdered(
-                _suppliers,
-                Session.Commercial,
-                Session.Technical,
-                Session.Regulatory)
+        if (bi == 0)
+            return false;
+
+        return decimal.TryParse(new string(buf, 0, bi), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pcsPerRoll);
+    }
+
+    private static List<SupplierModel> BuildSuppliersFromImportedLines(List<LabelLineItem> items)
+    {
+        string Slug(string s) => new string(s.ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch)).ToArray());
+
+        return items
+            .Where(i => !string.IsNullOrWhiteSpace(i.SupplierName))
+            .GroupBy(i => i.SupplierName!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var qty = g.Sum(x => x.Quantity ?? 0m);
+                var unit = g.Where(x => x.PricePerThousand is > 0).Select(x => x.PricePerThousand!.Value / 1000m).DefaultIfEmpty(0m).Average();
+                var sites = g.Select(x => x.Site).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                var country = sites.Length > 0 ? (GetCountryFromSite(sites[0]) is { Length: > 0 } c ? c : DeriveCountryFromSiteName(sites[0])) : "DK";
+                if (string.IsNullOrWhiteSpace(country))
+                    country = "DK";
+                var weight = g.Select(x => x.LabelWeightGrams ?? 0m).DefaultIfEmpty(0m).Average();
+
+                return new SupplierModel
+                {
+                    SupplierId = Slug(g.Key),
+                    SupplierName = g.Key,
+                    Sites = sites,
+                    Country = country,
+                    QuantityLabels = qty,
+                    Price = unit,
+                    LabelWeightGramsPerUnit = weight,
+                    Material = g.Select(x => x.Material).FirstOrDefault(m => !string.IsNullOrWhiteSpace(m))?.Trim() ?? string.Empty,
+                    LabelType = "Imported",
+                    Adhesive = string.Empty,
+                    PriceAt1k = unit,
+                    PriceAt5k = unit,
+                    PriceAt10k = unit,
+                    SupplierComments = g.Select(x => x.Comment).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c))?.Trim() ?? string.Empty,
+                    LogisticsConstraints = string.Empty,
+                    CommercialScore = 70m,
+                    TechnicalScore = decimal.Round(g.Average(x => x.TechnicalRating ?? 0m), 0, MidpointRounding.AwayFromZero),
+                    RegulatoryScore = 70m
+                };
+            })
             .ToList();
+    }
+
+    private static string DeriveCountryFromSiteName(string site)
+    {
+        if (string.IsNullOrWhiteSpace(site))
+            return string.Empty;
+
+        var s = site.Trim();
+        // DSH-style known site names -> ISO-ish codes used in this app.
+        if (s.Contains("Jæren", StringComparison.OrdinalIgnoreCase))
+            return "NO";
+        if (s.Contains("Jaeren", StringComparison.OrdinalIgnoreCase))
+            return "NO";
+        if (s.Contains("Norway", StringComparison.OrdinalIgnoreCase) || s.Contains("Norge", StringComparison.OrdinalIgnoreCase))
+            return "NO";
+        if (s.Contains("Denmark", StringComparison.OrdinalIgnoreCase) || s.Contains("Danmark", StringComparison.OrdinalIgnoreCase))
+            return "DK";
+        if (s.Contains("Sweden", StringComparison.OrdinalIgnoreCase) || s.Contains("Sverige", StringComparison.OrdinalIgnoreCase))
+            return "SE";
+        if (s.Contains("Finland", StringComparison.OrdinalIgnoreCase))
+            return "FI";
+
+        return string.Empty;
+    }
+
+    private void RefreshData()
+    {
+        if (_isCalculating)
+            return;
+
+        _isCalculating = true;
+        try
+        {
+            if (Session.SelectedProfile != PackagingProfileSession.ProfileLabels)
+            {
+                _suppliersAll = [];
+                _suppliersSelected = [];
+                _pillarRows = [];
+                _tableRows = [];
+                return;
+            }
+
+            // If an import has occurred, keep the imported supplier view; otherwise use demo suppliers.
+            if (_suppliersAll.Count == 0 || _importedLineItems.Count == 0)
+            {
+                _suppliersAll = LabelTenderDemoSupplierData.Create().ToList();
+            }
+
+            _filterCountries = _suppliersAll
+                .SelectMany(s => s.Sites)
+                .Select(GetCountryFromSite)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (!string.IsNullOrWhiteSpace(_filterCountry) && !_filterCountries.Contains(_filterCountry, StringComparer.OrdinalIgnoreCase))
+                _filterCountry = string.Empty;
+
+            _filterSitesForCountry = _suppliersAll
+                .SelectMany(s => s.Sites)
+                .Where(site => string.IsNullOrWhiteSpace(_filterCountry) || string.Equals(GetCountryFromSite(site), _filterCountry, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (!string.IsNullOrWhiteSpace(_filterSite) && !_filterSitesForCountry.Contains(_filterSite, StringComparer.OrdinalIgnoreCase))
+                _filterSite = string.Empty;
+
+            var suppliersFiltered = _suppliersAll
+                .Where(s =>
+                    (string.IsNullOrWhiteSpace(_filterCountry) || s.Sites.Any(site => string.Equals(GetCountryFromSite(site), _filterCountry, StringComparison.OrdinalIgnoreCase)))
+                    && (string.IsNullOrWhiteSpace(_filterSite) || s.Sites.Any(site => string.Equals(site, _filterSite, StringComparison.OrdinalIgnoreCase))))
+                .ToList();
+
+            _outliers = SupplierOutlierDetection.Detect(suppliersFiltered);
+
+            // Defensive: prune stale keys before generating new in-memory state.
+            PruneAuditMaps();
+
+            // CRITICAL: Clear + TryAdd only when repopulating anomalies.
+            RebuildAnomalies();
+
+            Session.SetPendingClarificationsCount(_anomalies.Values.Count(a => a.Status is AnomalyStatus.Pending or AnomalyStatus.Clarification));
+
+            _tableSites = suppliersFiltered.SelectMany(s => s.Sites).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
+            _tableMaterials = suppliersFiltered.Select(s => s.Material).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(m => m, StringComparer.OrdinalIgnoreCase).ToArray();
+            _tableSupplierOptions = suppliersFiltered
+                .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
+                .GroupBy(s => s.SupplierId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .Select(s => new SupplierOption(s.SupplierId, s.SupplierName))
+                .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var selected = Session.SelectedSuppliers;
+            _suppliersSelected = selected.Count == 0
+                ? []
+                : suppliersFiltered.Where(s => selected.Contains(s.SupplierId)).ToList();
+
+            _pillarRows = SupplierPillarAnalysis.BuildOrdered(
+                    _suppliersSelected,
+                    Session.Commercial,
+                    Session.Technical,
+                    Session.Regulatory)
+                .ToList();
+
+            _tableRows = SupplierPillarAnalysis.BuildOrdered(
+                    suppliersFiltered,
+                    Session.Commercial,
+                    Session.Technical,
+                    Session.Regulatory)
+                .ToList();
+
+            BuildSpendRows();
+        }
+        finally
+        {
+            _isCalculating = false;
+        }
+    }
+
+    // Spend overview: keep single source of truth for spend rows + horizontal stacked SVG.
+
+    private void RecordWeightHistory()
+    {
+        var msg = $"Weight change — Commercial {Session.Commercial}% • Technical {Session.Technical}% • Regulatory {Session.Regulatory}%";
+        if (_history.Count == 0 || !_history[0].Message.Equals(msg, StringComparison.Ordinal))
+        {
+            _history.Insert(0, new HistoryEntry(DateTimeOffset.Now, msg));
+        }
+    }
+
+    private IEnumerable<AuditItem> AuditItems
+    {
+        get
+        {
+            foreach (var f in _importFlags)
+            {
+                var status = _anomalies.TryGetValue(f.Key, out var st) ? st.Status : AnomalyStatus.Pending;
+                _auditReasoning.TryAdd(f.Key, "Likely unit mismatch (pcs/roll or price-per-1000 normalization).");
+                _auditNotes.TryAdd(f.Key, string.Empty);
+                yield return new AuditItem(f.SupplierName, $"{f.ItemNo} • {f.Site}", f.Key, status, f.Message);
+            }
+
+            foreach (var kvp in _outliers.BySupplierId)
+            {
+                foreach (var f in kvp.Value)
+                {
+                    var key = $"{kvp.Key}|{f.Field}";
+                    _auditNotes.TryAdd(key, string.Empty);
+                    _auditReasoning.TryAdd(key, DefaultReasoning(f.SupplierName, f.Field, f.Message));
+                    var status = _anomalies.TryGetValue(key, out var st) ? st.Status : AnomalyStatus.Pending;
+                    yield return new AuditItem(f.SupplierName, f.Field, key, status, f.Message);
+                }
+            }
+        }
+    }
+
+    private void Decide(string key, string decision)
+    {
+        _auditDecisions[key] = decision;
+        var note = _auditNotes.TryGetValue(key, out var n) ? n : string.Empty;
+        var msg = string.IsNullOrWhiteSpace(note)
+            ? $"Decision: {decision} — {key}"
+            : $"Decision: {decision} — {key} — Note: {note}";
+        _history.Insert(0, new HistoryEntry(DateTimeOffset.Now, msg));
+        StateHasChanged();
+    }
+
+    private void AuditAccept(string key)
+    {
+        SetAnomalyStatus(key, AnomalyStatus.Accepted);
+        Decide(key, "Accept");
+    }
+
+    private void AuditReject(string key)
+    {
+        SetAnomalyStatus(key, AnomalyStatus.Excluded);
+        Decide(key, "Exclude");
+    }
+
+    private void AuditClarify(string key)
+    {
+        SetAnomalyStatus(key, AnomalyStatus.Clarification);
+        Decide(key, "Clarify");
+    }
+
+    private IEnumerable<NegotiationGroup> NegotiationSummary =>
+        _outliers.BySupplierId
+            .Select(kvp => new NegotiationGroup(
+                kvp.Value.FirstOrDefault()?.SupplierName ?? kvp.Key,
+                kvp.Value
+                    .Where(f => _anomalies.TryGetValue($"{kvp.Key}|{f.Field}", out var st) && st.Status == AnomalyStatus.Clarification)
+                    .Select(f => new NegotiationItem(f.Field, f.Message))
+                    .ToList()))
+            .Where(g => g.Items.Count > 0)
+            .OrderBy(g => g.SupplierName, StringComparer.OrdinalIgnoreCase);
+
+    private sealed record NegotiationGroup(string SupplierName, List<NegotiationItem> Items);
+
+    private sealed record NegotiationItem(string Field, string Message);
+
+    private sealed record AuditItem(string SupplierName, string Field, string Key, AnomalyStatus Status, string Message);
+
+    private sealed record ImportUnitMismatchFlag(string Key, string SupplierName, string ItemNo, string Site, string Message);
+
+    private sealed record HistoryEntry(DateTimeOffset Timestamp, string Message);
+
+    private IEnumerable<SupplierPillarAnalysisRow> TableItems
+    {
+        get
+        {
+            IEnumerable<SupplierPillarAnalysisRow> q = _tableRows;
+
+            if (_tableMaterialsSelected.Count > 0)
+                q = q.Where(r => _tableMaterialsSelected.Contains(r.Supplier.Material));
+
+            if (_tableSitesSelected.Count > 0)
+                q = q.Where(r => r.Supplier.Sites.Any(s => _tableSitesSelected.Contains(s)));
+
+            if (_tableSuppliersSelected.Count > 0)
+                q = q.Where(r => _tableSuppliersSelected.Contains(r.Supplier.SupplierId));
+
+            if (!string.IsNullOrWhiteSpace(_tableSearch))
+            {
+                var term = _tableSearch.Trim();
+                q = q.Where(r =>
+                    r.Supplier.SupplierName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || r.Supplier.LabelType.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || r.Supplier.Material.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || r.Supplier.Adhesive.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || r.Supplier.Sites.Any(s => s.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            q = q.Where(r => r.TotalScore >= _scoreMin && r.TotalScore <= _scoreMax);
+
+            return q;
+        }
+    }
+
+    private List<string> ActiveFilterChips
+    {
+        get
+        {
+            var chips = new List<string>();
+            chips.AddRange(_tableSitesSelected.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).Select(s => $"Site: {s}"));
+            chips.AddRange(_tableMaterialsSelected.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).Select(s => $"Material: {s}"));
+            chips.AddRange(_tableSuppliersSelected
+                .Select(id => _tableSupplierOptions.FirstOrDefault(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase))?.Name ?? id)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .Select(s => $"Supplier: {s}"));
+            if (_scoreMin != 0 || _scoreMax != 100)
+                chips.Add($"Score: {_scoreMin}–{_scoreMax}");
+            if (!string.IsNullOrWhiteSpace(_tableSearch))
+                chips.Add($"Search: {_tableSearch.Trim()}");
+            return chips;
+        }
+    }
+
+    private static string SummarizeTechnical(string comments)
+    {
+        if (string.IsNullOrWhiteSpace(comments))
+            return "No technical deviations reported.";
+
+        // Lightweight “AI summary” heuristic (keeps logic in UI minimal; can be replaced by real NLP later).
+        var c = comments.Trim();
+        return c.Length <= 140 ? c : c[..140] + "…";
+    }
+
+    private sealed record SupplierOption(string Id, string Name);
+
+    private void OnSitesSelectedChanged(IEnumerable<string> v) =>
+        _tableSitesSelected = v is null ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : new HashSet<string>(v, StringComparer.OrdinalIgnoreCase);
+
+    private void OnMaterialsSelectedChanged(IEnumerable<string> v) =>
+        _tableMaterialsSelected = v is null ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : new HashSet<string>(v, StringComparer.OrdinalIgnoreCase);
+
+    private void OnSuppliersSelectedChanged(IEnumerable<string> v) =>
+        _tableSuppliersSelected = v is null ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : new HashSet<string>(v, StringComparer.OrdinalIgnoreCase);
+
+    private bool IsOutlier(string supplierId, string field) =>
+        _outliers.BySupplierId.TryGetValue(supplierId, out var flags) && flags.Any(f => string.Equals(f.Field, field, StringComparison.OrdinalIgnoreCase));
+
+    private bool IsExtremePrice(string supplierId)
+    {
+        var me = _suppliersAll.FirstOrDefault(s => string.Equals(s.SupplierId, supplierId, StringComparison.OrdinalIgnoreCase));
+        if (me is null)
+            return false;
+
+        var others = _suppliersAll.Where(s => !string.Equals(s.SupplierId, supplierId, StringComparison.OrdinalIgnoreCase)).Select(s => s.Price).Where(v => v > 0m).ToArray();
+        if (others.Length == 0)
+            return false;
+
+        var avg = others.Average();
+        if (avg <= 0.0000001m)
+            return false;
+
+        return me.Price > avg * 5m;
+    }
+
+    private string GetPriceTooltip(string supplierId)
+    {
+        if (IsExtremePrice(supplierId))
+            return "Check units (price is > 5× average of other suppliers)";
+
+        return GetOutlierTooltip(supplierId, OutlierFieldPrice);
+    }
+
+    private string GetOutlierTooltip(string supplierId, string field)
+    {
+        if (!_outliers.BySupplierId.TryGetValue(supplierId, out var flags))
+        {
+            return string.Empty;
+        }
+
+        var msg = flags.FirstOrDefault(f => string.Equals(f.Field, field, StringComparison.OrdinalIgnoreCase))?.Message;
+        return msg ?? string.Empty;
+    }
+
+    private bool DataIntegrityHasIssues => _outliers.HasFlags;
+
+    private bool HasClarifications => _anomalies.Values.Any(a => a.Status == AnomalyStatus.Clarification);
+
+    private string DataIntegrityHeadline => _outliers.SupplierCountWithFlags == 1
+        ? "Warning: unit mismatch detected in 1 line"
+        : $"Warning: unit mismatch detected in {_outliers.SupplierCountWithFlags} lines";
+
+    private string DataIntegrityHint => _outliers.HasFlags
+        ? "One or more values look like a potential unit error (2σ / 10× check)."
+        : "No unit-mismatch signals detected.";
+
+    private void RebuildAnomalies()
+    {
+        _anomalies.Clear();
+
+        foreach (var kvp in _outliers.BySupplierId)
+        {
+            foreach (var f in kvp.Value)
+            {
+                var key = AnomalyKey(kvp.Key, f.Field);
+                _anomalies.TryAdd(key, new AnomalyState(AnomalyStatus.Pending, note: string.Empty));
+            }
+        }
+    }
+
+    private void PruneAuditMaps()
+    {
+        // Prevent "stacking" of old keys in-memory across recalculations.
+        // Keeps only keys that still exist in current outlier set.
+        var validKeys = new HashSet<string>(
+            _outliers.BySupplierId.SelectMany(kvp => kvp.Value.Select(f => $"{kvp.Key}|{f.Field}")),
+            StringComparer.OrdinalIgnoreCase);
+
+        var notesToRemove = _auditNotes.Keys.Where(k => !validKeys.Contains(k)).ToList();
+        foreach (var k in notesToRemove)
+            _auditNotes.TryRemove(k, out _);
+
+        var reasoningToRemove = _auditReasoning.Keys.Where(k => !validKeys.Contains(k)).ToList();
+        foreach (var k in reasoningToRemove)
+            _auditReasoning.TryRemove(k, out _);
+
+        var decisionsToRemove = _auditDecisions.Keys.Where(k => !validKeys.Contains(k)).ToList();
+        foreach (var k in decisionsToRemove)
+            _auditDecisions.TryRemove(k, out _);
+
+        var anomaliesToRemove = _anomalies.Keys.Where(k => !validKeys.Contains(k)).ToList();
+        foreach (var k in anomaliesToRemove)
+            _anomalies.TryRemove(k, out _);
+    }
+
+    private string GetAuditReasoning(string key) => _auditReasoning.TryGetValue(key, out var v) ? v : string.Empty;
+
+    private void SetAuditReasoning(string key, string v) => _auditReasoning[key] = v ?? string.Empty;
+
+    private static string DefaultReasoning(string supplierName, string field, string message)
+    {
+        _ = supplierName;
+        _ = message;
+        return field.Equals(OutlierFieldQuantity, StringComparison.OrdinalIgnoreCase)
+            ? "Likely unit mismatch: quantity looks inconsistent vs peer average."
+            : "Likely unit mismatch: value deviates materially from peer average.";
+    }
+
+    private static string AnomalyKey(string supplierId, string field) => $"{supplierId}|{field}";
+
+    private void SetAnomalyStatus(string key, AnomalyStatus status)
+    {
+        if (_isCalculating)
+            return;
+
+        if (_anomalies.TryGetValue(key, out var state))
+            _anomalies[key] = state with { Status = status };
+        else
+            _anomalies[key] = new AnomalyState(status, note: string.Empty);
+
+        _history.Insert(0, new HistoryEntry(DateTimeOffset.Now, $"Anomaly decision — {key} => {status}"));
+        Session.SetPendingClarificationsCount(_anomalies.Values.Count(a => a.Status is AnomalyStatus.Pending or AnomalyStatus.Clarification));
+        StateHasChanged();
+    }
+
+    private string GetAuditNote(string key) => _auditNotes.TryGetValue(key, out var v) ? v : string.Empty;
+
+    private void SetAuditNote(string key, string v)
+    {
+        _auditNotes[key] = v ?? string.Empty;
+    }
+
+    private sealed record AnomalyState(AnomalyStatus Status, string note);
+
+    private enum AnomalyStatus
+    {
+        Pending = 0,
+        Clarification = 1,
+        Accepted = 2,
+        Excluded = 3
     }
 
     private SupplierPillarAnalysisRow? BestRow => _pillarRows.Count > 0 ? _pillarRows[0] : null;
 
-    private string TenderValueFormatted =>
-        BestRow is null
-            ? "–"
-            : (BestRow.Supplier.Price * TenderVolumeUnits).ToString("N0", Da) + " kr.";
+    private decimal AvgTotalScore =>
+        _pillarRows.Count == 0 ? 0m : _pillarRows.Average(r => r.TotalScore);
 
-    private string GeoLine1 =>
-        _suppliers.Count == 0 ? "–" : $"Antal sites: {_suppliers.Sum(s => s.SiteCount)}";
+    private string AvgTotalScoreFormatted => _pillarRows.Count == 0 ? "–" : AvgTotalScore.ToString("0.0", Da);
 
-    private string GeoLine2
+    private string TenderValueWeightedFormatted
     {
         get
         {
-            if (_suppliers.Count == 0)
+            if (_pillarRows.Count == 0)
             {
                 return "–";
             }
 
-            var countries = _suppliers
-                .Select(s => s.Country)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
-            return $"Lande: {countries}";
+            var denom = _pillarRows.Sum(r => r.TotalScore);
+            if (denom <= 0.0001m)
+            {
+                return "–";
+            }
+
+            var weightedUnitPrice = _pillarRows.Sum(r => r.Supplier.Price * r.TotalScore) / denom;
+            return (weightedUnitPrice * TenderVolumeUnits).ToString("N0", Da) + " kr.";
         }
     }
 
-    private int ReadinessPassed =>
-        _suppliers.Count(s => s.Co2Impact <= Session.MaxCo2Impact && s.DeliveryTimeDays <= Session.MaxLeadTimeDays);
+    private int SelectedCount => _suppliersSelected.Count;
 
-    private string PriceBandText
+    private int CompliancePassed =>
+        _suppliersSelected.Count(s => s.Co2Impact <= Session.MaxCo2Impact && s.DeliveryTimeDays <= Session.MaxLeadTimeDays);
+
+    private string CompliancePctFormatted =>
+        SelectedCount == 0 ? "–" : ((decimal)CompliancePassed / SelectedCount).ToString("P0", CultureInfo.InvariantCulture);
+
+    private bool HasCriticalRisk =>
+        SelectedCount > 0 && CompliancePassed < SelectedCount;
+
+    private string RiskAssessmentText => SelectedCount == 0 ? "–" : (HasCriticalRisk ? "Critical" : "Non-critical");
+
+    private string RiskAssessmentHint =>
+        SelectedCount == 0
+            ? "No suppliers selected"
+            : (HasCriticalRisk ? "One or more selected suppliers fail constraints" : "All selected suppliers meet constraints");
+
+    private sealed record SupplierSpendRow(string SupplierId, string SupplierName, decimal CommercialSpend, decimal RegulatorySpend)
     {
-        get
-        {
-            if (_suppliers.Count == 0)
-            {
-                return "–";
-            }
-
-            var min = _suppliers.Min(s => s.Price);
-            var max = _suppliers.Max(s => s.Price);
-            return $"{min.ToString("N2", Da)} – {max.ToString("N2", Da)} kr.";
-        }
+        public decimal Total => CommercialSpend + RegulatorySpend;
     }
 
     private void SelectLabels() => Session.SelectLabels();
 
     private static string FormatScore(decimal value) => value.ToString("0.0", Da);
-}
+
+
+// 1. PPWR/EPR Engine: Beregningslogik til Dashboard
+    private void BuildSpendRows()
+    {
+        _spendRows.Clear();
+        foreach (var s in _suppliersSelected.OrderBy(s => s.SupplierName, StringComparer.OrdinalIgnoreCase))
+        {
+            var volume = s.QuantityLabels <= 0 ? 0m : s.QuantityLabels;
+            var commercialSpend = volume * s.Price;
+
+            // Kald til din RegulatoryService med DSH-specifikke parametre
+            var regulatorySpend = Regulatory.CalculateLabelsRegulatoryCost(
+                countryCode: string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country,
+                labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
+                quantityUnits: volume,
+                recyclingGrade: s.RecyclingGrade,
+                recycledContentPercent: s.RecycledContentPercent,
+                applyPpwr2030Scenario: Session.ApplyPpwr2030Scenario);
+
+            _spendRows.Add(new SupplierSpendRow(
+                s.SupplierId,
+                s.SupplierName,
+                decimal.Round(commercialSpend, 0, MidpointRounding.AwayFromZero),
+                decimal.Round(regulatorySpend, 0, MidpointRounding.AwayFromZero)));
+        }
+    }
+
+    private RenderFragment SpendBarSvg => builder =>
+    {
+        const double width = 980;
+        const double height = 360;
+        const double padL = 180;
+        const double padR = 40;
+        const double padT = 20;
+
+        var rows = _spendRows.ToArray();
+        var plotW = width - padL - padR;
+        var max = rows.Length == 0 ? 1m : Math.Max(1m, rows.Max(r => r.Total));
+
+        builder.OpenElement(0, "svg");
+        builder.AddAttribute(1, "viewBox", $"0 0 {width} {height}");
+        builder.AddAttribute(2, "class", "cockpit-spend-svg");
+
+        if (rows.Length == 0)
+        {
+            builder.OpenElement(3, "text");
+            builder.AddAttribute(4, "x", width / 2);
+            builder.AddAttribute(5, "y", height / 2);
+            builder.AddAttribute(6, "text-anchor", "middle");
+            builder.AddAttribute(7, "fill", "rgba(45,52,54,0.65)");
+            builder.AddContent(8, "No suppliers selected");
+            builder.CloseElement();
+            builder.CloseElement();
+            return;
+        }
+
+        var scoreBySupplierId = _pillarRows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Supplier.SupplierId))
+            .GroupBy(r => r.Supplier.SupplierId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().TotalScore, StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var r = rows[i];
+            var y = padT + (i * 40);
+            const double barH = 20;
+
+            var commW = (double)(r.CommercialSpend / max) * plotW;
+            var regW = (double)(r.RegulatorySpend / max) * plotW;
+            var totalW = (double)(r.Total / max) * plotW;
+
+            var seq = 1000 + (i * 100);
+
+            var score = scoreBySupplierId.TryGetValue(r.SupplierId, out var sc) ? sc : 0m;
+            var alpha = 0.35 + (0.65 * (double)Math.Clamp(score, 0m, 100m) / 100.0);
+
+            // Navn (Højre-justeret tekst)
+            builder.OpenElement(seq + 1, "text");
+            builder.AddAttribute(seq + 2, "x", padL - 12);
+            builder.AddAttribute(seq + 3, "y", y + 14);
+            builder.AddAttribute(seq + 4, "text-anchor", "end");
+            builder.AddAttribute(seq + 5, "fill", "rgba(45,52,54,0.85)");
+            builder.AddAttribute(seq + 6, "font-size", "12");
+            builder.AddContent(seq + 7, r.SupplierName);
+            builder.CloseElement();
+
+            // Baggrunds-track
+            builder.OpenElement(seq + 10, "rect");
+            builder.AddAttribute(seq + 11, "x", padL);
+            builder.AddAttribute(seq + 12, "y", y);
+            builder.AddAttribute(seq + 13, "width", totalW);
+            builder.AddAttribute(seq + 14, "height", barH);
+            builder.AddAttribute(seq + 15, "rx", 10);
+            builder.AddAttribute(seq + 16, "fill", "rgba(45,52,54,0.08)");
+            builder.CloseElement();
+
+            // Commercial (Sage #91a363)
+            builder.OpenElement(seq + 20, "rect");
+            builder.AddAttribute(seq + 21, "x", padL);
+            builder.AddAttribute(seq + 22, "y", y);
+            builder.AddAttribute(seq + 23, "width", commW);
+            builder.AddAttribute(seq + 24, "height", barH);
+            builder.AddAttribute(seq + 25, "rx", 10);
+            builder.AddAttribute(seq + 26, "fill", "#91a363");
+            builder.AddAttribute(seq + 27, "opacity", alpha.ToString("0.00", CultureInfo.InvariantCulture));
+            builder.CloseElement();
+
+            // Regulatory Impact (Amber #FFB300)
+            builder.OpenElement(seq + 30, "rect");
+            builder.AddAttribute(seq + 31, "x", padL + commW);
+            builder.AddAttribute(seq + 32, "y", y);
+            builder.AddAttribute(seq + 33, "width", regW);
+            builder.AddAttribute(seq + 34, "height", barH);
+            builder.AddAttribute(seq + 35, "rx", 10);
+            builder.AddAttribute(seq + 36, "fill", "#FFB300");
+            builder.AddAttribute(seq + 37, "opacity", alpha.ToString("0.00", CultureInfo.InvariantCulture));
+            builder.CloseElement();
+
+            // CTR overlay (weighted score 0-100)
+            builder.OpenElement(seq + 40, "text");
+            builder.AddAttribute(seq + 41, "x", padL + totalW + 10);
+            builder.AddAttribute(seq + 42, "y", y + 14);
+            builder.AddAttribute(seq + 43, "text-anchor", "start");
+            builder.AddAttribute(seq + 44, "fill", "rgba(45,52,54,0.85)");
+            builder.AddAttribute(seq + 45, "font-size", "12");
+            builder.AddAttribute(seq + 46, "class", "cockpit-num");
+            builder.AddContent(seq + 47, score.ToString("0.0", Da));
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
+}    

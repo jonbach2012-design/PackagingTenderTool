@@ -1,0 +1,185 @@
+@using System.Globalization
+@using PackagingTenderTool.Core.Models
+@using PackagingTenderTool.Core.Services.LabelTenderScoring
+@using MudBlazor
+
+@inject PackagingTenderTool.Core.Services.RegulatoryService Regulatory
+
+<MudPaper Elevation="0" Class="cockpit-matrix-shell pa-5 mt-4">
+    <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Price matrix</MudText>
+    <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">
+        Normalized price per 1,000 (using pcs-per-roll factor). Lowest supplier is highlighted in green; highest in pale amber.
+    </MudText>
+
+    <div class="cockpit-matrix-grid" style="@($"grid-template-columns: 320px repeat({_sites.Length}, minmax(180px, 1fr));")">
+        <div class="cockpit-matrix-hdr cockpit-matrix-hdr--stub"></div>
+        @foreach (var g in _countryGroups)
+        {
+            <div class="cockpit-matrix-hdr cockpit-matrix-hdr--country" style="@($"grid-column: span {g.SiteCount};")">@g.Country</div>
+        }
+
+        <div class="cockpit-matrix-hdr cockpit-matrix-hdr--stub">
+            <MudText Typo="Typo.caption" Class="cockpit-muted">Item no / description</MudText>
+        </div>
+        @foreach (var s in _sites)
+        {
+            <div class="cockpit-matrix-hdr cockpit-matrix-hdr--site">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@s</MudText>
+            </div>
+        }
+
+        @foreach (var item in _items)
+        {
+            <div class="cockpit-matrix-rowhdr">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@item.ItemNo</MudText>
+                <MudText Typo="Typo.body2" Class="cockpit-muted">@item.Description</MudText>
+            </div>
+
+            @foreach (var site in _sites)
+            {
+                var offers = GetOffers(item.ItemNo, site);
+                <div class="cockpit-matrix-cell">
+                    <MudStack Spacing="1">
+                        @foreach (var o in offers)
+                        {
+                            <div class="@GetHeatClass(o, offers)">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">@o.Supplier</MudText>
+                                    <MudTooltip Text="@GetOfferTooltip(o)">
+                                        <MudText Typo="Typo.caption" Class="cockpit-num">@o.NormalizedPer1000.ToString("N0", Da)</MudText>
+                                    </MudTooltip>
+                                </MudStack>
+                            </div>
+                        }
+                    </MudStack>
+                </div>
+            }
+        }
+    </div>
+</MudPaper>
+
+@code
+{
+    private static readonly CultureInfo Da = CultureInfo.GetCultureInfo("da-DK");
+
+    private sealed record MatrixItem(string ItemNo, string Description, int PcsPerRoll);
+
+    private sealed record Offer(string Supplier, string Site, string ItemNo, int PcsPerRoll, decimal PricePerRoll)
+    {
+        public decimal NormalizedPer1000 => PcsPerRoll <= 0 ? 0m : (PricePerRoll / PcsPerRoll) * 1000m;
+    }
+
+    private sealed record CountryGroup(string Country, int SiteCount);
+
+    private readonly SupplierModel[] _suppliers =
+        LabelTenderDemoSupplierData.Create()
+            .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
+            .GroupBy(s => s.SupplierId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+
+    private readonly MatrixItem[] _items =
+    [
+        new("1001", "Top label — 70×50mm", 250),
+        new("1002", "Back label — 90×35mm", 500),
+        new("1003", "Regulatory strip — 120×20mm", 1000)
+    ];
+
+    private string[] _sites = [];
+    private CountryGroup[] _countryGroups = [];
+    private List<Offer> _offers = [];
+
+    protected override void OnInitialized()
+    {
+        _sites = _suppliers
+            .SelectMany(s => s.Sites)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        _countryGroups = _sites
+            .Select(GetCountryFromSite)
+            .GroupBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new CountryGroup(g.Key.ToUpperInvariant(), g.Count()))
+            .ToArray();
+
+        _offers = BuildOffers();
+    }
+
+    private List<Offer> BuildOffers()
+    {
+        var offers = new List<Offer>(capacity: _sites.Length * _items.Length * _suppliers.Length);
+        foreach (var item in _items)
+        {
+            foreach (var site in _sites)
+            {
+                foreach (var s in _suppliers)
+                {
+                    // Synthetic but deterministic per (supplier, site, item) to make unit issues visually obvious.
+                    var basePrice = s.Price > 0 ? s.Price : 10m;
+                    var siteBump = (Math.Abs(site.GetHashCode()) % 7) * 0.12m;
+                    var itemBump = (Math.Abs(item.ItemNo.GetHashCode()) % 5) * 0.15m;
+                    var pricePerRoll = basePrice + siteBump + itemBump;
+
+                    // If the supplier is already flagged as a quantity outlier in demo data, make normalization stand out.
+                    if (s.SupplierName.Contains("ScanLabel", StringComparison.OrdinalIgnoreCase) && item.PcsPerRoll == 250)
+                        pricePerRoll *= 1.35m;
+
+                    offers.Add(new Offer(s.SupplierName, site, item.ItemNo, item.PcsPerRoll, decimal.Round(pricePerRoll, 2)));
+                }
+            }
+        }
+        return offers;
+    }
+
+    private IReadOnlyList<Offer> GetOffers(string itemNo, string site) =>
+        _offers.Where(o =>
+                string.Equals(o.ItemNo, itemNo, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(o.Site, site, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(o => o.NormalizedPer1000)
+            .ThenBy(o => o.Supplier, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static string GetCountryFromSite(string site)
+    {
+        if (string.IsNullOrWhiteSpace(site))
+            return "??";
+
+        var dash = site.IndexOf('-');
+        return dash > 0 ? site[..dash] : site.Length >= 2 ? site[..2] : site;
+    }
+
+    private static string GetHeatClass(Offer o, IReadOnlyList<Offer> offers)
+    {
+        if (offers.Count == 0)
+            return "cockpit-matrix-offer";
+
+        var min = offers.Min(x => x.NormalizedPer1000);
+        var max = offers.Max(x => x.NormalizedPer1000);
+
+        if (o.NormalizedPer1000 == min)
+            return "cockpit-matrix-offer cockpit-matrix-offer--min";
+        if (o.NormalizedPer1000 == max)
+            return "cockpit-matrix-offer cockpit-matrix-offer--max";
+        return "cockpit-matrix-offer";
+    }
+
+    private string GetOfferTooltip(Offer o)
+    {
+        // For the demo matrix we approximate regulatory cost per 1,000 using supplier-level settings.
+        var supplier = _suppliers.FirstOrDefault(s => s.SupplierName.Equals(o.Supplier, StringComparison.OrdinalIgnoreCase));
+        if (supplier is null)
+            return $"Pcs/roll: {o.PcsPerRoll} • Price/roll: {o.PricePerRoll.ToString("N2", Da)}";
+
+        var feeFor1000 = Regulatory.CalculateLabelsRegulatoryCost(
+            countryCode: string.IsNullOrWhiteSpace(supplier.Country) ? "DK" : supplier.Country,
+            labelWeightGramsPerUnit: supplier.LabelWeightGramsPerUnit,
+            quantityUnits: 1000m,
+            recyclingGrade: supplier.RecyclingGrade,
+            recycledContentPercent: supplier.RecycledContentPercent,
+            applyPpwr2030Scenario: false);
+
+        return $"Pcs/roll: {o.PcsPerRoll} • Price/roll: {o.PricePerRoll.ToString("N2", Da)} • EPR/1000: {feeFor1000.ToString("N2", Da)}";
+    }
+}
+
