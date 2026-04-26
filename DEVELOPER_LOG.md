@@ -38,3 +38,18 @@ Dekonstruktion (Root Cause Analysis)
 Syntese (DTO-baseret refactoring)
 
 ... lykkedes det at transformere et ustabilt output til en robust, skalerbar forretningsløsning. Det er ikke koden i sig selv, der er løsningen, men den logiske proces, der tvang koden til at lystre systemets krav.
+
+
+
+
+graph TD
+    A[START: Visuelt kaos & 404 fejl] --> B{Kritisk Analyse}
+    B --> C[ISOLATION: Isoleret PoC i /chart-test]
+    C --> D{Bevis ført?}
+    D -- Ja --> E[IDENTIFIKATION: Culture Mismatch & Sequence Drift]
+    E --> F[SANERING: DTO-model + InvariantCulture]
+    F --> G[RESULTAT: 0 Warnings & Deterministisk UI]
+    
+    style C fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#ff9,stroke:#333,stroke-width:2px
+    style G fill:#9f9,stroke:#333,stroke-width:2px

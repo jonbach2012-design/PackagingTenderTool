@@ -636,6 +636,162 @@
     letter-spacing: -0.02em;
 }
 
+/* Radzen shell (Step 1) — muted procurement aesthetic */
+.rz-shell {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: #2d3436;
+}
+
+.rz-shell-sidebar {
+    background: #ffffff;
+    border-right: 1px solid rgba(45, 52, 54, 0.12);
+}
+
+.rz-shell-sidebar__hdr {
+    padding: 18px 16px 10px;
+    border-bottom: 2px solid #91a363;
+}
+
+.rz-shell-title {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-size: 1.0rem;
+}
+
+.rz-shell-subtitle {
+    color: rgba(45, 52, 54, 0.65);
+    font-size: 0.85rem;
+    margin-top: 2px;
+}
+
+.rz-shell-sidebar__section {
+    padding: 14px 16px;
+}
+
+.rz-shell-sidebar__label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-size: 0.72rem;
+    color: rgba(45, 52, 54, 0.65);
+    margin-bottom: 8px;
+}
+
+.rz-shell-body {
+    background: #f9f9f9;
+}
+
+.rz-shell-page {
+    padding: 18px;
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.rz-shell-page__title {
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+}
+
+.rz-card {
+    border-radius: 12px;
+    border: 1px solid rgba(45, 52, 54, 0.12);
+    box-shadow: 0 8px 20px rgba(45, 52, 54, 0.06);
+}
+
+.rz-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.rz-chart-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 1100px) {
+    .rz-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rz-chart-row { grid-template-columns: 1fr; }
+}
+
+.kpi__label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-size: 0.72rem;
+    color: rgba(45, 52, 54, 0.65);
+}
+
+.kpi__value {
+    font-weight: 800;
+    font-size: 1.55rem;
+    margin-top: 6px;
+    color: #2d3436;
+}
+
+.kpi__hint {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: rgba(45, 52, 54, 0.65);
+}
+
+.chart__title,
+.grid__title {
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.chart__placeholder {
+    color: rgba(45, 52, 54, 0.65);
+    padding: 22px;
+    border: 1px dashed rgba(45, 52, 54, 0.22);
+    border-radius: 10px;
+    background: rgba(245, 245, 245, 0.65);
+}
+
+.pt-echart {
+    width: 100%;
+    height: 360px;
+}
+
+.rz-breadcrumb {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    color: rgba(45, 52, 54, 0.65);
+    font-size: 0.85rem;
+}
+
+.rz-breadcrumb button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-weight: 700;
+    color: #2d3436;
+}
+
+.rz-breadcrumb .sep {
+    opacity: 0.6;
+}
+
+.rz-decision-cell {
+    background: rgba(45, 52, 54, 0.06);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: inline-block;
+    min-width: 84px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 .cockpit-kpi-card {
     border: 1px solid #e8e8e8 !important;
     border-top: 3px solid #91a363;

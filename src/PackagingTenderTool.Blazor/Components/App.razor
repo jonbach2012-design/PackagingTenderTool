@@ -13,12 +13,15 @@
 
     <link href="app.css" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="_content/Radzen.Blazor/css/material-base.css" rel="stylesheet" />
 
     <HeadOutlet />
 </head>
 <body>
     <Routes @rendermode="RenderMode.InteractiveServer" />
 
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="echarts-interop.js"></script>
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>

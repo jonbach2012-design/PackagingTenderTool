@@ -1,0 +1,671 @@
+@page "/tender-cockpit"
+
+@using PackagingTenderTool.Blazor.Components.Charts
+@using PackagingTenderTool.Blazor.Models
+@using PackagingTenderTool.Blazor.Services
+@using PackagingTenderTool.Blazor.ViewModels
+@using Microsoft.Extensions.Options
+@using Microsoft.JSInterop
+@using Radzen
+@using Radzen.Blazor
+@implements IDisposable
+
+@inject MockDataService MockData
+@inject ScenarioStateService Scenario
+@inject IOptions<TcoSettings> BaselineOptions
+@inject ExportService Exporter
+@inject IJSRuntime Js
+
+<RadzenLayout class="rz-shell">
+    <RadzenSidebar style="width: 280px" class="rz-shell-sidebar">
+        <div class="rz-shell-sidebar__hdr">
+            <div class="rz-shell-title">Tender Decision</div>
+            <div class="rz-shell-subtitle">Cockpit (Shell)</div>
+        </div>
+
+        <div class="rz-shell-sidebar__section">
+            <div class="rz-shell-sidebar__label">Scenario</div>
+            <RadzenTextBox Placeholder="Search supplier/site" Style="width:100%" />
+        </div>
+
+        <div class="rz-shell-sidebar__section">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div class="rz-shell-sidebar__label" style="margin-bottom:0;">EPR multipliers (active)</div>
+                <RadzenButton Text="Reset"
+                              Size="ButtonSize.Small"
+                              ButtonStyle="ButtonStyle.Light"
+                              Click="@ResetToBaseline"
+                              style="min-width: 76px;" />
+            </div>
+
+            <div style="margin-top: 12px; display:grid; grid-template-columns: 1fr; gap: 12px;">
+                @foreach (var cls in new[] { "A", "B", "C", "D" })
+                {
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <div class="rz-shell-sidebar__label" style="margin-bottom:4px;">Class @cls</div>
+                            <div style="font-weight:800;">@GetActive(cls).ToString("0.00")</div>
+                        </div>
+                        <RadzenSlider TValue="decimal" Min="-0.10m" Max="0.20m" Step="0.01m"
+                                      Value="@GetActive(cls)"
+                                      Change="@((decimal v) => OnActiveChanged(cls, v))"
+                                      Style="width:100%" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="rz-shell-sidebar__section">
+            <div class="rz-shell-sidebar__label">Strategic weights (index)</div>
+
+            <div style="display:grid; grid-template-columns: 1fr; gap: 12px;">
+                @foreach (var w in new[] { "Commercial", "Technical", "Switching", "Regulatory" })
+                {
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <div class="rz-shell-sidebar__label" style="margin-bottom:4px;">@w</div>
+                            <div style="font-weight:800;">@GetStrategic(w).ToString("0.00")</div>
+                        </div>
+                        <RadzenSlider TValue="decimal" Min="0.50m" Max="2.00m" Step="0.05m"
+                                      Value="@GetStrategic(w)"
+                                      Change="@((decimal v) => OnStrategicChanged(w, v))"
+                                      Style="width:100%" />
+                    </div>
+                }
+            </div>
+        </div>
+    </RadzenSidebar>
+
+    <RadzenBody class="rz-shell-body">
+        <div class="rz-shell-page">
+            <div class="rz-shell-page__title">Tender Decision Cockpit</div>
+
+            <div class="rz-kpi-row">
+                <RadzenCard class="rz-card kpi">
+                    <div class="kpi__label">Lowest supplier TCO</div>
+                    <div class="kpi__value">@_kpiLowestSupplierTco.ToString("N0")</div>
+                    <div class="kpi__hint">Lowest total (Site+Supplier)</div>
+                </RadzenCard>
+                <RadzenCard class="rz-card kpi">
+                    <div class="kpi__label">Total tender value</div>
+                    <div class="kpi__value">@_kpiTotalTenderValue.ToString("N0")</div>
+                    <div class="kpi__hint">Sum of all line totals</div>
+                </RadzenCard>
+                <RadzenCard class="rz-card kpi">
+                    <div class="kpi__label">Avg regulatory impact</div>
+                    <div class="kpi__value">@_kpiAvgRegulatory.ToString("N2")</div>
+                    <div class="kpi__hint">Avg per line (kr.)</div>
+                </RadzenCard>
+                <RadzenCard class="rz-card kpi">
+                    <div class="kpi__label">Data quality</div>
+                    <div class="kpi__value">@_kpiAvgDataQuality.ToString("N0")%</div>
+                    <div class="kpi__hint">Avg confidence (current view)</div>
+                </RadzenCard>
+                <RadzenCard class="rz-card kpi">
+                    <div class="kpi__label">Efficiency gain</div>
+                    <div class="kpi__value">@_kpiEfficiencyGain.ToString("N0")</div>
+                    <div class="kpi__hint">TCO(best-score) − TCO(best-TCO)</div>
+                </RadzenCard>
+            </div>
+
+            <div class="rz-chart-row">
+                <RadzenCard class="rz-card chart">
+                    <div class="chart__title">TCO simulation (click to drill down)</div>
+
+                    <div class="rz-breadcrumb">
+                        <button @onclick="BreadcrumbRoot">Suppliers</button>
+                        @if (!string.IsNullOrWhiteSpace(_selectedSupplier))
+                        {
+                            <span class="sep">/</span>
+                            <button @onclick="BreadcrumbSupplier">@_selectedSupplier</button>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_selectedSite))
+                        {
+                            <span class="sep">/</span>
+                            <span>@_selectedSite</span>
+                        }
+                    </div>
+
+                    <EChartsStackedBar Option="@_chartOption" OnCategoryClick="OnChartClick" Style="width:100%;height:360px;" />
+                </RadzenCard>
+                <RadzenCard class="rz-card chart">
+                    <div class="chart__title">Chart container B</div>
+                    <div class="chart__placeholder">ECharts goes here (Step 3)</div>
+                </RadzenCard>
+            </div>
+
+            <RadzenCard class="rz-card grid">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+                    <div class="grid__title">Audit grid</div>
+                    <div style="display:flex; align-items:center; gap: 14px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-weight:800;">Outliers</span>
+                            <RadzenSwitch TValue="bool" Value="@_outliersOnly" Change="@((bool v) => OnOutliersToggle(v))" />
+                        </div>
+                        <RadzenButton Text="Export .xlsx"
+                                      Size="ButtonSize.Small"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Click="@ExportAudit" />
+                    </div>
+                </div>
+
+                <RadzenDataGrid TItem="AuditGridRow"
+                                Data="@_auditRowsView"
+                                AllowFiltering="true"
+                                AllowSorting="true"
+                                AllowPaging="true"
+                                PageSize="20"
+                                AllowVirtualization="true"
+                                Density="Density.Compact"
+                                @ref="_auditGrid"
+                                class="rz-grid">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="LineItem" Title="Line" Width="120px" />
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Site" Title="Site" Width="120px" />
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Category" Title="Category" Width="130px" />
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Supplier" Title="Supplier" />
+
+                        <RadzenDataGridColumn TItem="AuditGridRow" Title="Material" Width="110px">
+                            <Template Context="row">
+                                <RadzenBadge Text="@row.MaterialClass" Style="@MaterialBadgeStyle(row.MaterialClass)" />
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="BasePrice" Title="Base price" Width="130px" TextAlign="TextAlign.Right" />
+                        <RadzenDataGridColumn TItem="AuditGridRow" Property="ActualTco" Title="Actual TCO" Width="130px" TextAlign="TextAlign.Right" />
+
+                        <RadzenDataGridColumn TItem="AuditGridRow" Title="Decision score" Width="150px" TextAlign="TextAlign.Right">
+                            <Template Context="row">
+                                <div class="rz-decision-cell">@row.DecisionScoreIndex.ToString("N1")</div>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+
+                    <Template Context="row">
+                        <div style="padding: 10px 10px 4px;">
+                            <div style="font-weight: 900; margin-bottom: 6px;">Negotiation table</div>
+                            <RadzenDataGrid TItem="NegotiationBidRow"
+                                            Data="@GetNegotiationFor(row)"
+                                            AllowPaging="false"
+                                            AllowSorting="false"
+                                            Density="Density.Compact">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Title="Supplier">
+                                        <Template Context="b">
+                                            <span style="font-weight:900;">
+                                                @b.Supplier
+                                                @if (b.IsBestInScenario)
+                                                {
+                                                    <span style="margin-left:8px; color:#ffb300; font-weight:900;">★</span>
+                                                }
+                                            </span>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="ActualTco" Title="TCO" TextAlign="TextAlign.Right" Width="120px" />
+                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="VariancePercent" Title="Variance %" TextAlign="TextAlign.Right" Width="120px" />
+                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="DecisionScoreIndex" Title="Decision idx" TextAlign="TextAlign.Right" Width="130px" />
+                                </Columns>
+                            </RadzenDataGrid>
+                        </div>
+                    </Template>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+@code {
+    private IReadOnlyList<SupplierSummary> _supplierSummaries = Array.Empty<SupplierSummary>();
+    private IReadOnlyList<LineTcoEntry> _entries = Array.Empty<LineTcoEntry>();
+    private IReadOnlyList<AuditGridRow> _auditRows = Array.Empty<AuditGridRow>();
+    private IReadOnlyList<AuditGridRow> _auditRowsView = Array.Empty<AuditGridRow>();
+    private bool _outliersOnly;
+    private RadzenDataGrid<AuditGridRow>? _auditGrid;
+
+    private object? _chartOption;
+
+    private string? _selectedSupplier;
+    private string? _selectedSite;
+
+    private decimal _kpiLowestSupplierTco;
+    private decimal _kpiTotalTenderValue;
+    private decimal _kpiAvgRegulatory;
+    private decimal _kpiAvgDataQuality;
+    private decimal _kpiEfficiencyGain;
+
+    protected override void OnInitialized()
+    {
+        Scenario.OnChange += OnScenarioChanged;
+
+        if (Scenario.BaselineWeights.Count == 0)
+        {
+            Scenario.InitializeBaseline(BaselineOptions.Value.EprMultipliers);
+        }
+
+        ReloadAll();
+    }
+
+    private void ReloadAll()
+    {
+        _supplierSummaries = MockData.GetSupplierSummaries(140);
+        _entries = MockData.GetLineTcoEntries(140);
+        _auditRows = MockData.GetAuditRows(140);
+        RebuildAuditView();
+
+        _kpiLowestSupplierTco = _supplierSummaries.Count == 0 ? 0m : _supplierSummaries.Min(s => s.Total);
+        _kpiTotalTenderValue = _supplierSummaries.Sum(s => s.Total);
+
+        var lineCount = _supplierSummaries.Sum(s => s.Lines);
+        _kpiAvgRegulatory = lineCount == 0 ? 0m : _supplierSummaries.Sum(s => s.Regulatory) / lineCount;
+
+        BuildChart();
+        ComputeEfficiencyGain();
+    }
+
+    private void BuildChart()
+    {
+        var items = BuildChartItems();
+
+        _kpiAvgDataQuality = items.Count == 0 ? 0m : items.Average(i => i.Quality);
+
+        var vm = TcoDashboardViewModel.Build(items.Select(i => (i.Key, i.Active)));
+        _chartOption = BuildEchartsOption(vm, items);
+    }
+
+    private void ComputeEfficiencyGain()
+    {
+        // Only meaningful at supplier level.
+        if (!string.IsNullOrWhiteSpace(_selectedSupplier) || !string.IsNullOrWhiteSpace(_selectedSite))
+        {
+            _kpiEfficiencyGain = 0m;
+            return;
+        }
+
+        var groups = _entries
+            .GroupBy(e => e.Line.Supplier)
+            .Select(g =>
+            {
+                var actualTotal = g.Sum(x => x.Result.Total);
+                var scoreAvg = g.Average(x => x.DecisionScoreIndex);
+                return new { Supplier = g.Key, ActualTotal = actualTotal, DecisionScore = scoreAvg };
+            })
+            .ToList();
+
+        if (groups.Count == 0)
+        {
+            _kpiEfficiencyGain = 0m;
+            return;
+        }
+
+        var bestByTco = groups.OrderBy(g => g.ActualTotal).First();
+        var bestByScore = groups.OrderBy(g => g.DecisionScore).First();
+
+        _kpiEfficiencyGain = decimal.Round(bestByScore.ActualTotal - bestByTco.ActualTotal, 0, MidpointRounding.AwayFromZero);
+    }
+
+    private static TcoResult Sum(IEnumerable<TcoResult> results)
+    {
+        decimal commercial = 0m, regulatory = 0m, technical = 0m, switching = 0m, total = 0m;
+        foreach (var r in results)
+        {
+            commercial += r.Commercial;
+            regulatory += r.Regulatory;
+            technical += r.Technical;
+            switching += r.Switching;
+            total += r.Total;
+        }
+
+        return new TcoResult(commercial, regulatory, technical, switching, total);
+    }
+
+    private sealed record ChartItem(string Key, TcoResult Baseline, TcoResult Active, decimal Quality);
+
+    private IReadOnlyList<ChartItem> BuildChartItems()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedSupplier))
+        {
+            return _entries
+                .GroupBy(e => e.Line.Supplier)
+                .Select(g =>
+                {
+                    var baseline = Sum(g.Select(x => CalculateWithWeights(x.Offer, Scenario.BaselineWeights)));
+                    var active = Sum(g.Select(x => CalculateWithWeights(x.Offer, Scenario.ActiveWeights)));
+                    var quality = g.Average(x => x.Offer.DataQualityScore);
+                    return new ChartItem(g.Key, baseline, active, quality);
+                })
+                .OrderByDescending(x => x.Active.Total)
+                .ToList();
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedSite))
+        {
+            return _entries
+                .Where(e => e.Line.Supplier == _selectedSupplier)
+                .GroupBy(e => e.Line.Site)
+                .Select(g =>
+                {
+                    var baseline = Sum(g.Select(x => CalculateWithWeights(x.Offer, Scenario.BaselineWeights)));
+                    var active = Sum(g.Select(x => CalculateWithWeights(x.Offer, Scenario.ActiveWeights)));
+                    var quality = g.Average(x => x.Offer.DataQualityScore);
+                    return new ChartItem(g.Key, baseline, active, quality);
+                })
+                .OrderByDescending(x => x.Active.Total)
+                .ToList();
+        }
+
+        return _entries
+            .Where(e => e.Line.Supplier == _selectedSupplier && e.Line.Site == _selectedSite)
+            .OrderBy(e => e.Line.LineItem)
+            .Select(e => new ChartItem(
+                Key: e.Line.LineItem,
+                Baseline: CalculateWithWeights(e.Offer, Scenario.BaselineWeights),
+                Active: CalculateWithWeights(e.Offer, Scenario.ActiveWeights),
+                Quality: e.Offer.DataQualityScore))
+            .ToList();
+    }
+
+    private static TcoResult CalculateWithWeights(SupplierOffer offer, IReadOnlyDictionary<string, decimal> weights)
+    {
+        var multiplier = weights.TryGetValue(offer.MaterialClass, out var v) ? v : 0m;
+
+        var commercial = Math.Max(0m, offer.BasePrice);
+        var technical = Math.Max(0m, offer.TechnicalFit);
+        var switching = Math.Max(0m, offer.SwitchingCost);
+        var regulatory = commercial * multiplier;
+        var total = commercial + technical + switching + regulatory;
+
+        return new TcoResult(
+            Commercial: decimal.Round(commercial, 2, MidpointRounding.AwayFromZero),
+            Regulatory: decimal.Round(regulatory, 2, MidpointRounding.AwayFromZero),
+            Technical: decimal.Round(technical, 2, MidpointRounding.AwayFromZero),
+            Switching: decimal.Round(switching, 2, MidpointRounding.AwayFromZero),
+            Total: decimal.Round(total, 2, MidpointRounding.AwayFromZero));
+    }
+
+    private object BuildEchartsOption(TcoDashboardViewModel vm, IReadOnlyList<ChartItem> items)
+    {
+        var labels = vm.Rows.Select(r => r.Supplier).ToArray();
+        var baselineTotals = items.Select(i => decimal.Round(i.Baseline.Total, 0, MidpointRounding.AwayFromZero)).ToArray();
+
+        var deltaPins = items
+            .Select((i, idx) => new { i, idx })
+            .Where(x => x.i.Baseline.Total != 0m && Math.Abs((x.i.Active.Total - x.i.Baseline.Total) / x.i.Baseline.Total) >= 0.10m)
+            .Select(x => new
+            {
+                coord = new object[] { x.i.Key, decimal.Round(x.i.Active.Total, 0, MidpointRounding.AwayFromZero) },
+                value = "Δ",
+                label = new { show = true, formatter = "Δ" }
+            })
+            .ToArray();
+
+        var series = new List<object>();
+
+        // Baseline shadow bar (single total).
+        series.Add(new
+        {
+            name = "Baseline",
+            type = "bar",
+            barWidth = 18,
+            itemStyle = new { color = "rgba(189,189,189,0.45)" },
+            data = baselineTotals
+        });
+
+        foreach (var cat in vm.CategoryOrder)
+        {
+            var data = vm.Rows
+                .Select(r => r.Categories.FirstOrDefault(c => c.Name == cat)?.Value ?? 0m)
+                .Select((v, idx) =>
+                {
+                    var quality = items[idx].Quality;
+                    if (quality >= 75m)
+                        return (object)decimal.Round(v, 2, MidpointRounding.AwayFromZero);
+
+                    return new
+                    {
+                        value = decimal.Round(v, 2, MidpointRounding.AwayFromZero),
+                        itemStyle = new
+                        {
+                            decal = new
+                            {
+                                symbol = "rect",
+                                dashArrayX = new[] { 1, 0 },
+                                dashArrayY = new[] { 2, 3 },
+                                rotation = 0.78539816339, // pi/4
+                                color = "rgba(45,52,54,0.35)"
+                            }
+                        }
+                    };
+                })
+                .ToArray();
+
+            series.Add(new
+            {
+                name = cat,
+                type = "bar",
+                stack = "current",
+                barWidth = 14,
+                barGap = "-100%",
+                emphasis = new { focus = "series" },
+                data
+            });
+        }
+
+        // Total label at the top of each stacked bar (and delta pins if >10%).
+        series.Add(new
+        {
+            name = "Current total",
+            type = "scatter",
+            symbolSize = 1,
+            data = vm.Rows.Select(r => decimal.Round(r.Total, 0, MidpointRounding.AwayFromZero)).ToArray(),
+            label = new
+            {
+                show = true,
+                position = "top",
+                formatter = "{c}"
+            },
+            tooltip = new { show = false },
+            markPoint = new
+            {
+                symbol = "pin",
+                symbolSize = 28,
+                data = deltaPins
+            }
+        });
+
+        // Legend helper: low-confidence marker
+        series.Add(new
+        {
+            name = "Low data quality (<75%)",
+            type = "bar",
+            stack = "legend",
+            silent = true,
+            itemStyle = new
+            {
+                color = "rgba(255,179,0,0.55)",
+                decal = new
+                {
+                    symbol = "rect",
+                    dashArrayX = new[] { 1, 0 },
+                    dashArrayY = new[] { 2, 3 },
+                    rotation = 0.78539816339,
+                    color = "rgba(45,52,54,0.35)"
+                }
+            },
+            data = labels.Select(_ => 0).ToArray(),
+            tooltip = new { show = false }
+        });
+
+        return new
+        {
+            grid = new { left = 40, right = 20, top = 20, bottom = 50, containLabel = true },
+            tooltip = new
+            {
+                trigger = "axis",
+                axisPointer = new { type = "shadow" },
+                // Converted to a JS function in echarts-interop.js
+                formatterJs =
+                    "const arr = Array.isArray(params) ? params : [params];\n" +
+                    "const name = arr[0]?.axisValueLabel ?? arr[0]?.name ?? '';\n" +
+                    "let baseline = 0;\n" +
+                    "let current = 0;\n" +
+                    "for (const p of arr) {\n" +
+                    "  if (p.seriesName === 'Baseline') baseline = Number(p.value || 0);\n" +
+                    "  if (p.seriesType === 'bar' && p.seriesName !== 'Baseline' && p.seriesName !== 'Low data quality (<75%)') current += Number(p.value || 0);\n" +
+                    "}\n" +
+                    "const delta = current - baseline;\n" +
+                    "const sign = delta >= 0 ? '+' : '';\n" +
+                    "return `${name}<br/>Current: ${current.toLocaleString()} (Delta: ${sign}${delta.toLocaleString()} vs. Baseline)`;"
+            },
+            legend = new { bottom = 0 },
+            xAxis = new
+            {
+                type = "category",
+                data = labels,
+                axisLabel = new { interval = 0, rotate = labels.Length > 8 ? 20 : 0 }
+            },
+            yAxis = new { type = "value" },
+            series
+        };
+    }
+
+    private Task OnChartClick(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return Task.CompletedTask;
+
+        if (string.IsNullOrWhiteSpace(_selectedSupplier))
+        {
+            _selectedSupplier = name;
+            _selectedSite = null;
+        }
+        else if (string.IsNullOrWhiteSpace(_selectedSite))
+        {
+            _selectedSite = name;
+        }
+
+        BuildChart();
+        RebuildAuditView();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void BreadcrumbRoot()
+    {
+        _selectedSupplier = null;
+        _selectedSite = null;
+        BuildChart();
+        RebuildAuditView();
+    }
+
+    private void BreadcrumbSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedSupplier))
+            return;
+
+        _selectedSite = null;
+        BuildChart();
+        RebuildAuditView();
+    }
+
+    private decimal GetActive(string cls) => Scenario.GetActiveMultiplier(cls);
+
+    private void OnActiveChanged(string cls, decimal value)
+    {
+        Scenario.SetActiveWeight(cls, value);
+    }
+
+    private void ResetToBaseline()
+    {
+        Scenario.ResetToBaseline();
+
+        _outliersOnly = false;
+        _selectedSupplier = null;
+        _selectedSite = null;
+        RebuildAuditView(resetGrid: true);
+    }
+
+    private void OnOutliersToggle(bool value)
+    {
+        _outliersOnly = value;
+        RebuildAuditView();
+    }
+
+    private void RebuildAuditView(bool resetGrid = false)
+    {
+        IEnumerable<AuditGridRow> q = _auditRows;
+
+        if (!string.IsNullOrWhiteSpace(_selectedSupplier))
+            q = q.Where(r => r.Supplier == _selectedSupplier);
+        if (!string.IsNullOrWhiteSpace(_selectedSite))
+            q = q.Where(r => r.Site == _selectedSite);
+
+        if (_outliersOnly)
+        {
+            q = q.Where(r =>
+            {
+                if (r.ActualTco == 0m) return false;
+                var dev = Math.Abs(r.WeightedDecisionScore - r.ActualTco) / r.ActualTco;
+                return dev > 0.15m;
+            });
+        }
+
+        _auditRowsView = q.ToList();
+
+        if (resetGrid && _auditGrid is not null)
+        {
+            // Best-effort reset (Radzen doesn't expose a single "clear everything" API in our codebase).
+            _auditGrid = null;
+        }
+    }
+
+    private IReadOnlyList<NegotiationBidRow> GetNegotiationFor(AuditGridRow row)
+        => MockData.GetNegotiationRows(row.LineItem, row.Site, 140);
+
+    private static string MaterialBadgeStyle(string cls)
+        => cls switch
+        {
+            "A" => "background:#91a363;color:white;",
+            "B" => "background:#5c6b76;color:white;",
+            "C" => "background:#ffb300;color:#2d3436;",
+            "D" => "background:#d9534f;color:white;",
+            _ => "background:#bdbdbd;color:#2d3436;"
+        };
+
+    private Task ExportAudit()
+    {
+        var bytes = Exporter.ExportAudit(_auditRowsView, Scenario, DateTimeOffset.Now);
+        var base64 = Convert.ToBase64String(bytes);
+        return Js.InvokeVoidAsync(
+            "ptDownload.saveBase64File",
+            $"tender_audit_{DateTimeOffset.Now:yyyyMMdd_HHmm}.xlsx",
+            base64,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").AsTask();
+    }
+
+    private decimal GetStrategic(string pillar)
+        => pillar switch
+        {
+            "Commercial" => Scenario.StrategicWeights.Commercial,
+            "Technical" => Scenario.StrategicWeights.Technical,
+            "Switching" => Scenario.StrategicWeights.Switching,
+            "Regulatory" => Scenario.StrategicWeights.Regulatory,
+            _ => 1.0m
+        };
+
+    private void OnStrategicChanged(string pillar, decimal value)
+    {
+        Scenario.SetStrategicWeight(pillar, value);
+    }
+
+    private void OnScenarioChanged()
+    {
+        ReloadAll();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Scenario.OnChange -= OnScenarioChanged;
+    }
+}
+
