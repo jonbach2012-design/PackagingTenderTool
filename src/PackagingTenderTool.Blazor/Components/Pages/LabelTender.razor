@@ -12,8 +12,8 @@
 
 @inject PackagingProfileSession Session
 @inject NavigationManager Nav
-@inject PackagingTenderTool.Core.Services.RegulatoryService Regulatory
 @inject LabelsExcelImportService Importer
+@inject PackagingTenderTool.Blazor.Services.TcoEngineService TcoEngine
 
 @if (Session.SelectedProfile is null)
 {
@@ -162,6 +162,7 @@ else
                                         var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
 
                                         <g opacity="@FmtSvg(alpha)">
+                                            <title>@r.CalculationBreakdown</title>
                                             <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
 
                                             <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
@@ -184,6 +185,20 @@ else
                                     }
                                 }
                             </svg>
+                        </div>
+
+                        <div style="margin-top: 12px; display:flex; flex-wrap:wrap; gap: 14px; align-items:center;">
+                            <div style="display:flex; align-items:center; gap: 8px;">
+                                <span style="width:14px;height:14px;border-radius:3px;background:#91a363;display:inline-block;"></span>
+                                <span>Commercial Base (Forhandlet pris)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap: 8px;">
+                                <span style="width:14px;height:14px;border-radius:3px;background:#4682B4;display:inline-block;"></span>
+                                <span>Regulatory/Technical Adjustments (Skjulte risici & tillæg)</span>
+                            </div>
+                            <div style="color: rgba(45, 52, 54, 0.65);">
+                                Gennemsigtighed indikerer strategisk CTR-score (lav score = udfaset bar).
+                            </div>
                         </div>
                     </MudPaper>
                 </MudTabPanel>
@@ -535,7 +550,7 @@ else
     private string[] _filterAdhesives = [];
     private bool _synergyToggle;
 
-    private readonly List<TcoResult> _tcoResults = [];
+    private readonly List<PackagingTenderTool.Blazor.Models.LabelTender.LabelTenderDashboardDto> _tcoResults = [];
 
     private List<LabelLineItem> _importedLineItems = [];
     private string _importStatus = string.Empty;
@@ -1006,7 +1021,7 @@ else
                 .ToList();
 
             _tcoResults.Clear();
-            _tcoResults.AddRange(BuildTcoResults(_suppliersSelected));
+            _tcoResults.AddRange(TcoEngine.GetResults(Session, _suppliersSelected));
         }
         finally
         {
@@ -1015,168 +1030,6 @@ else
     }
 
     // Spend overview: keep single source of truth for spend rows + horizontal stacked SVG.
-
-    private sealed class TcoResult
-    {
-        public required string SupplierName { get; init; }
-        public required decimal Commercial { get; init; }
-        public required decimal Epr { get; init; }
-        public required decimal Switching { get; init; }
-        public required decimal Moq { get; init; }
-        public required decimal Total { get; init; }
-        public required decimal PriceScore { get; init; }
-        public required decimal TechScore { get; init; }
-        public required decimal RegScore { get; init; }
-        public required decimal FinalCtrScore { get; init; }
-
-        public required double CommercialWidth { get; init; }
-        public required double RegulatoryWidth { get; init; }
-        public required double SwitchingWidth { get; init; }
-        public required double MoqWidth { get; init; }
-        public required double TotalWidth { get; init; }
-    }
-
-    private List<TcoResult> BuildTcoResults(IReadOnlyList<SupplierModel> suppliers)
-    {
-        var results = new List<TcoResult>(suppliers.Count);
-        if (suppliers.Count == 0)
-            return results;
-
-        foreach (var s in suppliers)
-        {
-            var volume = s.QuantityLabels <= 0 ? 0m : s.QuantityLabels;
-            var commercial = volume * s.Price;
-
-            var country = string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country;
-            var grade = Session.GetSupplierRecyclabilityGrade(s.SupplierId);
-
-            var epr = 0m;
-            if (Session.ApplyPpwr2030Scenario)
-            {
-                var eprBase = Regulatory.CalculateEpr2026ForecastFee(
-                    countryCode: country,
-                    labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
-                    quantityUnits: volume);
-
-                var gradeFactor = grade switch
-                {
-                    RecyclingGrade.A => 1.0m,
-                    RecyclingGrade.B => 1.3m,
-                    RecyclingGrade.C => 1.8m,
-                    RecyclingGrade.D => 2.4m,
-                    RecyclingGrade.E => 3.0m,
-                    _ => 1.8m
-                };
-
-                epr = eprBase * gradeFactor;
-            }
-
-            var switching = s.SupplierId.Equals(Session.IncumbentSupplierId, StringComparison.OrdinalIgnoreCase)
-                ? 0m
-                : Session.GetStartupCost(s.SupplierId) + (Session.GetMonthlySupportCost(s.SupplierId) * 12m);
-
-            var moq = commercial * (Session.GetSupplierMoqPenaltyPct(s.SupplierId) / 100m);
-
-            // Technical score adjustment (lead time penalty).
-            var tech = s.TechnicalScore;
-            if (s.LeadTimeWeeks > 4)
-                tech = Math.Max(0m, tech - ((s.LeadTimeWeeks - 4) * 5m));
-
-            var regScore = s.RegulatoryScore;
-            var total = commercial + epr + switching + moq;
-
-            results.Add(new TcoResult
-            {
-                SupplierName = s.SupplierName,
-                Commercial = decimal.Round(commercial, 0, MidpointRounding.AwayFromZero),
-                Epr = decimal.Round(epr, 0, MidpointRounding.AwayFromZero),
-                Switching = decimal.Round(switching, 0, MidpointRounding.AwayFromZero),
-                Moq = decimal.Round(moq, 0, MidpointRounding.AwayFromZero),
-                Total = decimal.Round(total, 0, MidpointRounding.AwayFromZero),
-                PriceScore = 0m,
-                TechScore = decimal.Round(tech, 1, MidpointRounding.AwayFromZero),
-                RegScore = decimal.Round(regScore, 1, MidpointRounding.AwayFromZero),
-                FinalCtrScore = 0m,
-                CommercialWidth = 0,
-                RegulatoryWidth = 0,
-                SwitchingWidth = 0,
-                MoqWidth = 0,
-                TotalWidth = 0
-            });
-        }
-
-        // Price score: min TCO gets 100; others scale by (min/current)*100.
-        var minTco = results.Min(r => r.Total);
-        if (minTco <= 0m)
-            minTco = 1m;
-
-        for (var i = 0; i < results.Count; i++)
-        {
-            var r = results[i];
-            var priceScore = r.Total <= 0m ? 0m : Math.Clamp((minTco / r.Total) * 100m, 0m, 100m);
-            var final = ((priceScore * Session.Commercial) + (r.TechScore * Session.Technical) + (r.RegScore * Session.Regulatory)) / 100m;
-            final = Math.Clamp(final, 0m, 100m);
-
-            results[i] = new TcoResult
-            {
-                SupplierName = r.SupplierName,
-                Commercial = r.Commercial,
-                Epr = r.Epr,
-                Switching = r.Switching,
-                Moq = r.Moq,
-                Total = r.Total,
-                PriceScore = decimal.Round(priceScore, 1, MidpointRounding.AwayFromZero),
-                TechScore = r.TechScore,
-                RegScore = r.RegScore,
-                FinalCtrScore = decimal.Round(final, 1, MidpointRounding.AwayFromZero),
-                CommercialWidth = r.CommercialWidth,
-                RegulatoryWidth = r.RegulatoryWidth,
-                SwitchingWidth = r.SwitchingWidth,
-                MoqWidth = r.MoqWidth,
-                TotalWidth = r.TotalWidth
-            };
-        }
-
-        // Sort by final CTR score descending (most relevant first).
-        results = results.OrderByDescending(r => r.FinalCtrScore).ThenBy(r => r.SupplierName, StringComparer.OrdinalIgnoreCase).ToList();
-
-        var maxTotal = results.Max(r => r.Total);
-        if (maxTotal <= 0m)
-            maxTotal = 1m;
-
-        var scale = 600.0 / (double)maxTotal;
-
-        for (var i = 0; i < results.Count; i++)
-        {
-            var r = results[i];
-            var commW = (double)r.Commercial * scale;
-            var regW = (double)r.Epr * scale;
-            var swW = (double)r.Switching * scale;
-            var moqW = (double)r.Moq * scale;
-            var totalW = (double)r.Total * scale;
-
-            results[i] = new TcoResult
-            {
-                SupplierName = r.SupplierName,
-                Commercial = r.Commercial,
-                Epr = r.Epr,
-                Switching = r.Switching,
-                Moq = r.Moq,
-                Total = r.Total,
-                PriceScore = r.PriceScore,
-                TechScore = r.TechScore,
-                RegScore = r.RegScore,
-                FinalCtrScore = r.FinalCtrScore,
-                CommercialWidth = commW,
-                RegulatoryWidth = regW,
-                SwitchingWidth = swW,
-                MoqWidth = moqW,
-                TotalWidth = totalW
-            };
-        }
-
-        return results;
-    }
 
     private static string FmtSvg(double v) =>
         v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);

@@ -86,3 +86,25 @@ window.ptDownload = {
   }
 };
 
+window.ptKeys = (function () {
+  let escapeHandler = null;
+
+  function registerEscape(dotnetRef) {
+    unregisterEscape();
+    escapeHandler = function (e) {
+      if (e && (e.key === "Escape" || e.key === "Esc")) {
+        dotnetRef.invokeMethodAsync("OnEscapePressed");
+      }
+    };
+    document.addEventListener("keydown", escapeHandler);
+  }
+
+  function unregisterEscape() {
+    if (!escapeHandler) return;
+    document.removeEventListener("keydown", escapeHandler);
+    escapeHandler = null;
+  }
+
+  return { registerEscape, unregisterEscape };
+})();
+

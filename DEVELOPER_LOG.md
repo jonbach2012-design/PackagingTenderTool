@@ -53,3 +53,27 @@ graph TD
     style C fill:#f9f,stroke:#333,stroke-width:2px
     style E fill:#ff9,stroke:#333,stroke-width:2px
     style G fill:#9f9,stroke:#333,stroke-width:2px
+
+---
+
+## Definition of Done (System Sanitization)
+
+| Principle | Status | Verification |
+|---|---:|---|
+| SoC | ✅ | UI pages call services; no math in Razor rendering loops |
+| SRP | ✅ | `TcoEngineService.GetResults(session, suppliers)` owns spend/TCO/scoring logic |
+| Testability | ✅ | `/chart-test` remains isolated PoC for deterministic rendering |
+| Domain Modeling | ✅ | DTOs (`LabelTenderDashboardDto`, `TcoDecisionOutput`, etc.) used as boundaries |
+| Deterministic Logic | ✅ | `FmtSvg` forces `InvariantCulture` for SVG attributes |
+| DTOs | ✅ | Calculation output includes `CalculationBreakdown` for explainability |
+| Idempotence | ✅ | Same session + inputs => same results (no UI side-effects); audited mapping uses O(n) association |
+| Observability | ✅ | SVG tooltips show “why this score” via native `<title>` |
+
+**Final status**: Architecture Audited & Performance Optimized (O(n) lookups implemented)
+
+```mermaid
+flowchart LR
+    S[Session] --> E[TcoEngineService]
+    E --> D[DTO w/ Breakdown]
+    D --> V[Visual Dashboard]
+```

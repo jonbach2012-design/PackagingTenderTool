@@ -108,108 +108,121 @@
                 </RadzenCard>
             </div>
 
-            <div class="rz-chart-row">
-                <RadzenCard class="rz-card chart">
-                    <div class="chart__title">TCO simulation (click to drill down)</div>
+            <RadzenTabs class="rz-card" Style="padding: 10px;">
+                <Tabs>
+                    <RadzenTabsItem Text="Analyse">
+                        <div class="rz-chart-row" style="margin-top: 10px;">
+                            <RadzenCard class="rz-card chart">
+                                <div class="chart__title">TCO simulation (click to drill down)</div>
 
-                    <div class="rz-breadcrumb">
-                        <button @onclick="BreadcrumbRoot">Suppliers</button>
-                        @if (!string.IsNullOrWhiteSpace(_selectedSupplier))
-                        {
-                            <span class="sep">/</span>
-                            <button @onclick="BreadcrumbSupplier">@_selectedSupplier</button>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(_selectedSite))
-                        {
-                            <span class="sep">/</span>
-                            <span>@_selectedSite</span>
-                        }
-                    </div>
+                                <div class="rz-breadcrumb">
+                                    <button @onclick="BreadcrumbRoot">Suppliers</button>
+                                    @if (!string.IsNullOrWhiteSpace(_selectedSupplier))
+                                    {
+                                        <span class="sep">/</span>
+                                        <button @onclick="BreadcrumbSupplier">@_selectedSupplier</button>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(_selectedSite))
+                                    {
+                                        <span class="sep">/</span>
+                                        <span>@_selectedSite</span>
+                                    }
+                                </div>
 
-                    <EChartsStackedBar Option="@_chartOption" OnCategoryClick="OnChartClick" Style="width:100%;height:360px;" />
-                </RadzenCard>
-                <RadzenCard class="rz-card chart">
-                    <div class="chart__title">Chart container B</div>
-                    <div class="chart__placeholder">ECharts goes here (Step 3)</div>
-                </RadzenCard>
-            </div>
-
-            <RadzenCard class="rz-card grid">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
-                    <div class="grid__title">Audit grid</div>
-                    <div style="display:flex; align-items:center; gap: 14px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-weight:800;">Outliers</span>
-                            <RadzenSwitch TValue="bool" Value="@_outliersOnly" Change="@((bool v) => OnOutliersToggle(v))" />
+                                <EChartsStackedBar Option="@_chartOption" OnCategoryClick="OnChartClick" Style="width:100%;height:360px;" />
+                            </RadzenCard>
+                            <RadzenCard class="rz-card chart">
+                                <div class="chart__title">Chart container B</div>
+                                <div class="chart__placeholder">ECharts goes here (Step 3)</div>
+                            </RadzenCard>
                         </div>
-                        <RadzenButton Text="Export .xlsx"
-                                      Size="ButtonSize.Small"
-                                      ButtonStyle="ButtonStyle.Primary"
-                                      Click="@ExportAudit" />
-                    </div>
-                </div>
+                    </RadzenTabsItem>
 
-                <RadzenDataGrid TItem="AuditGridRow"
-                                Data="@_auditRowsView"
-                                AllowFiltering="true"
-                                AllowSorting="true"
-                                AllowPaging="true"
-                                PageSize="20"
-                                AllowVirtualization="true"
-                                Density="Density.Compact"
-                                @ref="_auditGrid"
-                                class="rz-grid">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="LineItem" Title="Line" Width="120px" />
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Site" Title="Site" Width="120px" />
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Category" Title="Category" Width="130px" />
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="Supplier" Title="Supplier" />
+                    <RadzenTabsItem Text="Eksekvering (Audit)">
+                        <div class="@(_gridFullscreen ? "rz-grid-fullscreen" : "")">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+                                <div class="grid__title">Audit grid</div>
+                                <div style="display:flex; align-items:center; gap: 14px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span style="font-weight:800;">Outliers</span>
+                                        <RadzenSwitch TValue="bool" Value="@_outliersOnly" Change="@((bool v) => OnOutliersToggle(v))" />
+                                    </div>
+                                    <RadzenButton Text="@(_gridFullscreen ? "Exit full screen" : "Full screen")"
+                                                  Size="ButtonSize.Small"
+                                                  ButtonStyle="ButtonStyle.Light"
+                                                  Click="@ToggleGridFullscreen" />
+                                    <RadzenButton Text="Export .xlsx"
+                                                  Size="ButtonSize.Small"
+                                                  ButtonStyle="ButtonStyle.Primary"
+                                                  Click="@ExportAudit" />
+                                </div>
+                            </div>
 
-                        <RadzenDataGridColumn TItem="AuditGridRow" Title="Material" Width="110px">
-                            <Template Context="row">
-                                <RadzenBadge Text="@row.MaterialClass" Style="@MaterialBadgeStyle(row.MaterialClass)" />
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="BasePrice" Title="Base price" Width="130px" TextAlign="TextAlign.Right" />
-                        <RadzenDataGridColumn TItem="AuditGridRow" Property="ActualTco" Title="Actual TCO" Width="130px" TextAlign="TextAlign.Right" />
-
-                        <RadzenDataGridColumn TItem="AuditGridRow" Title="Decision score" Width="150px" TextAlign="TextAlign.Right">
-                            <Template Context="row">
-                                <div class="rz-decision-cell">@row.DecisionScoreIndex.ToString("N1")</div>
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-
-                    <Template Context="row">
-                        <div style="padding: 10px 10px 4px;">
-                            <div style="font-weight: 900; margin-bottom: 6px;">Negotiation table</div>
-                            <RadzenDataGrid TItem="NegotiationBidRow"
-                                            Data="@GetNegotiationFor(row)"
-                                            AllowPaging="false"
-                                            AllowSorting="false"
-                                            Density="Density.Compact">
+                            <RadzenDataGrid TItem="AuditGridRow"
+                                            Data="@_auditRowsView"
+                                            AllowFiltering="true"
+                                            AllowSorting="true"
+                                            AllowPaging="true"
+                                            PageSize="@(_gridFullscreen ? 50 : 20)"
+                                            AllowVirtualization="true"
+                                            Density="Density.Compact"
+                                            @ref="_auditGrid"
+                                            class="rz-grid"
+                                            Style="@(_gridFullscreen ? "height: calc(100dvh - 170px);" : null)">
                                 <Columns>
-                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Title="Supplier">
-                                        <Template Context="b">
-                                            <span style="font-weight:900;">
-                                                @b.Supplier
-                                                @if (b.IsBestInScenario)
-                                                {
-                                                    <span style="margin-left:8px; color:#ffb300; font-weight:900;">★</span>
-                                                }
-                                            </span>
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="LineItem" Title="Line" Width="120px" />
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="Site" Title="Site" Width="120px" />
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="Category" Title="Category" Width="130px" />
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="Supplier" Title="Supplier" />
+
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Title="Material" Width="110px">
+                                        <Template Context="row">
+                                            <RadzenBadge Text="@row.MaterialClass" Style="@MaterialBadgeStyle(row.MaterialClass)" />
                                         </Template>
                                     </RadzenDataGridColumn>
-                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="ActualTco" Title="TCO" TextAlign="TextAlign.Right" Width="120px" />
-                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="VariancePercent" Title="Variance %" TextAlign="TextAlign.Right" Width="120px" />
-                                    <RadzenDataGridColumn TItem="NegotiationBidRow" Property="DecisionScoreIndex" Title="Decision idx" TextAlign="TextAlign.Right" Width="130px" />
+
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="BasePrice" Title="Base price" Width="130px" TextAlign="TextAlign.Right" />
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Property="ActualTco" Title="Actual TCO" Width="130px" TextAlign="TextAlign.Right" />
+
+                                    <RadzenDataGridColumn TItem="AuditGridRow" Title="Decision score" Width="150px" TextAlign="TextAlign.Right">
+                                        <Template Context="row">
+                                            <div class="rz-decision-cell">@row.DecisionScoreIndex.ToString("N1")</div>
+                                        </Template>
+                                    </RadzenDataGridColumn>
                                 </Columns>
+
+                                <Template Context="row">
+                                    <div style="padding: 10px 10px 4px;">
+                                        <div style="font-weight: 900; margin-bottom: 6px;">Negotiation table</div>
+                                        <RadzenDataGrid TItem="NegotiationBidRow"
+                                                        Data="@GetNegotiationFor(row)"
+                                                        AllowPaging="false"
+                                                        AllowSorting="false"
+                                                        Density="Density.Compact">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="NegotiationBidRow" Title="Supplier">
+                                                    <Template Context="b">
+                                                        <span style="font-weight:900;">
+                                                            @b.Supplier
+                                                            @if (b.IsBestInScenario)
+                                                            {
+                                                                <span style="margin-left:8px; color:#ffb300; font-weight:900;">★</span>
+                                                            }
+                                                        </span>
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                                <RadzenDataGridColumn TItem="NegotiationBidRow" Property="ActualTco" Title="TCO" TextAlign="TextAlign.Right" Width="120px" />
+                                                <RadzenDataGridColumn TItem="NegotiationBidRow" Property="VariancePercent" Title="Variance %" TextAlign="TextAlign.Right" Width="120px" />
+                                                <RadzenDataGridColumn TItem="NegotiationBidRow" Property="DecisionScoreIndex" Title="Decision idx" TextAlign="TextAlign.Right" Width="130px" />
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    </div>
+                                </Template>
                             </RadzenDataGrid>
                         </div>
-                    </Template>
-                </RadzenDataGrid>
-            </RadzenCard>
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
         </div>
     </RadzenBody>
 </RadzenLayout>
@@ -221,6 +234,8 @@
     private IReadOnlyList<AuditGridRow> _auditRowsView = Array.Empty<AuditGridRow>();
     private bool _outliersOnly;
     private RadzenDataGrid<AuditGridRow>? _auditGrid;
+    private bool _gridFullscreen;
+    private DotNetObjectReference<TenderDecisionCockpit>? _keysRef;
 
     private object? _chartOption;
 
@@ -642,6 +657,32 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").AsTask();
     }
 
+    private void ToggleGridFullscreen()
+    {
+        _gridFullscreen = !_gridFullscreen;
+
+        if (_gridFullscreen)
+        {
+            _keysRef ??= DotNetObjectReference.Create(this);
+            _ = Js.InvokeVoidAsync("ptKeys.registerEscape", _keysRef);
+        }
+        else
+        {
+            _ = Js.InvokeVoidAsync("ptKeys.unregisterEscape");
+        }
+    }
+
+    [JSInvokable]
+    public void OnEscapePressed()
+    {
+        if (!_gridFullscreen)
+            return;
+
+        _gridFullscreen = false;
+        _ = Js.InvokeVoidAsync("ptKeys.unregisterEscape");
+        InvokeAsync(StateHasChanged);
+    }
+
     private decimal GetStrategic(string pillar)
         => pillar switch
         {
@@ -666,6 +707,8 @@
     public void Dispose()
     {
         Scenario.OnChange -= OnScenarioChanged;
+        _ = Js.InvokeVoidAsync("ptKeys.unregisterEscape");
+        _keysRef?.Dispose();
     }
 }
 

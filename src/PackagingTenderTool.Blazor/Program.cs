@@ -26,6 +26,7 @@ builder.Services.AddScoped<ScenarioStateService>();
 builder.Services.AddScoped<ITcoCalculator, TcoCalculator>();
 builder.Services.AddScoped<MockDataService>();
 builder.Services.AddScoped<ExportService>();
+builder.Services.AddScoped<TcoEngineService>();
 
 builder.Services.AddScoped<PackagingProfileSession>();
 builder.Services.AddSingleton<ILabelTenderScoringStrategy, RelativeToBestScoringStrategy>();
