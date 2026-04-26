@@ -194,7 +194,7 @@ public sealed class TcoEngineService
             : $"+{r.Moq.ToString("N0", DanishCulture)} MOQ risk";
 
         var assumption = volume <= 0m
-            ? "Assumption: 0 volume ⇒ commercial=0 (fixed costs dominate if non-incumbent)."
+            ? "AUDIT: 0 volume detected. Fixed costs dominate total TCO."
             : string.Empty;
 
         return

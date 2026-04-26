@@ -12,3 +12,16 @@
 - Decision: The hard “8-principles audit” is mandatory for TCO logic, calculation services, and data contracts (the 20% core). UI tweaks and cosmetic changes (the 80%) are fast-tracked without full audit.
 - Reason: Optimizes development time without compromising system integrity and decision validity.
 
+### Audit Triggers (Mandatory)
+- Audit required when changing: **formulas**, **weighting**, **DTO/data contracts**, **filtering/aggregation**.
+
+### Golden Cases (Always verify)
+1. **Zero Volume**
+2. **Missing Data / Grades**
+3. **Extreme Scaling**
+4. **PPWR Toggles**
+5. **Ranking Stability**
+
+### Reversibility (Rollback discipline)
+- Core-logic changes must be shipped as **small commits (<200 lines)** to keep rollback safe and fast.
+

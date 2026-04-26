@@ -71,6 +71,10 @@ graph TD
 
 **Final status**: Architecture Audited & Performance Optimized (O(n) lookups implemented)
 
+## Performance & Stability
+- Performance is now a fixed audit dimension for core-logic changes (explicit **O(n)** focus).
+- Contract-stability is enforced by always analyzing **breaking impact on UI** whenever DTO/data contracts change.
+
 ```mermaid
 flowchart LR
     S[Session] --> E[TcoEngineService]
