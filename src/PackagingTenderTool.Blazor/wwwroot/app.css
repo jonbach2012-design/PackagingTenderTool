@@ -370,9 +370,11 @@
 }
 
 .cockpit-spend-svg {
-    width: 100%;
-    min-width: 980px;
-    height: auto;
+    min-width: 0 !important;   /* Fjern den låste 980px bredde */
+    width: 100%;              /* Lad SVG'en fylde sin container */
+    max-width: 720px;         /* Match viewBox for at undgå unødig strækning */
+    height: auto;             /* Bevar proportionerne */
+    display: block;
 }
 
 .label-tender-slider-accent .mud-slider-track {
@@ -660,7 +662,7 @@
 .cockpit-grid-shell {
     border: 1px solid #e8e8e8 !important;
     border-radius: 4px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .cockpit-supplier-grid.mud-table-dense .mud-table-cell,
@@ -734,7 +736,7 @@
 
 .label-tender-results-card {
     background: #ffffff;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .label-tender-results-loading {

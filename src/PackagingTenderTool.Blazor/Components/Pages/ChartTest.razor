@@ -1,0 +1,118 @@
+@page "/chart-test"
+
+@using MudBlazor
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Chart test (isolated DTO)</MudText>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700;" Class="mb-2">MudChart (Bar) — Total spend</MudText>
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="@BarSeries"
+                          XAxisLabels="@BarLabels"
+                          Width="100%"
+                          Height="260px" />
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700;" Class="mb-2">Manual SVG “radar” (400×400)</MudText>
+
+                <svg width="400" height="400" viewBox="0 0 400 400" style="display:block;">
+                    <!-- Fixed axes -->
+                    <line x1="200" y1="200" x2="200" y2="60" stroke="rgba(51,51,51,0.25)" stroke-width="1" />
+                    <line x1="200" y1="200" x2="320" y2="270" stroke="rgba(51,51,51,0.25)" stroke-width="1" />
+                    <line x1="200" y1="200" x2="80" y2="270" stroke="rgba(51,51,51,0.25)" stroke-width="1" />
+
+                    <!-- Fixed labels (no drifting) -->
+                    <svg:text x="200" y="48" text-anchor="middle" font-size="12" fill="#333" font-weight="700">Technical</svg:text>
+                    <svg:text x="336" y="282" text-anchor="start" font-size="12" fill="#333" font-weight="700">Commercial</svg:text>
+                    <svg:text x="64" y="282" text-anchor="end" font-size="12" fill="#333" font-weight="700">Regulatory</svg:text>
+
+                    <!-- Polygon (derived from 3 DTO values, no loops) -->
+                    <polygon points="@RadarPolygonPoints"
+                             fill="rgba(145,163,99,0.25)"
+                             stroke="#91a363"
+                             stroke-width="2" />
+
+                    <!-- Center dot -->
+                    <circle cx="200" cy="200" r="3" fill="#FFB300" />
+                </svg>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private sealed class TestChartDto
+    {
+        public required string SupplierName { get; init; }
+        public required decimal TotalSpend { get; init; }
+        public required decimal RtgScore { get; init; }
+    }
+
+    private List<TestChartDto> _suppliers = [];
+    private string[] BarLabels { get; set; } = Array.Empty<string>();
+    private List<ChartSeries> BarSeries { get; set; } = [];
+
+    // “Radar” proof points (0–100)
+    private decimal _tech = 80m;
+    private decimal _comm = 60m;
+    private decimal _reg = 95m;
+
+    private string RadarPolygonPoints => BuildRadarPolygonPoints(_tech, _comm, _reg);
+
+    protected override void OnInitialized()
+    {
+        _suppliers =
+        [
+            new TestChartDto { SupplierName = "Supplier A", TotalSpend = 1_200_000m, RtgScore = 82m },
+            new TestChartDto { SupplierName = "Supplier B", TotalSpend = 800_000m, RtgScore = 64m },
+            new TestChartDto { SupplierName = "Supplier C", TotalSpend = 1_650_000m, RtgScore = 74m }
+        ];
+
+        BarLabels = _suppliers.Select(s => s.SupplierName).ToArray();
+
+        BarSeries =
+        [
+            new ChartSeries
+            {
+                Name = "Total spend (kr.)",
+                Data = _suppliers.Select(s => (double)s.TotalSpend).ToArray()
+            }
+        ];
+    }
+
+    private static string BuildRadarPolygonPoints(decimal tech, decimal comm, decimal reg)
+    {
+        // Fixed center + radius (no dynamic layout drift)
+        const double cx = 200;
+        const double cy = 200;
+        const double r = 130;
+
+        static double Clamp01(decimal v) => (double)Math.Clamp(v, 0m, 100m) / 100.0;
+
+        // Angles: Tech = -90°, Comm = 30°, Reg = 150°
+        var t = Clamp01(tech);
+        var c = Clamp01(comm);
+        var g = Clamp01(reg);
+
+        static (double x, double y) Pt(double cx, double cy, double angleDeg, double radius)
+        {
+            var a = Math.PI * angleDeg / 180.0;
+            return (cx + (Math.Cos(a) * radius), cy + (Math.Sin(a) * radius));
+        }
+
+        var pTech = Pt(cx, cy, -90, r * t);
+        var pComm = Pt(cx, cy, 30, r * c);
+        var pReg = Pt(cx, cy, 150, r * g);
+
+        return string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{pTech.x:0.##},{pTech.y:0.##} {pComm.x:0.##},{pComm.y:0.##} {pReg.x:0.##},{pReg.y:0.##}");
+    }
+}
+

@@ -39,6 +39,13 @@ public sealed class LabelLineItem
 
     public decimal? LabelWeightGrams { get; set; }
 
+    // Normalization 2.0: split taxable mass (Scandi Standard / Kronfågel fallback ratios).
+    public decimal? FrontWeightGrams { get; set; }
+
+    public decimal? AdhesiveWeightGrams { get; set; }
+
+    public decimal? BackingWeightGrams { get; set; }
+
     public bool? IsMonoMaterial { get; set; }
 
     public bool? IsEasyToSeparate { get; set; }

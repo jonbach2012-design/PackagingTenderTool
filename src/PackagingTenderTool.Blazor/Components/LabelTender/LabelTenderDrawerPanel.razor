@@ -128,7 +128,7 @@
 
                 <MudDivider Class="my-1" />
 
-                <MudNavMenu Dense="true" Class="cockpit-supplier-nav">
+                <MudStack Spacing="0">
                     @foreach (var supplier in Suppliers)
                     {
                         var selected = Session.SelectedSuppliers.Contains(supplier.Id);
@@ -140,7 +140,7 @@
                                      ValueChanged="@(v => OnSupplierToggled(supplier.Id, v))"
                                      Label="@supplier.Name" />
                     }
-                </MudNavMenu>
+                </MudStack>
             </MudStack>
         </div>
 
@@ -153,6 +153,71 @@
                          Value="@Session.ApplyPpwr2030Scenario"
                          ValueChanged="@(v => Session.SetApplyPpwr2030Scenario(v))"
                          Label="Apply 2030 PPWR scenario" />
+        </div>
+
+        <MudDivider Class="my-2" />
+
+        <div class="px-2">
+            <MudText Typo="Typo.h6" Class="cockpit-drawer-section-title mb-2">SUPPLIER SETTINGS</MudText>
+
+            @if (string.IsNullOrWhiteSpace(Session.ActiveSupplierId))
+            {
+                <MudText Typo="Typo.body2" Class="cockpit-muted">Select a supplier above to configure switching, recyclability, and MOQ risk.</MudText>
+            }
+            else
+            {
+                var active = Session.ActiveSupplierId;
+                var incumbent = active.Equals(Session.IncumbentSupplierId, StringComparison.OrdinalIgnoreCase);
+
+                <MudNumericField T="decimal"
+                                 dense="true"
+                                 Margin="Margin.Dense"
+                                 Variant="Variant.Outlined"
+                                 Immediate="true"
+                                 Value="@Session.GetStartupCost(active)"
+                                 ValueChanged="@(v => Session.SetStartupCost(active, v))"
+                                 Disabled="@incumbent"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="Startup cost (kr.)"
+                                 HideSpinButtons="true" />
+
+                <MudNumericField T="decimal"
+                                 dense="true"
+                                 Margin="Margin.Dense"
+                                 Variant="Variant.Outlined"
+                                 Immediate="true"
+                                 Value="@Session.GetMonthlySupportCost(active)"
+                                 ValueChanged="@(v => Session.SetMonthlySupportCost(active, v))"
+                                 Disabled="@incumbent"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="Monthly support cost (kr.)"
+                                 HideSpinButtons="true" />
+
+                <MudSelect T="RecyclingGrade"
+                           Dense="true"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Label="Recyclability grade"
+                           Value="@Session.GetSupplierRecyclabilityGrade(active)"
+                           ValueChanged="@(v => Session.SetSupplierRecyclabilityGrade(active, v))">
+                    <MudSelectItem Value="RecyclingGrade.A">A</MudSelectItem>
+                    <MudSelectItem Value="RecyclingGrade.B">B</MudSelectItem>
+                    <MudSelectItem Value="RecyclingGrade.C">C</MudSelectItem>
+                    <MudSelectItem Value="RecyclingGrade.D">D</MudSelectItem>
+                    <MudSelectItem Value="RecyclingGrade.E">E</MudSelectItem>
+                </MudSelect>
+
+                <MudNumericField T="decimal"
+                                 dense="true"
+                                 Margin="Margin.Dense"
+                                 Variant="Variant.Outlined"
+                                 Immediate="true"
+                                 Value="@Session.GetSupplierMoqPenaltyPct(active)"
+                                 ValueChanged="@(v => Session.SetSupplierMoqPenaltyPct(active, v))"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="MOQ penalty %"
+                                 HideSpinButtons="true" />
+            }
         </div>
 
         <div class="cockpit-drawer-advanced-wrap">
@@ -212,6 +277,10 @@
     private void OnSupplierToggled(string supplierId, bool v)
     {
         Session.SetSupplierSelected(supplierId, v);
+        if (v)
+        {
+            Session.SetActiveSupplier(supplierId);
+        }
         _ = InvokeAsync(StateHasChanged);
     }
 

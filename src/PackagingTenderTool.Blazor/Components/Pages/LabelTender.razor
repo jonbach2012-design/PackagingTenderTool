@@ -89,6 +89,44 @@ else
                             <MudSelectItem @key="s" Value="@s">@s</MudSelectItem>
                         }
                     </MudSelect>
+
+                    <MudSelect T="string"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Dense="true"
+                               Label="Material"
+                               Value="@_filterMaterial"
+                               ValueChanged="OnMaterialChanged"
+                               Class="cockpit-global-slicer">
+                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                        @foreach (var m in _filterMaterials)
+                        {
+                            <MudSelectItem @key="m" Value="@m">@m</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudSelect T="string"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Dense="true"
+                               Label="Adhesive"
+                               Value="@_filterAdhesive"
+                               ValueChanged="OnAdhesiveChanged"
+                               Class="cockpit-global-slicer">
+                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                        @foreach (var a in _filterAdhesives)
+                        {
+                            <MudSelectItem @key="a" Value="@a">@a</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudSwitch T="bool"
+                               dense="true"
+                               Color="Color.Primary"
+                               Value="@_synergyToggle"
+                               ValueChanged="OnSynergyChanged">
+                        Supplier synergy
+                    </MudSwitch>
                 </MudStack>
             </MudPaper>
 
@@ -99,7 +137,53 @@ else
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
 
                         <div class="cockpit-spend-wrap">
-                            @SpendBarSvg
+                            @{
+                                var results = _tcoResults;
+                                var svgH = (results.Count * 50) + 40;
+                            }
+
+                            <svg width="720"
+                                 height="@svgH"
+                                 viewBox="0 0 720 @svgH"
+                                 class="cockpit-spend-svg">
+                                @if (results.Count == 0)
+                                {
+                                    <svg:text x="360" y="160" text-anchor="middle" fill="rgba(45,52,54,0.65)">No suppliers selected</svg:text>
+                                }
+                                else
+                                {
+                                    @for (var idx = 0; idx < results.Count; idx++)
+                                    {
+                                        var r = results[idx];
+                                        var yPos = (idx * 50) + 10;
+                                        var x0 = 150.0;
+                                        var barH = 30.0;
+                                        var trackW = 600.0;
+                                        var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
+
+                                        <g opacity="@FmtSvg(alpha)">
+                                            <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
+
+                                            <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
+                                            <rect x="@FmtSvg(x0 + r.CommercialWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.RegulatoryWidth)" height="@FmtSvg(barH)" fill="#FFB300" rx="4" />
+                                            <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.SwitchingWidth)" height="@FmtSvg(barH)" fill="#D3D3D3" rx="4" />
+                                            <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
+
+                                            <!-- Score badge -->
+                                            <circle cx="12" cy="@(yPos + 15)" r="10" fill="rgba(45,52,54,0.10)" />
+                                            <svg:text x="12" y="@(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
+                                                @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
+                                            </svg:text>
+
+                                            <svg:text x="28" y="@(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
+
+                                            <svg:text x="@FmtSvg(x0 + r.TotalWidth + 10)" y="@FmtSvg(yPos + 20)" font-size="12" font-family="monospace">
+                                                @r.Total.ToString("N0", Da) kr.
+                                            </svg:text>
+                                        </g>
+                                    }
+                                }
+                            </svg>
                         </div>
                     </MudPaper>
                 </MudTabPanel>
@@ -445,8 +529,13 @@ else
     private string _filterSite = string.Empty;
     private string[] _filterCountries = [];
     private string[] _filterSitesForCountry = [];
+    private string _filterMaterial = string.Empty;
+    private string _filterAdhesive = string.Empty;
+    private string[] _filterMaterials = [];
+    private string[] _filterAdhesives = [];
+    private bool _synergyToggle;
 
-    private readonly List<SupplierSpendRow> _spendRows = [];
+    private readonly List<TcoResult> _tcoResults = [];
 
     private List<LabelLineItem> _importedLineItems = [];
     private string _importStatus = string.Empty;
@@ -523,6 +612,26 @@ else
         _ = InvokeAsync(StateHasChanged);
     }
 
+    private void OnMaterialChanged(string v)
+    {
+        _filterMaterial = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnAdhesiveChanged(string v)
+    {
+        _filterAdhesive = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSynergyChanged(bool v)
+    {
+        _synergyToggle = v;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
     private static string GetCountryFromSite(string site)
     {
         if (string.IsNullOrWhiteSpace(site))
@@ -551,6 +660,7 @@ else
             _importedLineItems = result.Tender.LabelLineItems.ToList();
 
             NormalizePricePerThousand(_importedLineItems);
+            NormalizeMaterialWeights(_importedLineItems);
             BuildImportFlags(_importedLineItems);
 
             if (_importedLineItems.Count > 0)
@@ -590,6 +700,28 @@ else
                 continue;
 
             it.PricePerThousand = decimal.Round((it.Price.Value / pcsPerRoll) * 1000m, 2, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    private static void NormalizeMaterialWeights(List<LabelLineItem> items)
+    {
+        // Kronfågel fallback ratios: 60% front, 5% adhesive, 35% backing (when only total is provided).
+        const decimal frontR = 0.60m;
+        const decimal adhR = 0.05m;
+        const decimal backR = 0.35m;
+
+        foreach (var it in items)
+        {
+            if (it.LabelWeightGrams is not > 0m)
+                continue;
+
+            if (it.FrontWeightGrams is > 0m && it.AdhesiveWeightGrams is > 0m && it.BackingWeightGrams is > 0m)
+                continue;
+
+            var total = it.LabelWeightGrams.Value;
+            it.FrontWeightGrams ??= decimal.Round(total * frontR, 4, MidpointRounding.AwayFromZero);
+            it.AdhesiveWeightGrams ??= decimal.Round(total * adhR, 4, MidpointRounding.AwayFromZero);
+            it.BackingWeightGrams ??= decimal.Round(total * backR, 4, MidpointRounding.AwayFromZero);
         }
     }
 
@@ -672,7 +804,12 @@ else
                 var country = sites.Length > 0 ? (GetCountryFromSite(sites[0]) is { Length: > 0 } c ? c : DeriveCountryFromSiteName(sites[0])) : "DK";
                 if (string.IsNullOrWhiteSpace(country))
                     country = "DK";
-                var weight = g.Select(x => x.LabelWeightGrams ?? 0m).DefaultIfEmpty(0m).Average();
+                var weight = g.Select(x =>
+                        (x.FrontWeightGrams ?? 0m) + (x.AdhesiveWeightGrams ?? 0m) + (x.BackingWeightGrams ?? 0m))
+                    .DefaultIfEmpty(0m)
+                    .Average();
+                if (weight <= 0m)
+                    weight = g.Select(x => x.LabelWeightGrams ?? 0m).DefaultIfEmpty(0m).Average();
 
                 return new SupplierModel
                 {
@@ -722,6 +859,30 @@ else
         return string.Empty;
     }
 
+    private decimal GetSkuCountForScope()
+    {
+        // Scope-driven SKU count for base switching costs.
+        if (_importedLineItems.Count == 0)
+            return 3m;
+
+        IEnumerable<LabelLineItem> q = _importedLineItems;
+
+        if (!string.IsNullOrWhiteSpace(_filterSite))
+            q = q.Where(i => string.Equals(i.Site, _filterSite, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(_filterMaterial))
+            q = q.Where(i => string.Equals(i.Material, _filterMaterial, StringComparison.OrdinalIgnoreCase));
+
+        // Adhesive is not a first-class column in the current import, so we cannot filter by it here yet.
+        // Keep SKU count robust and deterministic.
+
+        return Math.Max(1m, q
+            .Select(i => i.ItemNo?.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count());
+    }
+
     private void RefreshData()
     {
         if (_isCalculating)
@@ -766,11 +927,44 @@ else
             if (!string.IsNullOrWhiteSpace(_filterSite) && !_filterSitesForCountry.Contains(_filterSite, StringComparer.OrdinalIgnoreCase))
                 _filterSite = string.Empty;
 
+            _filterMaterials = _suppliersAll
+                .Select(s => s.Material)
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (!string.IsNullOrWhiteSpace(_filterMaterial) && !_filterMaterials.Contains(_filterMaterial, StringComparer.OrdinalIgnoreCase))
+                _filterMaterial = string.Empty;
+
+            _filterAdhesives = _suppliersAll
+                .Select(s => s.Adhesive)
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(a => a, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (!string.IsNullOrWhiteSpace(_filterAdhesive) && !_filterAdhesives.Contains(_filterAdhesive, StringComparer.OrdinalIgnoreCase))
+                _filterAdhesive = string.Empty;
+
             var suppliersFiltered = _suppliersAll
                 .Where(s =>
                     (string.IsNullOrWhiteSpace(_filterCountry) || s.Sites.Any(site => string.Equals(GetCountryFromSite(site), _filterCountry, StringComparison.OrdinalIgnoreCase)))
-                    && (string.IsNullOrWhiteSpace(_filterSite) || s.Sites.Any(site => string.Equals(site, _filterSite, StringComparison.OrdinalIgnoreCase))))
+                    && (string.IsNullOrWhiteSpace(_filterSite) || s.Sites.Any(site => string.Equals(site, _filterSite, StringComparison.OrdinalIgnoreCase)))
+                    && (string.IsNullOrWhiteSpace(_filterMaterial) || string.Equals(s.Material, _filterMaterial, StringComparison.OrdinalIgnoreCase))
+                    && (string.IsNullOrWhiteSpace(_filterAdhesive) || string.Equals(s.Adhesive, _filterAdhesive, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
+
+            // Seed supplier settings defaults (archetype values come from demo SupplierModel).
+            foreach (var s in suppliersFiltered)
+            {
+                Session.SeedSupplierDefaults(
+                    supplierId: s.SupplierId,
+                    grade: s.RecyclingGrade ?? RecyclingGrade.C,
+                    startupCost: s.StartupCost,
+                    monthlySupportCost: s.MonthlySupportCost,
+                    moqPenaltyPct: s.MoqPenaltyPct);
+            }
 
             _outliers = SupplierOutlierDetection.Detect(suppliersFiltered);
 
@@ -811,7 +1005,8 @@ else
                     Session.Regulatory)
                 .ToList();
 
-            BuildSpendRows();
+            _tcoResults.Clear();
+            _tcoResults.AddRange(BuildTcoResults(_suppliersSelected));
         }
         finally
         {
@@ -820,6 +1015,174 @@ else
     }
 
     // Spend overview: keep single source of truth for spend rows + horizontal stacked SVG.
+
+    private sealed class TcoResult
+    {
+        public required string SupplierName { get; init; }
+        public required decimal Commercial { get; init; }
+        public required decimal Epr { get; init; }
+        public required decimal Switching { get; init; }
+        public required decimal Moq { get; init; }
+        public required decimal Total { get; init; }
+        public required decimal PriceScore { get; init; }
+        public required decimal TechScore { get; init; }
+        public required decimal RegScore { get; init; }
+        public required decimal FinalCtrScore { get; init; }
+
+        public required double CommercialWidth { get; init; }
+        public required double RegulatoryWidth { get; init; }
+        public required double SwitchingWidth { get; init; }
+        public required double MoqWidth { get; init; }
+        public required double TotalWidth { get; init; }
+    }
+
+    private List<TcoResult> BuildTcoResults(IReadOnlyList<SupplierModel> suppliers)
+    {
+        var results = new List<TcoResult>(suppliers.Count);
+        if (suppliers.Count == 0)
+            return results;
+
+        foreach (var s in suppliers)
+        {
+            var volume = s.QuantityLabels <= 0 ? 0m : s.QuantityLabels;
+            var commercial = volume * s.Price;
+
+            var country = string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country;
+            var grade = Session.GetSupplierRecyclabilityGrade(s.SupplierId);
+
+            var epr = 0m;
+            if (Session.ApplyPpwr2030Scenario)
+            {
+                var eprBase = Regulatory.CalculateEpr2026ForecastFee(
+                    countryCode: country,
+                    labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
+                    quantityUnits: volume);
+
+                var gradeFactor = grade switch
+                {
+                    RecyclingGrade.A => 1.0m,
+                    RecyclingGrade.B => 1.3m,
+                    RecyclingGrade.C => 1.8m,
+                    RecyclingGrade.D => 2.4m,
+                    RecyclingGrade.E => 3.0m,
+                    _ => 1.8m
+                };
+
+                epr = eprBase * gradeFactor;
+            }
+
+            var switching = s.SupplierId.Equals(Session.IncumbentSupplierId, StringComparison.OrdinalIgnoreCase)
+                ? 0m
+                : Session.GetStartupCost(s.SupplierId) + (Session.GetMonthlySupportCost(s.SupplierId) * 12m);
+
+            var moq = commercial * (Session.GetSupplierMoqPenaltyPct(s.SupplierId) / 100m);
+
+            // Technical score adjustment (lead time penalty).
+            var tech = s.TechnicalScore;
+            if (s.LeadTimeWeeks > 4)
+                tech = Math.Max(0m, tech - ((s.LeadTimeWeeks - 4) * 5m));
+
+            var regScore = s.RegulatoryScore;
+            var total = commercial + epr + switching + moq;
+
+            results.Add(new TcoResult
+            {
+                SupplierName = s.SupplierName,
+                Commercial = decimal.Round(commercial, 0, MidpointRounding.AwayFromZero),
+                Epr = decimal.Round(epr, 0, MidpointRounding.AwayFromZero),
+                Switching = decimal.Round(switching, 0, MidpointRounding.AwayFromZero),
+                Moq = decimal.Round(moq, 0, MidpointRounding.AwayFromZero),
+                Total = decimal.Round(total, 0, MidpointRounding.AwayFromZero),
+                PriceScore = 0m,
+                TechScore = decimal.Round(tech, 1, MidpointRounding.AwayFromZero),
+                RegScore = decimal.Round(regScore, 1, MidpointRounding.AwayFromZero),
+                FinalCtrScore = 0m,
+                CommercialWidth = 0,
+                RegulatoryWidth = 0,
+                SwitchingWidth = 0,
+                MoqWidth = 0,
+                TotalWidth = 0
+            });
+        }
+
+        // Price score: min TCO gets 100; others scale by (min/current)*100.
+        var minTco = results.Min(r => r.Total);
+        if (minTco <= 0m)
+            minTco = 1m;
+
+        for (var i = 0; i < results.Count; i++)
+        {
+            var r = results[i];
+            var priceScore = r.Total <= 0m ? 0m : Math.Clamp((minTco / r.Total) * 100m, 0m, 100m);
+            var final = ((priceScore * Session.Commercial) + (r.TechScore * Session.Technical) + (r.RegScore * Session.Regulatory)) / 100m;
+            final = Math.Clamp(final, 0m, 100m);
+
+            results[i] = new TcoResult
+            {
+                SupplierName = r.SupplierName,
+                Commercial = r.Commercial,
+                Epr = r.Epr,
+                Switching = r.Switching,
+                Moq = r.Moq,
+                Total = r.Total,
+                PriceScore = decimal.Round(priceScore, 1, MidpointRounding.AwayFromZero),
+                TechScore = r.TechScore,
+                RegScore = r.RegScore,
+                FinalCtrScore = decimal.Round(final, 1, MidpointRounding.AwayFromZero),
+                CommercialWidth = r.CommercialWidth,
+                RegulatoryWidth = r.RegulatoryWidth,
+                SwitchingWidth = r.SwitchingWidth,
+                MoqWidth = r.MoqWidth,
+                TotalWidth = r.TotalWidth
+            };
+        }
+
+        // Sort by final CTR score descending (most relevant first).
+        results = results.OrderByDescending(r => r.FinalCtrScore).ThenBy(r => r.SupplierName, StringComparer.OrdinalIgnoreCase).ToList();
+
+        var maxTotal = results.Max(r => r.Total);
+        if (maxTotal <= 0m)
+            maxTotal = 1m;
+
+        var scale = 600.0 / (double)maxTotal;
+
+        for (var i = 0; i < results.Count; i++)
+        {
+            var r = results[i];
+            var commW = (double)r.Commercial * scale;
+            var regW = (double)r.Epr * scale;
+            var swW = (double)r.Switching * scale;
+            var moqW = (double)r.Moq * scale;
+            var totalW = (double)r.Total * scale;
+
+            results[i] = new TcoResult
+            {
+                SupplierName = r.SupplierName,
+                Commercial = r.Commercial,
+                Epr = r.Epr,
+                Switching = r.Switching,
+                Moq = r.Moq,
+                Total = r.Total,
+                PriceScore = r.PriceScore,
+                TechScore = r.TechScore,
+                RegScore = r.RegScore,
+                FinalCtrScore = r.FinalCtrScore,
+                CommercialWidth = commW,
+                RegulatoryWidth = regW,
+                SwitchingWidth = swW,
+                MoqWidth = moqW,
+                TotalWidth = totalW
+            };
+        }
+
+        return results;
+    }
+
+    private static string FmtSvg(double v) =>
+        v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string FmtSvg(int v) =>
+        v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private void RecordWeightHistory()
     {
@@ -1160,144 +1523,7 @@ else
             ? "No suppliers selected"
             : (HasCriticalRisk ? "One or more selected suppliers fail constraints" : "All selected suppliers meet constraints");
 
-    private sealed record SupplierSpendRow(string SupplierId, string SupplierName, decimal CommercialSpend, decimal RegulatorySpend)
-    {
-        public decimal Total => CommercialSpend + RegulatorySpend;
-    }
-
     private void SelectLabels() => Session.SelectLabels();
 
     private static string FormatScore(decimal value) => value.ToString("0.0", Da);
-
-
-// 1. PPWR/EPR Engine: Beregningslogik til Dashboard
-    private void BuildSpendRows()
-    {
-        _spendRows.Clear();
-        foreach (var s in _suppliersSelected.OrderBy(s => s.SupplierName, StringComparer.OrdinalIgnoreCase))
-        {
-            var volume = s.QuantityLabels <= 0 ? 0m : s.QuantityLabels;
-            var commercialSpend = volume * s.Price;
-
-            // Kald til din RegulatoryService med DSH-specifikke parametre
-            var regulatorySpend = Regulatory.CalculateLabelsRegulatoryCost(
-                countryCode: string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country,
-                labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
-                quantityUnits: volume,
-                recyclingGrade: s.RecyclingGrade,
-                recycledContentPercent: s.RecycledContentPercent,
-                applyPpwr2030Scenario: Session.ApplyPpwr2030Scenario);
-
-            _spendRows.Add(new SupplierSpendRow(
-                s.SupplierId,
-                s.SupplierName,
-                decimal.Round(commercialSpend, 0, MidpointRounding.AwayFromZero),
-                decimal.Round(regulatorySpend, 0, MidpointRounding.AwayFromZero)));
-        }
-    }
-
-    private RenderFragment SpendBarSvg => builder =>
-    {
-        const double width = 980;
-        const double height = 360;
-        const double padL = 180;
-        const double padR = 40;
-        const double padT = 20;
-
-        var rows = _spendRows.ToArray();
-        var plotW = width - padL - padR;
-        var max = rows.Length == 0 ? 1m : Math.Max(1m, rows.Max(r => r.Total));
-
-        builder.OpenElement(0, "svg");
-        builder.AddAttribute(1, "viewBox", $"0 0 {width} {height}");
-        builder.AddAttribute(2, "class", "cockpit-spend-svg");
-
-        if (rows.Length == 0)
-        {
-            builder.OpenElement(3, "text");
-            builder.AddAttribute(4, "x", width / 2);
-            builder.AddAttribute(5, "y", height / 2);
-            builder.AddAttribute(6, "text-anchor", "middle");
-            builder.AddAttribute(7, "fill", "rgba(45,52,54,0.65)");
-            builder.AddContent(8, "No suppliers selected");
-            builder.CloseElement();
-            builder.CloseElement();
-            return;
-        }
-
-        var scoreBySupplierId = _pillarRows
-            .Where(r => !string.IsNullOrWhiteSpace(r.Supplier.SupplierId))
-            .GroupBy(r => r.Supplier.SupplierId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().TotalScore, StringComparer.OrdinalIgnoreCase);
-
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var r = rows[i];
-            var y = padT + (i * 40);
-            const double barH = 20;
-
-            var commW = (double)(r.CommercialSpend / max) * plotW;
-            var regW = (double)(r.RegulatorySpend / max) * plotW;
-            var totalW = (double)(r.Total / max) * plotW;
-
-            var seq = 1000 + (i * 100);
-
-            var score = scoreBySupplierId.TryGetValue(r.SupplierId, out var sc) ? sc : 0m;
-            var alpha = 0.35 + (0.65 * (double)Math.Clamp(score, 0m, 100m) / 100.0);
-
-            // Navn (Højre-justeret tekst)
-            builder.OpenElement(seq + 1, "text");
-            builder.AddAttribute(seq + 2, "x", padL - 12);
-            builder.AddAttribute(seq + 3, "y", y + 14);
-            builder.AddAttribute(seq + 4, "text-anchor", "end");
-            builder.AddAttribute(seq + 5, "fill", "rgba(45,52,54,0.85)");
-            builder.AddAttribute(seq + 6, "font-size", "12");
-            builder.AddContent(seq + 7, r.SupplierName);
-            builder.CloseElement();
-
-            // Baggrunds-track
-            builder.OpenElement(seq + 10, "rect");
-            builder.AddAttribute(seq + 11, "x", padL);
-            builder.AddAttribute(seq + 12, "y", y);
-            builder.AddAttribute(seq + 13, "width", totalW);
-            builder.AddAttribute(seq + 14, "height", barH);
-            builder.AddAttribute(seq + 15, "rx", 10);
-            builder.AddAttribute(seq + 16, "fill", "rgba(45,52,54,0.08)");
-            builder.CloseElement();
-
-            // Commercial (Sage #91a363)
-            builder.OpenElement(seq + 20, "rect");
-            builder.AddAttribute(seq + 21, "x", padL);
-            builder.AddAttribute(seq + 22, "y", y);
-            builder.AddAttribute(seq + 23, "width", commW);
-            builder.AddAttribute(seq + 24, "height", barH);
-            builder.AddAttribute(seq + 25, "rx", 10);
-            builder.AddAttribute(seq + 26, "fill", "#91a363");
-            builder.AddAttribute(seq + 27, "opacity", alpha.ToString("0.00", CultureInfo.InvariantCulture));
-            builder.CloseElement();
-
-            // Regulatory Impact (Amber #FFB300)
-            builder.OpenElement(seq + 30, "rect");
-            builder.AddAttribute(seq + 31, "x", padL + commW);
-            builder.AddAttribute(seq + 32, "y", y);
-            builder.AddAttribute(seq + 33, "width", regW);
-            builder.AddAttribute(seq + 34, "height", barH);
-            builder.AddAttribute(seq + 35, "rx", 10);
-            builder.AddAttribute(seq + 36, "fill", "#FFB300");
-            builder.AddAttribute(seq + 37, "opacity", alpha.ToString("0.00", CultureInfo.InvariantCulture));
-            builder.CloseElement();
-
-            // CTR overlay (weighted score 0-100)
-            builder.OpenElement(seq + 40, "text");
-            builder.AddAttribute(seq + 41, "x", padL + totalW + 10);
-            builder.AddAttribute(seq + 42, "y", y + 14);
-            builder.AddAttribute(seq + 43, "text-anchor", "start");
-            builder.AddAttribute(seq + 44, "fill", "rgba(45,52,54,0.85)");
-            builder.AddAttribute(seq + 45, "font-size", "12");
-            builder.AddAttribute(seq + 46, "class", "cockpit-num");
-            builder.AddContent(seq + 47, score.ToString("0.0", Da));
-            builder.CloseElement();
-        }
-        builder.CloseElement();
-    };
 }    

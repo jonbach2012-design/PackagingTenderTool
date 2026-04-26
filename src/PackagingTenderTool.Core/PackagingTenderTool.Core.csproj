@@ -4,10 +4,21 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
   </ItemGroup>
+
+  <!-- Workaround: some toolchains emit reference assemblies to refint only.
+       Downstream projects expect it under obj/.../ref/. -->
+  <Target Name="EnsureReferenceAssemblyInRefFolder" AfterTargets="CoreCompile">
+    <MakeDir Directories="$(IntermediateOutputPath)ref" />
+    <Copy SourceFiles="$(IntermediateOutputPath)refint\\$(AssemblyName).dll"
+          DestinationFiles="$(IntermediateOutputPath)ref\\$(AssemblyName).dll"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(IntermediateOutputPath)refint\\$(AssemblyName).dll')" />
+  </Target>
 
 </Project>

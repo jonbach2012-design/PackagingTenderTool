@@ -23,6 +23,147 @@ public sealed class PackagingProfileSession
 
     public bool ApplyPpwr2030Scenario { get; private set; }
 
+    public string IncumbentSupplierId { get; private set; } = "incumbent";
+
+    public decimal GetStartupCost(string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return 0m;
+
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            return 0m;
+
+        return _startupCosts.TryGetValue(supplierId.Trim(), out var v) ? v : 0m;
+    }
+
+    public void SetStartupCost(string supplierId, decimal value)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            value = 0m;
+
+        _startupCosts[supplierId.Trim()] = Math.Max(0m, value);
+        Notify();
+    }
+
+    public decimal GetMonthlySupportCost(string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return 0m;
+
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            return 0m;
+
+        return _monthlySupportCosts.TryGetValue(supplierId.Trim(), out var v) ? v : 0m;
+    }
+
+    public void SetMonthlySupportCost(string supplierId, decimal value)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            value = 0m;
+
+        _monthlySupportCosts[supplierId.Trim()] = Math.Max(0m, value);
+        Notify();
+    }
+
+    public string ActiveSupplierId { get; private set; } = string.Empty;
+
+    public void SetActiveSupplier(string supplierId)
+    {
+        ActiveSupplierId = supplierId?.Trim() ?? string.Empty;
+        Notify();
+    }
+
+    public RecyclingGrade GetSupplierRecyclabilityGrade(string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return RecyclingGrade.C;
+
+        return _supplierGrades.TryGetValue(supplierId.Trim(), out var g) ? g : RecyclingGrade.C;
+    }
+
+    public void SetSupplierRecyclabilityGrade(string supplierId, RecyclingGrade grade)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        _supplierGrades[supplierId.Trim()] = grade;
+        Notify();
+    }
+
+    public decimal GetSupplierMoqPenaltyPct(string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return 5m;
+
+        return _supplierMoqPenaltyPct.TryGetValue(supplierId.Trim(), out var v) ? v : 5m;
+    }
+
+    public void SetSupplierMoqPenaltyPct(string supplierId, decimal pct)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        pct = Math.Clamp(pct, 0m, 25m);
+        _supplierMoqPenaltyPct[supplierId.Trim()] = pct;
+        Notify();
+    }
+
+    public decimal GetSwitchingCost(string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return 0m;
+
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            return 0m;
+
+        return _switchingCosts.TryGetValue(supplierId.Trim(), out var v) ? v : 0m;
+    }
+
+    public void SetSwitchingCost(string supplierId, decimal cost)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        // Incumbent is always 0 (category manager rule).
+        if (string.Equals(supplierId, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase))
+            cost = 0m;
+
+        cost = Math.Max(0m, cost);
+        _switchingCosts[supplierId.Trim()] = cost;
+        Notify();
+    }
+
+    public void SeedSupplierDefaults(
+        string supplierId,
+        RecyclingGrade grade,
+        decimal startupCost,
+        decimal monthlySupportCost,
+        decimal moqPenaltyPct)
+    {
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return;
+
+        var id = supplierId.Trim();
+
+        if (!_supplierGrades.ContainsKey(id))
+            _supplierGrades[id] = grade;
+
+        if (!_startupCosts.ContainsKey(id))
+            _startupCosts[id] = string.Equals(id, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase) ? 0m : Math.Max(0m, startupCost);
+
+        if (!_monthlySupportCosts.ContainsKey(id))
+            _monthlySupportCosts[id] = string.Equals(id, IncumbentSupplierId, StringComparison.OrdinalIgnoreCase) ? 0m : Math.Max(0m, monthlySupportCost);
+
+        if (!_supplierMoqPenaltyPct.ContainsKey(id))
+            _supplierMoqPenaltyPct[id] = Math.Clamp(moqPenaltyPct, 0m, 25m);
+    }
+
     /// <summary>
     /// Selected supplier ids (used to filter cockpit KPIs and the grid).
     /// Defaults to "all" for the active profile.
@@ -41,6 +182,11 @@ public sealed class PackagingProfileSession
     public event Action? Changed;
 
     private readonly HashSet<string> _selectedSupplierIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, decimal> _switchingCosts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, decimal> _startupCosts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, decimal> _monthlySupportCosts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RecyclingGrade> _supplierGrades = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, decimal> _supplierMoqPenaltyPct = new(StringComparer.OrdinalIgnoreCase);
 
     public void SelectLabels()
     {
