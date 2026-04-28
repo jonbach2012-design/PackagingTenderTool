@@ -8,3 +8,6 @@ build/
 *.log
 TestResults/
 coverage/
+
+# Local configuration boundary (ADR 004)
+/config/

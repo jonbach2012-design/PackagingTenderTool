@@ -4,11 +4,11 @@ using PackagingTenderTool.Blazor.Models;
 
 namespace PackagingTenderTool.Blazor.Services;
 
-public sealed class ExportService
+public sealed class ExportService : IExportService
 {
     public byte[] ExportAudit(
         IReadOnlyList<AuditGridRow> rows,
-        ScenarioStateService scenario,
+        IScenarioStateService scenario,
         DateTimeOffset timestamp)
     {
         ArgumentNullException.ThrowIfNull(rows);
@@ -80,7 +80,7 @@ public sealed class ExportService
         ws.Column(10).Style.NumberFormat.Format = "0";
     }
 
-    private static void AddAuditTrailSheet(XLWorkbook wb, ScenarioStateService scenario, DateTimeOffset timestamp)
+    private static void AddAuditTrailSheet(XLWorkbook wb, IScenarioStateService scenario, DateTimeOffset timestamp)
     {
         var ws = wb.Worksheets.Add("Audit Trail");
 

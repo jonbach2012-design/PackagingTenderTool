@@ -11,6 +11,7 @@
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NSubstitute" Version="6.0.0-rc.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PackagingTenderTool.Core\PackagingTenderTool.Core.csproj" />
+    <ProjectReference Include="..\..\src\PackagingTenderTool.Blazor\PackagingTenderTool.Blazor.csproj" />
   </ItemGroup>
 
 </Project>

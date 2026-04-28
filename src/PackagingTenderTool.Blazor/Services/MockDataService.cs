@@ -2,7 +2,7 @@ using PackagingTenderTool.Blazor.Models;
 
 namespace PackagingTenderTool.Blazor.Services;
 
-public sealed class MockDataService
+public sealed class MockDataService : IMockDataService
 {
     private readonly ITcoCalculator tcoCalculator;
 

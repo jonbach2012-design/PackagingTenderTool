@@ -133,10 +133,10 @@ public sealed class CategoryMapper
     {
         try
         {
-            var path = FindSettingsFilePath("epr-settings.json");
-            if (path is null)
+            var path = Path.Combine(AppContext.BaseDirectory, "config", "epr-settings.json");
+            if (!File.Exists(path))
             {
-                return [];
+                return DefaultMappings();
             }
 
             var json = File.ReadAllText(path);
@@ -147,33 +147,28 @@ public sealed class CategoryMapper
 
             if (settings?.Mappings is null || settings.Mappings.Count == 0)
             {
-                return [];
+                return DefaultMappings();
             }
 
             return settings.Mappings;
         }
         catch
         {
-            return [];
+            return DefaultMappings();
         }
     }
 
-    private static string? FindSettingsFilePath(string fileName)
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        for (var depth = 0; depth < 6 && current is not null; depth++)
-        {
-            var candidate = Path.Combine(current.FullName, fileName);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            current = current.Parent;
-        }
-
-        return null;
-    }
+    private static IReadOnlyList<CategoryMapping> DefaultMappings()
+        =>
+        [
+            new CategoryMapping { SupplierTerm = "LDPE", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "LLDPE", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "HDPE", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "PE", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "Soft Plast", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "Plastic", SystemCategory = "Flexibles" },
+            new CategoryMapping { SupplierTerm = "PET", SystemCategory = "Packaging Mixed" }
+        ];
 
     private sealed class EprSettings
     {

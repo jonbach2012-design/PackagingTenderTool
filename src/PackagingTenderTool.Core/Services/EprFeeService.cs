@@ -116,8 +116,8 @@ public sealed class EprFeeService : IEprFeeService
     {
         try
         {
-            var path = FindSettingsFilePath("epr-settings.json");
-            if (path is null)
+            var path = Path.Combine(AppContext.BaseDirectory, "config", "epr-settings.json");
+            if (!File.Exists(path))
             {
                 return CreatePlaceholderRates();
             }
@@ -148,24 +148,6 @@ public sealed class EprFeeService : IEprFeeService
             // Robust default: never block evaluation because config is missing/broken.
             return CreatePlaceholderRates();
         }
-    }
-
-    private static string? FindSettingsFilePath(string fileName)
-    {
-        // Probe upward from the current base directory (works for App + Tests without csproj copying).
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        for (var depth = 0; depth < 6 && current is not null; depth++)
-        {
-            var candidate = Path.Combine(current.FullName, fileName);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            current = current.Parent;
-        }
-
-        return null;
     }
 
     private static IReadOnlyList<EprRate> CreatePlaceholderRates()

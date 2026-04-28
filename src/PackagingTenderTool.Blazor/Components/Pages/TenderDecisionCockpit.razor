@@ -10,10 +10,10 @@
 @using Radzen.Blazor
 @implements IDisposable
 
-@inject MockDataService MockData
-@inject ScenarioStateService Scenario
+@inject IMockDataService MockData
+@inject IScenarioStateService Scenario
 @inject IOptions<TcoSettings> BaselineOptions
-@inject ExportService Exporter
+@inject IExportService Exporter
 @inject IJSRuntime Js
 
 <RadzenLayout class="rz-shell">

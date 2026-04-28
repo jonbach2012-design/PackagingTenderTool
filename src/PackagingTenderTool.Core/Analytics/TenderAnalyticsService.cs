@@ -1,9 +1,22 @@
 using PackagingTenderTool.Core.Models;
+using PackagingTenderTool.Core.Services;
 
 namespace PackagingTenderTool.Core.Analytics;
 
 public sealed class TenderAnalyticsService
 {
+    private readonly IEprFeeService eprFeeService;
+
+    public TenderAnalyticsService(IEprFeeService eprFeeService)
+    {
+        this.eprFeeService = eprFeeService ?? throw new ArgumentNullException(nameof(eprFeeService));
+    }
+
+    public TenderAnalyticsService()
+        : this(new EprFeeService())
+    {
+    }
+
     public TenderAnalyticsSummary Analyze(IEnumerable<CleanedLabelLineItem> cleanedRows)
     {
         ArgumentNullException.ThrowIfNull(cleanedRows);

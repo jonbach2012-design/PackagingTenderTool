@@ -22,17 +22,17 @@ builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
 
 builder.Services.Configure<TcoSettings>(builder.Configuration.GetSection("TcoSettings"));
-builder.Services.AddScoped<ScenarioStateService>();
+builder.Services.AddScoped<IScenarioStateService, ScenarioStateService>();
 builder.Services.AddScoped<ITcoCalculator, TcoCalculator>();
-builder.Services.AddScoped<MockDataService>();
-builder.Services.AddScoped<ExportService>();
-builder.Services.AddScoped<TcoEngineService>();
+builder.Services.AddScoped<IMockDataService, MockDataService>();
+builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddScoped<ITcoEngineService, TcoEngineService>();
 
 builder.Services.AddScoped<PackagingProfileSession>();
 builder.Services.AddSingleton<ILabelTenderScoringStrategy, RelativeToBestScoringStrategy>();
 builder.Services.AddSingleton<LabelTenderScoringService>();
 builder.Services.AddSingleton<IEprFeeService, EprFeeService>();
-builder.Services.AddSingleton<RegulatoryService>();
+builder.Services.AddSingleton<IRegulatoryService, RegulatoryService>();
 builder.Services.AddSingleton<LabelsExcelImportService>();
 
 var app = builder.Build();

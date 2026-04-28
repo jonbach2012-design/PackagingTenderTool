@@ -2,12 +2,15 @@ namespace PackagingTenderTool.Blazor.Models.LabelTender;
 
 public sealed class LabelTenderDashboardDto
 {
+    public required string SupplierId { get; init; }
     public required string SupplierName { get; init; }
     public required decimal Commercial { get; init; }
     public required decimal Epr { get; init; }
     public required decimal Switching { get; init; }
     public required decimal Moq { get; init; }
     public required decimal Total { get; init; }
+
+    public decimal TotalTco => Total;
     public required decimal PriceScore { get; init; }
     public required decimal TechScore { get; init; }
     public required decimal RegScore { get; init; }
@@ -20,5 +23,9 @@ public sealed class LabelTenderDashboardDto
     public required double TotalWidth { get; init; }
 
     public required string CalculationBreakdown { get; init; }
+
+    public required string TechnicalSummary { get; init; }
+
+    public required bool IsCompliant { get; init; }
 }
 

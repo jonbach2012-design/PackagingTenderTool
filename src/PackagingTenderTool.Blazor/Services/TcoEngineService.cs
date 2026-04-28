@@ -5,15 +5,25 @@ using PackagingTenderTool.Core.Services;
 
 namespace PackagingTenderTool.Blazor.Services;
 
-public sealed class TcoEngineService
+public sealed class TcoEngineService : ITcoEngineService
 {
-    private readonly RegulatoryService regulatory;
+    private readonly IRegulatoryService regulatory;
     private static readonly CultureInfo DanishCulture = CultureInfo.GetCultureInfo("da-DK");
     private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
 
-    public TcoEngineService(RegulatoryService regulatory)
+    private const decimal MissingWeightPenaltyPct = 0.15m;
+
+    public TcoEngineService(IRegulatoryService regulatory)
     {
         this.regulatory = regulatory ?? throw new ArgumentNullException(nameof(regulatory));
+    }
+
+    public LabelTenderDashboardDto CalculateResult(PackagingProfileSession session, SupplierModel supplier)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(supplier);
+
+        return GetResults(session, [supplier]).First();
     }
 
     public IReadOnlyList<LabelTenderDashboardDto> GetResults(PackagingProfileSession session, IReadOnlyList<SupplierModel> suppliers)
@@ -27,38 +37,51 @@ public sealed class TcoEngineService
 
         foreach (var s in suppliers)
         {
+            var supplierId = s.SupplierId ?? string.Empty;
             var volume = s.QuantityLabels <= 0 ? 0m : s.QuantityLabels;
             var commercial = volume * s.Price;
 
             var country = string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country;
-            var grade = session.GetSupplierRecyclabilityGrade(s.SupplierId);
+            var grade = session.GetSupplierRecyclabilityGrade(supplierId);
 
             var epr = 0m;
+            var missingWeightPenalty = 0m;
+            var hasWeight = s.LabelWeightGramsPerUnit > 0m;
+
             if (session.ApplyPpwr2030Scenario)
             {
-                var eprBase = regulatory.CalculateEpr2026ForecastFee(
-                    countryCode: country,
-                    labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
-                    quantityUnits: volume);
-
-                var gradeFactor = grade switch
+                if (hasWeight)
                 {
-                    RecyclingGrade.A => 1.0m,
-                    RecyclingGrade.B => 1.3m,
-                    RecyclingGrade.C => 1.8m,
-                    RecyclingGrade.D => 2.4m,
-                    RecyclingGrade.E => 3.0m,
-                    _ => 1.8m
-                };
+                    var eprBase = regulatory.CalculateEpr2026ForecastFee(
+                        countryCode: country,
+                        labelWeightGramsPerUnit: s.LabelWeightGramsPerUnit,
+                        quantityUnits: volume);
 
-                epr = eprBase * gradeFactor;
+                    var gradeFactor = grade switch
+                    {
+                        RecyclingGrade.A => 1.0m,
+                        RecyclingGrade.B => 1.3m,
+                        RecyclingGrade.C => 1.8m,
+                        RecyclingGrade.D => 2.4m,
+                        RecyclingGrade.E => 3.0m,
+                        _ => 1.8m
+                    };
+
+                    epr = eprBase * gradeFactor;
+                }
+                else if (commercial > 0m)
+                {
+                    // Golden-case robustness: missing weight implies unknown EPR exposure.
+                    // Treat it as a penalty to reflect compliance risk deterministically.
+                    missingWeightPenalty = decimal.Round(commercial * MissingWeightPenaltyPct, 2, MidpointRounding.AwayFromZero);
+                }
             }
 
-            var switching = s.SupplierId.Equals(session.IncumbentSupplierId, StringComparison.OrdinalIgnoreCase)
+            var switching = supplierId.Equals(session.IncumbentSupplierId, StringComparison.OrdinalIgnoreCase)
                 ? 0m
-                : session.GetStartupCost(s.SupplierId) + (session.GetMonthlySupportCost(s.SupplierId) * 12m);
+                : session.GetStartupCost(supplierId) + (session.GetMonthlySupportCost(supplierId) * 12m);
 
-            var moq = commercial * (session.GetSupplierMoqPenaltyPct(s.SupplierId) / 100m);
+            var moq = commercial * (session.GetSupplierMoqPenaltyPct(supplierId) / 100m);
 
             // Technical score adjustment (lead time penalty).
             var tech = s.TechnicalScore;
@@ -66,13 +89,16 @@ public sealed class TcoEngineService
                 tech = Math.Max(0m, tech - ((s.LeadTimeWeeks - 4) * 5m));
 
             var regScore = s.RegulatoryScore;
-            var total = commercial + epr + switching + moq;
+            var total = commercial + epr + missingWeightPenalty + switching + moq;
+
+            var isCompliant = hasWeight;
 
             results.Add(new LabelTenderDashboardDto
             {
+                SupplierId = supplierId,
                 SupplierName = s.SupplierName,
                 Commercial = decimal.Round(commercial, 0, MidpointRounding.AwayFromZero),
-                Epr = decimal.Round(epr, 0, MidpointRounding.AwayFromZero),
+                Epr = decimal.Round(epr + missingWeightPenalty, 0, MidpointRounding.AwayFromZero),
                 Switching = decimal.Round(switching, 0, MidpointRounding.AwayFromZero),
                 Moq = decimal.Round(moq, 0, MidpointRounding.AwayFromZero),
                 Total = decimal.Round(total, 0, MidpointRounding.AwayFromZero),
@@ -85,7 +111,9 @@ public sealed class TcoEngineService
                 SwitchingWidth = 0,
                 MoqWidth = 0,
                 TotalWidth = 0,
-                CalculationBreakdown = string.Empty
+                CalculationBreakdown = string.Empty,
+                TechnicalSummary = SummarizeTechnical(s.SupplierComments),
+                IsCompliant = isCompliant
             });
         }
 
@@ -111,6 +139,7 @@ public sealed class TcoEngineService
 
             results[i] = new LabelTenderDashboardDto
             {
+                SupplierId = r.SupplierId,
                 SupplierName = r.SupplierName,
                 Commercial = r.Commercial,
                 Epr = r.Epr,
@@ -126,7 +155,9 @@ public sealed class TcoEngineService
                 SwitchingWidth = r.SwitchingWidth,
                 MoqWidth = r.MoqWidth,
                 TotalWidth = r.TotalWidth,
-                CalculationBreakdown = breakdown
+                CalculationBreakdown = breakdown,
+                TechnicalSummary = r.TechnicalSummary,
+                IsCompliant = r.IsCompliant
             };
         }
 
@@ -147,6 +178,7 @@ public sealed class TcoEngineService
             var r = results[i];
             results[i] = new LabelTenderDashboardDto
             {
+                SupplierId = r.SupplierId,
                 SupplierName = r.SupplierName,
                 Commercial = r.Commercial,
                 Epr = r.Epr,
@@ -162,12 +194,60 @@ public sealed class TcoEngineService
                 SwitchingWidth = (double)r.Switching * scale,
                 MoqWidth = (double)r.Moq * scale,
                 TotalWidth = (double)r.Total * scale,
-                CalculationBreakdown = r.CalculationBreakdown
+                CalculationBreakdown = r.CalculationBreakdown,
+                TechnicalSummary = r.TechnicalSummary,
+                IsCompliant = r.IsCompliant
             };
         }
 
         return results;
     }
+
+    public static string SummarizeTechnical(string comments)
+    {
+        if (string.IsNullOrWhiteSpace(comments))
+            return "No technical deviations reported.";
+
+        // Lightweight summary heuristic (kept out of UI per ADR 001).
+        var c = comments.Trim();
+        return c.Length <= 140 ? c : c[..140] + "…";
+    }
+
+    public decimal ComputeTenderValueWeighted(
+        IReadOnlyList<SupplierPillarAnalysisRow> rows,
+        decimal tenderVolumeUnits)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        if (rows.Count == 0 || tenderVolumeUnits <= 0m)
+            return 0m;
+
+        var denom = rows.Sum(r => r.TotalScore);
+        if (denom <= 0.0001m)
+            return 0m;
+
+        var weightedUnitPrice = rows.Sum(r => r.Supplier.Price * r.TotalScore) / denom;
+        return weightedUnitPrice * tenderVolumeUnits;
+    }
+
+    public int CountCompliancePassed(
+        IReadOnlyList<SupplierModel> suppliers,
+        decimal maxCo2Impact,
+        decimal maxLeadTimeDays)
+    {
+        ArgumentNullException.ThrowIfNull(suppliers);
+
+        if (suppliers.Count == 0)
+            return 0;
+
+        return suppliers.Count(s =>
+            HasCo2Data(s) && s.Co2Impact <= maxCo2Impact
+            && HasLeadTimeData(s) && s.DeliveryTimeDays <= maxLeadTimeDays);
+    }
+
+    public bool HasCo2Data(SupplierModel supplier) => supplier.Co2Impact > 0m;
+
+    public bool HasLeadTimeData(SupplierModel supplier) => supplier.DeliveryTimeDays > 0m;
 
     private static string BuildBreakdown(
         LabelTenderDashboardDto r,
@@ -179,31 +259,38 @@ public sealed class TcoEngineService
     {
         var priceIndex = decimal.Round(priceScore, 0, MidpointRounding.AwayFromZero).ToString("0", InvariantCulture);
         var tco = r.Total.ToString("N0", DanishCulture);
-        var weights = $"W: Price {session.Commercial:0} / Tech {session.Technical:0} / Reg {session.Regulatory:0}";
+        var weights = $"Weights: Price {session.Commercial:0}% / Tech {session.Technical:0}% / Reg {session.Regulatory:0}%";
 
-        var ppwrText = session.ApplyPpwr2030Scenario
+        var ppwrPenalty = session.ApplyPpwr2030Scenario
             ? $"+{r.Epr.ToString("N0", DanishCulture)} regulatory (PPWR ON, grade {grade})"
             : "+0 regulatory (PPWR OFF)";
 
-        var switchingText = r.Switching == 0m
+        var switchingPenalty = r.Switching == 0m
             ? "+0 switching (incumbent)"
             : $"+{r.Switching.ToString("N0", DanishCulture)} switching";
 
-        var moqText = r.Moq == 0m
+        var moqPenalty = r.Moq == 0m
             ? "+0 MOQ risk"
             : $"+{r.Moq.ToString("N0", DanishCulture)} MOQ risk";
 
-        var assumption = volume <= 0m
-            ? "AUDIT: 0 volume detected. Fixed costs dominate total TCO."
-            : string.Empty;
+        var compliancePenalty = r.IsCompliant
+            ? "Compliance: OK"
+            : $"Penalty: missing weight (+{(MissingWeightPenaltyPct * 100m).ToString("0", InvariantCulture)}% of commercial)";
+
+        var penaltyText = $"PPWR/EPR: {ppwrPenalty}; {compliancePenalty}; Switching: {switchingPenalty}; MOQ: {moqPenalty}";
+
+        var assumptionText = volume <= 0m
+            ? "0 volume detected => fixed costs dominate total TCO."
+            : "Volume > 0 => per-unit spend drives total.";
 
         return
-            $"Why this score? Price Index {priceIndex} with {weights}. " +
-            $"TCO: {tco} kr. " +
-            $"Penalties: {ppwrText}, {switchingText}, {moqText}. " +
+            $"What penalty? {penaltyText}. " +
+            $"What assumption? {assumptionText}. " +
+            $"{weights}. " +
+            $"Price Index: {priceIndex}. " +
             $"Pillar scores: Tech {r.TechScore.ToString("0.0", InvariantCulture)}, Reg {r.RegScore.ToString("0.0", InvariantCulture)}. " +
-            $"{assumption} " +
-            $"CTR (weighted): {decimal.Round(finalCtrScore, 0, MidpointRounding.AwayFromZero).ToString("0", InvariantCulture)}.";
+            $"CTR (weighted): {decimal.Round(finalCtrScore, 0, MidpointRounding.AwayFromZero).ToString("0", InvariantCulture)}. " +
+            $"TCO: {tco} kr.";
     }
 }
 

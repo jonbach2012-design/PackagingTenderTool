@@ -5,5 +5,8 @@ public sealed record TcoResult(
     decimal Regulatory,
     decimal Technical,
     decimal Switching,
-    decimal Total);
+    decimal Total)
+{
+    public string TechnicalSummary { get; set; } = string.Empty;
+}
 

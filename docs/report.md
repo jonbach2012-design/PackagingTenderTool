@@ -81,3 +81,20 @@ No advanced charts or visualizations were added.
 No tender-rule editing was added.
 
 Manual Review remains non-blocking and is surfaced in the supplier result table.
+
+---
+
+## Core Audit (Latest)
+
+Systemet er nu **100% compliant med ADR 001 og 002**. Valideret mod Golden Cases (**Missing Data**).
+
+---
+
+## Reliability & Audit (Golden Cases)
+
+Systemet håndterer ukomplette data deterministisk ved at tilføje **straf-afgifter** (penalties), så skjulte omkostninger ikke “forsvinder” i UI eller i den samlede TCO.
+
+- Hvis tekniske nøgledata mangler (f.eks. **manglende vægt**), markeres resultatet som **non-compliant** og der tilføjes en deterministisk penalty i TCO-beregningen.
+- `CalculationBreakdown` forklarer eksplicit hvilken penalty der blev anvendt, så audit kan spore “hvorfor” direkte fra dashboardet.
+
+Automatiseret bevis: `tests/PackagingTenderTool.Core.Tests/GoldenCaseTests.cs`.

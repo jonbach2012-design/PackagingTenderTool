@@ -1,6 +1,7 @@
 using PackagingTenderTool.Core.Analytics;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
+using NSubstitute;
 
 namespace PackagingTenderTool.Core.Tests;
 
@@ -18,7 +19,8 @@ public sealed class TenderAnalyticsServiceTests
             CreateLine("D", "Stokke", "80X263", "PP top white", 400m, 120m)
         }.Select(cleaner.Clean).ToList();
 
-        var summary = new TenderAnalyticsService().Analyze(rows);
+        var epr = Substitute.For<IEprFeeService>();
+        var summary = new TenderAnalyticsService(epr).Analyze(rows);
 
         Assert.Equal(1000m, summary.TotalSpend);
         Assert.Equal(4, summary.ItemCount);
@@ -67,7 +69,8 @@ public sealed class TenderAnalyticsServiceTests
             line.LineItemId = line.LineItem.Id;
         }
 
-        var summary = new TenderAnalyticsService().CalculateTco(lines);
+        var epr = Substitute.For<IEprFeeService>();
+        var summary = new TenderAnalyticsService(epr).CalculateTco(lines);
 
         // Net spend = price * volume:
         // (100/1000)*1000 + (600/1000)*500 = 100 + 300 = 400
@@ -97,7 +100,8 @@ public sealed class TenderAnalyticsServiceTests
         };
         line.LineItemId = line.LineItem.Id;
 
-        var summary = new TenderAnalyticsService().CalculateTco([line], volumeMultiplier: 1.10m);
+        var epr = Substitute.For<IEprFeeService>();
+        var summary = new TenderAnalyticsService(epr).CalculateTco([line], volumeMultiplier: 1.10m);
 
         // Derived net spend: (10/1000) * (100*1.1) = 1.1
         Assert.Equal(1.10m, summary.TotalNetSpend);
@@ -126,7 +130,8 @@ public sealed class TenderAnalyticsServiceTests
             MaterialPriceMultiplier = 0.95m
         };
 
-        var summary = new TenderAnalyticsService().CalculateTco([line], volumeMultiplier: 1.00m, stress: stress);
+        var epr = Substitute.For<IEprFeeService>();
+        var summary = new TenderAnalyticsService(epr).CalculateTco([line], volumeMultiplier: 1.00m, stress: stress);
 
         // Net spend: (10/1000)*100 = 1.0, then *0.95 = 0.95
         Assert.Equal(0.95m, summary.TotalNetSpend);

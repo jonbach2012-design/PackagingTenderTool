@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
+using NSubstitute;
 
 namespace PackagingTenderTool.Core.Tests;
 
@@ -146,7 +147,17 @@ public sealed class LabelsExcelImportServiceTests
             lineItem.EprSchemes.Add(new EprSchemeInfo { CountryCode = "DK", Category = "Labels" });
         }
 
-        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
+        var epr = Substitute.For<IEprFeeService>();
+        epr.TryCalculateFee(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<decimal>(), out Arg.Any<decimal>(), out Arg.Any<ManualReviewFlag?>())
+            .Returns(call =>
+            {
+                var weightKg = (decimal)call[2]!;
+                call[3] = decimal.Round(weightKg * 0.50m, 4);
+                call[4] = null;
+                return true;
+            });
+
+        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(epr))
             .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
 
@@ -240,7 +251,17 @@ public sealed class LabelsExcelImportServiceTests
             lineItem.EprSchemes.Add(new EprSchemeInfo { CountryCode = "DK", Category = "Labels" });
         }
 
-        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()))
+        var epr = Substitute.For<IEprFeeService>();
+        epr.TryCalculateFee(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<decimal>(), out Arg.Any<decimal>(), out Arg.Any<ManualReviewFlag?>())
+            .Returns(call =>
+            {
+                var weightKg = (decimal)call[2]!;
+                call[3] = decimal.Round(weightKg * 0.50m, 4);
+                call[4] = null;
+                return true;
+            });
+
+        var lineEvaluations = new LineEvaluationService(new LabelsEvaluationStrategy(epr))
             .EvaluateMany(tender.LabelLineItems, tender.Settings);
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName(lineEvaluations)

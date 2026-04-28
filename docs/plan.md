@@ -296,6 +296,14 @@ The next documentation and planning step is:
 
 - update `spec.md` so it matches the current implemented and architectural direction
 
+---
+
+## 12.1 Execution Steps (ADR-driven)
+
+- **Step 1: ADR 001 Compliance** — **DONE (100%)**
+- **Step 2: Interactive Sliders** — **DONE (100%)**
+- **Step 4: Infrastructure & CI/CD** — **DONE (100%)**
+
 The next implementation focus should continue around:
 - import robustness
 - cleaning / normalization

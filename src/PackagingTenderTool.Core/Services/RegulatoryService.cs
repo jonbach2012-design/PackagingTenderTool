@@ -2,7 +2,7 @@ using PackagingTenderTool.Core.Models;
 
 namespace PackagingTenderTool.Core.Services;
 
-public sealed class RegulatoryService
+public sealed class RegulatoryService : IRegulatoryService
 {
     private readonly IEprFeeService eprFeeService;
 

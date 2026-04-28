@@ -9,13 +9,11 @@ internal static class TestDataFactory
         decimal? spend = 100m,
         decimal? pricePerThousand = 10m)
     {
-        return CreateValidLabelLineItem(
-            supplierName: supplierName,
-            spend: spend,
-            pricePerThousand: pricePerThousand,
-            countryCode: "DK",
-            category: "Labels",
-            labelWeightGrams: 100m);
+        return new PackagingTenderBuilder()
+            .WithSupplier(supplierName)
+            .WithSpend(spend)
+            .WithPricePerThousand(pricePerThousand)
+            .BuildSingleLineItem();
     }
 
     public static LabelLineItem CreateValidLabelLineItem(
@@ -26,20 +24,17 @@ internal static class TestDataFactory
         string category = "Labels",
         decimal labelWeightGrams = 100m)
     {
-        var item = new LabelLineItem
-        {
-            SupplierName = supplierName,
-            Spend = spend,
-            PricePerThousand = pricePerThousand,
-            LabelWeightGrams = labelWeightGrams
-        };
+        var b = new PackagingTenderBuilder()
+            .WithSupplier(supplierName)
+            .WithSpend(spend)
+            .WithPricePerThousand(pricePerThousand)
+            .WithEprScheme(countryCode, category);
 
-        item.EprSchemes.Add(new EprSchemeInfo
-        {
-            CountryCode = countryCode,
-            Category = category
-        });
+        if (labelWeightGrams <= 0m)
+            return b.WithMissingWeight().BuildSingleLineItem();
 
+        var item = b.BuildSingleLineItem();
+        item.LabelWeightGrams = labelWeightGrams;
         return item;
     }
 }

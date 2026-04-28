@@ -13,7 +13,7 @@
 @inject PackagingProfileSession Session
 @inject NavigationManager Nav
 @inject LabelsExcelImportService Importer
-@inject PackagingTenderTool.Blazor.Services.TcoEngineService TcoEngine
+@inject PackagingTenderTool.Blazor.Services.ITcoEngineService TcoEngine
 
 @if (Session.SelectedProfile is null)
 {
@@ -130,6 +130,52 @@ else
                 </MudStack>
             </MudPaper>
 
+            <MudPaper Elevation="0" Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Strategic weights (sum 100%)</MudText>
+                <MudText Typo="Typo.body2" Class="cockpit-muted">
+                    Commercial @Session.Commercial% • Technical @Session.Technical% • Regulatory @Session.Regulatory%
+                </MudText>
+
+                @if (!string.IsNullOrWhiteSpace(_weightWarning))
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2">
+                        @_weightWarning
+                    </MudAlert>
+                }
+
+                <MudStack Spacing="2" Class="mt-3" Style="max-width: 520px;">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Class="cockpit-muted">Commercial</MudText>
+                        <MudSlider T="int"
+                                   Min="0" Max="100" Step="1"
+                                   Value="@Session.Commercial"
+                                   ValueChanged="@(v => HandleWeightChange(Pillar.Commercial, v))"
+                                   Immediate="true"
+                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
+                    </MudStack>
+
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Class="cockpit-muted">Technical</MudText>
+                        <MudSlider T="int"
+                                   Min="0" Max="100" Step="1"
+                                   Value="@Session.Technical"
+                                   ValueChanged="@(v => HandleWeightChange(Pillar.Technical, v))"
+                                   Immediate="true"
+                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
+                    </MudStack>
+
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Class="cockpit-muted">Regulatory</MudText>
+                        <MudSlider T="int"
+                                   Min="0" Max="100" Step="1"
+                                   Value="@Session.Regulatory"
+                                   ValueChanged="@(v => HandleWeightChange(Pillar.Regulatory, v))"
+                                   Immediate="true"
+                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
             <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
                 <MudTabPanel Text="Dashboard">
                     <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
@@ -171,12 +217,12 @@ else
                                             <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
 
                                             <!-- Score badge -->
-                                            <circle cx="12" cy="@(yPos + 15)" r="10" fill="rgba(45,52,54,0.10)" />
-                                            <svg:text x="12" y="@(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
+                                            <circle cx="@FmtSvg(12)" cy="@FmtSvg(yPos + 15)" r="@FmtSvg(10)" fill="rgba(45,52,54,0.10)" />
+                                            <svg:text x="@FmtSvg(12)" y="@FmtSvg(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
                                                 @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
                                             </svg:text>
 
-                                            <svg:text x="28" y="@(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
+                                            <svg:text x="@FmtSvg(28)" y="@FmtSvg(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
 
                                             <svg:text x="@FmtSvg(x0 + r.TotalWidth + 10)" y="@FmtSvg(yPos + 20)" font-size="12" font-family="monospace">
                                                 @r.Total.ToString("N0", Da) kr.
@@ -190,14 +236,14 @@ else
                         <div style="margin-top: 12px; display:flex; flex-wrap:wrap; gap: 14px; align-items:center;">
                             <div style="display:flex; align-items:center; gap: 8px;">
                                 <span style="width:14px;height:14px;border-radius:3px;background:#91a363;display:inline-block;"></span>
-                                <span>Commercial Base (Forhandlet pris)</span>
+                                <span>Aftalt pris (Indkøb)</span>
                             </div>
                             <div style="display:flex; align-items:center; gap: 8px;">
                                 <span style="width:14px;height:14px;border-radius:3px;background:#4682B4;display:inline-block;"></span>
-                                <span>Regulatory/Technical Adjustments (Skjulte risici & tillæg)</span>
+                                <span>Skjulte omkostninger (TCO-tillæg)</span>
                             </div>
                             <div style="color: rgba(45, 52, 54, 0.65);">
-                                Gennemsigtighed indikerer strategisk CTR-score (lav score = udfaset bar).
+                                Gennemsigtighed indikerer strategisk CTR-match (Solid = Højt match, Transparent = Lavt match).
                             </div>
                         </div>
                     </MudPaper>
@@ -397,7 +443,14 @@ else
 
                                         <MudItem xs="12" md="4">
                                             <MudText Typo="Typo.caption" Class="cockpit-muted">AI summary (technical deviations)</MudText>
-                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@SummarizeTechnical(context.Item.Supplier.SupplierComments)</MudText>
+                                            @{
+                                                var r = _tcoResults.FirstOrDefault(x =>
+                                                    x.SupplierId.Equals(context.Item.Supplier.SupplierId, StringComparison.OrdinalIgnoreCase));
+                                                var technicalSummary = r is null
+                                                    ? "No technical deviations reported."
+                                                    : r.TechnicalSummary;
+                                            }
+                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@technicalSummary</MudText>
                                         </MudItem>
 
                                         <MudItem xs="12" md="4">
@@ -602,6 +655,9 @@ else
 
     private void OnSessionChanged()
     {
+        if (_suppressSessionChanged)
+            return;
+
         if (_isCalculating)
             return;
 
@@ -1046,6 +1102,55 @@ else
         }
     }
 
+    private enum Pillar
+    {
+        Commercial = 0,
+        Technical = 1,
+        Regulatory = 2
+    }
+
+    private bool _suppressSessionChanged;
+    private string _weightWarning = string.Empty;
+
+    private void HandleWeightChange(Pillar pillar, int value)
+    {
+        if (_isCalculating)
+            return;
+
+        // Avoid double recompute: session setters raise Session.Changed.
+        _suppressSessionChanged = true;
+        try
+        {
+            switch (pillar)
+            {
+                case Pillar.Commercial:
+                    Session.SetCommercial(value);
+                    break;
+                case Pillar.Technical:
+                    Session.SetTechnical(value);
+                    break;
+                default:
+                    Session.SetRegulatory(value);
+                    break;
+            }
+        }
+        finally
+        {
+            _suppressSessionChanged = false;
+        }
+
+        var sum = Session.PillarSum;
+        _weightWarning = sum > 100
+            ? $"Warning: weights sum to {sum}% (> 100%). Reduce one pillar."
+            : sum < 100
+                ? $"Warning: weights sum to {sum}% (< 100%)."
+                : string.Empty;
+
+        // Force recalculation and immediate visual update (SVG widths + opacity depend on results).
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
     private IEnumerable<AuditItem> AuditItems
     {
         get
@@ -1171,16 +1276,6 @@ else
                 chips.Add($"Search: {_tableSearch.Trim()}");
             return chips;
         }
-    }
-
-    private static string SummarizeTechnical(string comments)
-    {
-        if (string.IsNullOrWhiteSpace(comments))
-            return "No technical deviations reported.";
-
-        // Lightweight “AI summary” heuristic (keeps logic in UI minimal; can be replaced by real NLP later).
-        var c = comments.Trim();
-        return c.Length <= 140 ? c : c[..140] + "…";
     }
 
     private sealed record SupplierOption(string Id, string Name);
@@ -1342,26 +1437,15 @@ else
     {
         get
         {
-            if (_pillarRows.Count == 0)
-            {
-                return "–";
-            }
-
-            var denom = _pillarRows.Sum(r => r.TotalScore);
-            if (denom <= 0.0001m)
-            {
-                return "–";
-            }
-
-            var weightedUnitPrice = _pillarRows.Sum(r => r.Supplier.Price * r.TotalScore) / denom;
-            return (weightedUnitPrice * TenderVolumeUnits).ToString("N0", Da) + " kr.";
+            var tenderValue = TcoEngine.ComputeTenderValueWeighted(_pillarRows, TenderVolumeUnits);
+            return tenderValue <= 0m ? "–" : tenderValue.ToString("N0", Da) + " kr.";
         }
     }
 
     private int SelectedCount => _suppliersSelected.Count;
 
     private int CompliancePassed =>
-        _suppliersSelected.Count(s => s.Co2Impact <= Session.MaxCo2Impact && s.DeliveryTimeDays <= Session.MaxLeadTimeDays);
+        TcoEngine.CountCompliancePassed(_suppliersSelected, Session.MaxCo2Impact, Session.MaxLeadTimeDays);
 
     private string CompliancePctFormatted =>
         SelectedCount == 0 ? "–" : ((decimal)CompliancePassed / SelectedCount).ToString("P0", CultureInfo.InvariantCulture);

@@ -1,5 +1,6 @@
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
+using NSubstitute;
 
 namespace PackagingTenderTool.Core.Tests;
 
@@ -7,7 +8,23 @@ public sealed class EvaluationServiceTests
 {
     private static LineEvaluationService CreateLineService()
     {
-        return new LineEvaluationService(new LabelsEvaluationStrategy(new EprFeeService()));
+        var epr = Substitute.For<IEprFeeService>();
+        epr.TryCalculateFee(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<decimal>(), out Arg.Any<decimal>(), out Arg.Any<ManualReviewFlag?>())
+            .Returns(call =>
+            {
+                var category = (string)call[1]!;
+                var weightKg = (decimal)call[2]!;
+
+                // Deterministic placeholder rates that preserve legacy test intent:
+                // - Flexibles is "high" => malus branch (>= 1.00 per kg)
+                // - Labels defaults to "mid" => neutral branch
+                var ratePerKg = category.Equals("Flexibles", StringComparison.OrdinalIgnoreCase) ? 1.20m : 0.50m;
+                call[3] = decimal.Round(weightKg * ratePerKg, 4);
+                call[4] = null;
+                return true;
+            });
+
+        return new LineEvaluationService(new LabelsEvaluationStrategy(epr));
     }
 
     private static LabelLineItem WithValidEpr(LabelLineItem lineItem, string countryCode = "DK", string category = "Labels", decimal labelWeightGrams = 1000m)

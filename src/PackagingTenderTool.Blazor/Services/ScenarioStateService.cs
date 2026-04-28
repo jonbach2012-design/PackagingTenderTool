@@ -2,7 +2,7 @@ using PackagingTenderTool.Blazor.Models;
 
 namespace PackagingTenderTool.Blazor.Services;
 
-public sealed class ScenarioStateService
+public sealed class ScenarioStateService : IScenarioStateService
 {
     private readonly Dictionary<string, decimal> baselineWeights = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, decimal> activeWeights = new(StringComparer.OrdinalIgnoreCase);
