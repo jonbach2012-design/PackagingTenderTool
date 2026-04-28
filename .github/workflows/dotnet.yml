@@ -1,7 +1,7 @@
 name: .NET CI/CD
 on:
   push:
-    branches: [ 'main' ]
+    branches: [ "main" ]
 jobs:
   build:
     runs-on: windows-latest
@@ -12,8 +12,8 @@ jobs:
       with:
         dotnet-version: 10.0.x
     - name: Restore
-      run: dotnet restore PackagingTenderDecisionEngine.sln
+      run: dotnet restore PackagingTenderTool.sln
     - name: Build
-      run: dotnet build PackagingTenderDecisionEngine.sln --configuration Release --no-restore
+      run: dotnet build PackagingTenderTool.sln --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
