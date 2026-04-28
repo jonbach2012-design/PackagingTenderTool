@@ -1,28 +1,28 @@
-name: .NET
+name: .NET CI/CD
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build_test:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore
-
-      - name: Test
-        run: dotnet test --no-build
-
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore PackagingTenderDecisionEngine.sln
+      
+    - name: Build
+      run: dotnet build PackagingTenderDecisionEngine.sln --configuration Release --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
