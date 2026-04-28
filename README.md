@@ -31,6 +31,7 @@ Ufuldstændige tilbud "glider ikke igennem". Manglende data udløser automatisk 
 ---
 
 ## Evalueringsmodel
+
 Tre dimensioner med konfigurerbare vægte pr. udbud:
 
 | Dimension  | Standardvægt | Indhold |
@@ -40,6 +41,7 @@ Tre dimensioner med konfigurerbare vægte pr. udbud:
 | Regulatory | 40%          | EPR-afgifter, PPWR-score |
 
 ---
+
 
 ## Arkitektur & Dataflow
 
@@ -60,27 +62,33 @@ graph TD
 
 
 
-Teknologi,Rolle
-.NET 10.0,Performance og C# 13
-Blazor/Radzen,Real-time What-if via SignalR
-NSubstitute,Test af logik uden Excel-afhængighed
-GitHub Actions,Automatiseret CI/CD (Windows Runner)
-Solution,PackagingTenderTool.sln
+## Teknisk Fundament
+
+| Teknologi | Rolle |
+|:---|:---|
+| **.NET 10.0** | Performance og C# 13 |
+| **Blazor/Radzen** | Real-time What-if via SignalR |
+| **NSubstitute** | Test af logik uden Excel-afhængighed |
+| **GitHub Actions** | Automatiseret CI/CD (Windows Runner) |
+| **Solution** | PackagingTenderTool.sln |
 
 
-### Roadmap: Fremtidig Værdiskabelse
+## Roadmap: Fremtidig Værdiskabelse
+
 * **Fase 1:** Validering mod reel tender i produktionskategori.
 * **Fase 2:** **Dynamic Indexation Library**. Integration til PIX, ICIS og Platts for hedging af råvarerisici.
 * **Fase 3:** **Supplier Risk Library** & **Design for Circularity Index**.
 
 
 ### Pålidelighed: Golden Cases
+
 74 deterministiske testscenarier verificerer, at motoren håndterer virkelighedens ufuldkomne data korrekt:
 * **Zero Volume & Extreme Scaling**
 * **Missing Data / Grades**
 * **PPWR Toggles & Ranking Stability**
 
-### Architectural Decision Records (ADR)
+## Architectural Decision Records (ADR)
+
 * **ADR 001 – SoC:** Al matematik isoleret i `TcoEngineService`. UI viser kun data.
 * **ADR 002 – Deterministisk SVG:** `InvariantCulture` (FmtSvg) eliminerer fejl fra decimalkommaer.
 * **ADR 003 – Blazor Frontend:** Migreret fra WinForms for real-time interaktivitet.
@@ -88,12 +96,14 @@ Solution,PackagingTenderTool.sln
 * **ADR 005 – 80/20 Auditstrategi:** Fuld audit obligatorisk ved ændringer i formler.
 
 
-### AI Governance (.cursorrules)
+## AI Governance (.cursorrules)
+
 Projektet er født med arkitektoniske guardrails for AI-assisteret udvikling. ADR'erne fungerer som "Source of Truth" for alle fremtidige ændringer.
 
 ---
 
 ## Installation
+
 1. `dotnet restore`
 2. `dotnet test` (Verificér 74 tests)
 3. `dotnet run --project src/PackagingTenderTool.Blazor`
