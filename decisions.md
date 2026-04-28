@@ -42,4 +42,3 @@
 ### Reversibility (Rollback discipline)
 
 - Core-logic changes must be shipped as **small commits (<200 lines)** to keep rollback safe and fast.
-
