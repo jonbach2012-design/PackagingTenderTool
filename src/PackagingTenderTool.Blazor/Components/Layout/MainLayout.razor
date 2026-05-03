@@ -4,6 +4,7 @@
 @using PackagingTenderTool.Blazor.Components.LabelTender
 
 @inject PackagingProfileSession Profile
+@inject NavigationManager Nav
 
 <MudThemeProvider Theme="@AppTheme.Scandi" />
 <MudDialogProvider />
@@ -21,27 +22,58 @@
         <MudDrawer Variant="DrawerVariant.Persistent"
                    Open="true"
                    Elevation="0"
-                   Width="300px"
+                   Width="@(_labelTenderRoute ? "340px" : "300px")"
                    ClipMode="DrawerClipMode.Always"
-                   Class="pt-drawer pt-drawer-cockpit">
-            <LabelTenderDrawerPanel />
-            <MudDivider Class="mx-2 my-1" />
-            <div class="pt-drawer-nav pa-2">
-                <NavMenu />
-            </div>
+                   Class="@(_labelTenderRoute ? "pt-drawer pt-drawer-cockpit pt-drawer--label-shell" : "pt-drawer pt-drawer-cockpit")">
+            @if (_labelTenderRoute)
+            {
+                <LabelTenderShellSidebar />
+            }
+            else
+            {
+                <LabelTenderDrawerPanel />
+                <MudDivider Class="mx-2 my-1" />
+                <div class="pt-drawer-nav pa-2">
+                    <NavMenu />
+                </div>
+            }
         </MudDrawer>
     }
 
-    <MudMainContent Class="@(Profile.SelectedProfile is not null ? "pa-4 cockpit-main" : "pa-0")">
+    <MudMainContent Class="@MainContentClass">
         @Body
     </MudMainContent>
 </MudLayout>
 
 @code
 {
+    private bool _labelTenderRoute;
+
+    private string MainContentClass =>
+        Profile.SelectedProfile is null
+            ? "pa-0"
+            : _labelTenderRoute
+                ? "cockpit-main cockpit-main--label-tender"
+                : "pa-4 cockpit-main";
+
     protected override void OnInitialized()
     {
         Profile.Changed += OnProfileChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        RefreshRouteFlag();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => RefreshRouteFlag();
+
+    private void RefreshRouteFlag()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var idx = path.IndexOf('?');
+        if (idx >= 0)
+            path = path[..idx];
+        path = path.TrimEnd('/').ToLowerInvariant();
+        _labelTenderRoute = path is "labeltender";
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void OnProfileChanged()
@@ -52,5 +84,6 @@
     public void Dispose()
     {
         Profile.Changed -= OnProfileChanged;
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }

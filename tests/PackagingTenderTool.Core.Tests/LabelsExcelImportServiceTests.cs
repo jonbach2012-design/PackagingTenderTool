@@ -1,3 +1,4 @@
+using System.IO;
 using ClosedXML.Excel;
 using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
@@ -44,9 +45,9 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportTenderMatchesColumnNamesRobustly()
     {
         using var stream = CreateWorkbookStream(
-            ["ITEM NO.", "Supplier", "Qty", "Price per 1000", "No of colors"],
+            ["ITEM NO.", "Item name", "Material", "Supplier", "Qty", "Price per 1000", "No of colors"],
             [
-                ["LBL-002", "Beta Packaging", 25000m, 8.75m, 2]
+                ["LBL-002", "It", "PP", "Beta Packaging", 25000m, 8.75m, 2]
             ]);
 
         var lineItem = new LabelsExcelImportService()
@@ -65,9 +66,9 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportTenderPreservesNullsAndFlagsInvalidNumericValues()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Quantity", "Spend", "Price per 1,000", "No. of colors"],
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "No. of colors"],
             [
-                ["LBL-003", "Gamma Labels", "not-a-number", "", "bad-price", 2.5m]
+                ["LBL-003", "It", "PP", "Gamma Labels", "not-a-number", "", "bad-price", 2.5m]
             ]);
 
         var lineItem = new LabelsExcelImportService()
@@ -97,10 +98,10 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportTenderParsesCommaAndDotDecimalSeparators()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Price", "Theoretical spend"],
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Price", "Theoretical spend"],
             [
-                ["LBL-004", "Acme Labels", "100000,5", "1.250,50", "12,50", "0,0125", "1.250,50"],
-                ["LBL-005", "Beta Packaging", "100000.5", "1,250.50", "12.50", "0.0125", "1,250.50"]
+                ["LBL-004", "N", "PP", "Acme Labels", "100000,5", "1.250,50", "12,50", "0,0125", "1.250,50"],
+                ["LBL-005", "N", "PP", "Beta Packaging", "100000.5", "1,250.50", "12.50", "0.0125", "1,250.50"]
             ]);
 
         var lineItems = new LabelsExcelImportService()
@@ -126,10 +127,10 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportedLineItemsCanBeEvaluatedWithManualReviewFlags()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Spend", "Price per 1,000", "Material", "Winding direction", "Label size"],
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Winding direction", "Label size"],
             [
-                ["LBL-004", "Acme Labels", 100m, 10m, "PP white", "Left", "80x120"],
-                ["LBL-005", "", "", "invalid", "", "Left", ""]
+                ["LBL-004", "N", "PP white", "Acme Labels", 1m, 100m, 10m, "Left", "80x120"],
+                ["LBL-005", "N", "invalid", "", 1m, 0m, "invalid", "Left", ""]
             ]);
         var settings = new TenderSettings
         {
@@ -178,10 +179,10 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportTenderMapsRegulatoryColumnsIntoLineItems()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Spend", "Price per 1,000", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
             [
-                ["LBL-006", "Acme Labels", 100m, 10m, "1,8", "yes", "true", "1", "ja"],
-                ["LBL-007", "Beta Packaging", 100m, 20m, "2.5", "no", "false", "0", "nej"]
+                ["LBL-006", "N", "PP", "Acme Labels", 1m, 100m, 10m, "1,8", "yes", "true", "1", "ja"],
+                ["LBL-007", "N", "PP", "Beta Packaging", 1m, 100m, 20m, "2.5", "no", "false", "0", "nej"]
             ]);
 
         var lineItems = new LabelsExcelImportService()
@@ -204,9 +205,9 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportTenderMapsLdpeMaterialToFlexiblesAndCalculatesEprFee()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Site", "Spend", "Price per 1,000", "Material", "Label weight (g)"],
+            ["Item no", "Item name", "Material", "Supplier name", "Site", "Quantity", "Spend", "Price per 1,000", "Label weight (g)"],
             [
-                ["LBL-009", "Acme Labels", "DK01", 100m, 10m, "LDPE", 1000m]
+                ["LBL-009", "N", "LDPE", "Acme Labels", "DK01", 1m, 100m, 10m, 1000m]
             ]);
 
         var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender");
@@ -227,9 +228,9 @@ public sealed class LabelsExcelImportServiceTests
     public void ImportedRegulatoryValuesContributeToEvaluationTotalAndClassification()
     {
         using var stream = CreateWorkbookStream(
-            ["Item no", "Supplier name", "Spend", "Price per 1,000", "Material", "Winding direction", "Label size", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Winding direction", "Label size", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
             [
-                ["LBL-008", "Acme Labels", 100m, 10m, "PP white", "Left", "80x120", 1.5m, true, true, true, true]
+                ["LBL-008", "N", "PP white", "Acme Labels", 1m, 100m, 10m, "Left", "80x120", 1.5m, true, true, true, true]
             ]);
         var settings = new TenderSettings
         {
@@ -272,6 +273,207 @@ public sealed class LabelsExcelImportServiceTests
         Assert.Equal(100m, supplierEvaluation.ScoreBreakdown.Regulatory);
         Assert.Equal(100m, supplierEvaluation.ScoreBreakdown.Total);
         Assert.Equal(SupplierClassification.Recommended, supplierEvaluation.Classification);
+    }
+
+    [Fact]
+    public void Import_maps_dsh_style_currency_headers_to_site_spend_price_and_theoretical_spend()
+    {
+        using var stream = CreateWorkbookStream(
+            [
+                "Item no", "Item name", "Supplier name", "DSH Site", "Quantity", "Spend (NOK)",
+                "Price per 1,000", "Price (DKK)", "Theoretical spend (NOK)", "Material"
+            ],
+            [
+                ["X-1", "N", "Sup", "DK01", 1000m, 500m, 10m, 0.5m, 480m, "PP"]
+            ]);
+
+        var line = new LabelsExcelImportService().ImportTender(stream).LabelLineItems.Single();
+        Assert.Equal("DK01", line.Site);
+        Assert.Equal(500m, line.Spend);
+        Assert.Equal(10m, line.PricePerThousand);
+        Assert.Equal(0.5m, line.Price);
+        Assert.Equal(480m, line.TheoreticalSpend);
+    }
+
+    [Fact]
+    public void Import_maps_location_plant_and_spend_price_currency_headers_used_on_dsh_workbooks()
+    {
+        using var streamLocation = CreateWorkbookStream(
+            [
+                "Item no", "Item name", "Material", "Supplier name", "Location", "Quantity", "Spend (SEK)",
+                "Price per 1,000", "Price (EUR)"
+            ],
+            [
+                ["L-1", "It", "PP", "Sup", "SE99", 10m, 77m, 1m, 6.6m]
+            ]);
+        var loc = new LabelsExcelImportService().ImportTender(streamLocation).LabelLineItems.Single();
+        Assert.Equal("SE99", loc.Site);
+        Assert.Equal(77m, loc.Spend);
+        Assert.Equal(6.6m, loc.Price);
+
+        using var streamPlant = CreateWorkbookStream(
+            [
+                "Item no", "Item name", "Material", "Supplier name", "Plant", "Quantity", "Spend (DKK)",
+                "Price per 1,000", "Price (NOK)"
+            ],
+            [
+                ["P-1", "It", "PP", "Sup", "PL01", 5m, 88m, 2m, 7.7m]
+            ]);
+        var plant = new LabelsExcelImportService().ImportTender(streamPlant).LabelLineItems.Single();
+        Assert.Equal("PL01", plant.Site);
+        Assert.Equal(88m, plant.Spend);
+        Assert.Equal(7.7m, plant.Price);
+
+        using var streamEurSpend = CreateWorkbookStream(
+            [
+                "Item no", "Item name", "Material", "Supplier name", "DSH Site", "Quantity", "Spend (EUR)",
+                "Price per 1,000", "Price (DKK)"
+            ],
+            [
+                ["E-1", "It", "PP", "Sup", "DK02", 3m, 42m, 1m, 2.2m]
+            ]);
+        var eurSpend = new LabelsExcelImportService().ImportTender(streamEurSpend).LabelLineItems.Single();
+        Assert.Equal("DK02", eurSpend.Site);
+        Assert.Equal(42m, eurSpend.Spend);
+        Assert.Equal(2.2m, eurSpend.Price);
+    }
+
+    [Fact]
+    public void Import_finds_labels_header_on_second_worksheet_when_first_sheet_has_no_item_no_column()
+    {
+        using var workbook = new XLWorkbook();
+        var cover = workbook.Worksheets.Add("Cover");
+        cover.Cell(1, 1).Value = "Executive summary";
+        cover.Cell(2, 1).Value = "Not a tender grid";
+
+        var tenderWs = workbook.Worksheets.Add("Tender data");
+        var headers = new[]
+        {
+            "Item no", "Item name", "Supplier name", "DSH Site", "Quantity", "Spend (NOK)",
+            "Price per 1,000", "Price (DKK)", "Theoretical spend (NOK)", "Material"
+        };
+        for (var i = 0; i < headers.Length; i++)
+            tenderWs.Cell(1, i + 1).Value = headers[i];
+        tenderWs.Cell(2, 1).Value = "Y-2";
+        tenderWs.Cell(2, 2).Value = "Part";
+        tenderWs.Cell(2, 3).Value = "Vendor";
+        tenderWs.Cell(2, 4).Value = "SE02";
+        tenderWs.Cell(2, 5).Value = 2000m;
+        tenderWs.Cell(2, 6).Value = 100m;
+        tenderWs.Cell(2, 7).Value = 5m;
+        tenderWs.Cell(2, 8).Value = 0.1m;
+        tenderWs.Cell(2, 9).Value = 99m;
+        tenderWs.Cell(2, 10).Value = "LDPE";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var tender = new LabelsExcelImportService().ImportTender(stream, "Second sheet");
+        var line = tender.LabelLineItems.Single();
+        Assert.Equal("SE02", line.Site);
+        Assert.Equal(100m, line.Spend);
+    }
+
+    [Fact]
+    public void Dsh_style_header_row_is_recognized_and_imports_successfully()
+    {
+        using var stream = CreateWorkbookStream(
+            [
+                "Item no", "Item name", "Supplier name", "DSH Site", "Quantity", "Spend (NOK)",
+                "Price per 1,000", "Price (DKK)", "Theoretical spend (NOK)", "Label size",
+                "Winding direction", "Material", "Reel diameter / pcs per roll", "No. of colors", "Comment"
+            ],
+            [
+                ["540119", "Item A", "FLEXOPRINT AS", "Jæren", 1533600m, 282468m, 184.19m, 117.75m, 290592m, "100X169", "OUT Bottom first", "PP top white", "3.500", 5, "DONE"]
+            ]);
+
+        var tender = new LabelsExcelImportService().ImportTender(stream, "DSH");
+        var line = tender.LabelLineItems.Single();
+        Assert.Equal("540119", line.ItemNo);
+        Assert.Equal("Jæren", line.Site);
+        Assert.Equal(282468m, line.Spend);
+        Assert.Equal(117.75m, line.Price);
+    }
+
+    [Fact]
+    public void Header_missing_material_is_not_recognized_as_labels_tender()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Item name", "Supplier name", "Quantity", "Spend", "Price per 1,000"],
+            [
+                ["X", "N", "S", 1m, 1m, 1m]
+            ]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _ = new LabelsExcelImportService().ImportTender(stream));
+        Assert.Equal(LabelsExcelImportService.HeaderNotRecognizedMarker, ex.Message);
+    }
+
+    [Fact]
+    public void Header_missing_supplier_column_fails_missing_required_not_header_not_recognized()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Item name", "Material", "Quantity", "Spend", "Price per 1,000"],
+            [
+                ["X", "N", "PP", 1m, 1m, 1m]
+            ]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _ = new LabelsExcelImportService().ImportTender(stream));
+        Assert.StartsWith(LabelsExcelImportService.MissingRequiredColumnMarker + ":", ex.Message);
+        Assert.Contains("Supplier name", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Price_per_thousand_alone_satisfies_price_like_identity_for_recognition()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Price per 1,000"],
+            [
+                ["Z-1", "N", "PP", "Sup", 10m, 5m]
+            ]);
+
+        var line = new LabelsExcelImportService().ImportTender(stream).LabelLineItems.Single();
+        Assert.Equal(5m, line.PricePerThousand);
+    }
+
+    [Fact]
+    public void Import_theoretical_spend_dkk_header_alias_maps()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Theoretical spend (DKK)"],
+            [
+                ["Z-2", "N", "PP", "Sup", 2m, 99m]
+            ]);
+
+        var line = new LabelsExcelImportService().ImportTender(stream).LabelLineItems.Single();
+        Assert.Equal(99m, line.TheoreticalSpend);
+    }
+
+    [Fact]
+    public void ImportFailureMessage_workbook_open_failed_maps_to_workbook_read_user_text()
+    {
+        var inner = new InvalidDataException("EOF");
+        var ex = new InvalidOperationException(LabelsExcelImportService.WorkbookOpenFailedMarker, inner);
+        var msg = LabelTenderImportFailureMessage.Format(ex);
+        Assert.Equal(LabelTenderImportFailureMessage.WorkbookCouldNotReadUserMessage, msg);
+        Assert.DoesNotContain("header could not be recognized", msg, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ImportFailureMessage_header_not_recognized_maps_to_distinct_user_text()
+    {
+        var ex = new InvalidOperationException(LabelsExcelImportService.HeaderNotRecognizedMarker);
+        var msg = LabelTenderImportFailureMessage.Format(ex);
+        Assert.Contains("workbook opened", msg, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("header could not be recognized", msg, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ImportFailureMessage_missing_required_column_marker_formats_with_column_names()
+    {
+        var ex = new InvalidOperationException($"{LabelsExcelImportService.MissingRequiredColumnMarker}:Supplier name");
+        var msg = LabelTenderImportFailureMessage.Format(ex);
+        Assert.Equal("Import failed: Missing required column 'Supplier name'.", msg);
     }
 
     private static MemoryStream CreateWorkbookStream(

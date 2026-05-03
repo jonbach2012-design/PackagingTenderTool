@@ -7,13 +7,19 @@
 @using PackagingTenderTool.Core.Services.LabelTenderScoring
 @using PackagingTenderTool.Core.Import
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
 @using MudBlazor
 @using PackagingTenderTool.Blazor.Components.LabelTender
+@using PackagingTenderTool.Blazor.Models.LabelTender
+@using PackagingTenderTool.Blazor.Services
 
 @inject PackagingProfileSession Session
 @inject NavigationManager Nav
 @inject LabelsExcelImportService Importer
 @inject PackagingTenderTool.Blazor.Services.ITcoEngineService TcoEngine
+@inject PackagingTenderTool.Blazor.Services.LabelTenderSidebarBridge SidebarBridge
+@inject ISnackbar Snackbar
+@inject ILogger<LabelTender> Logger
 
 @if (Session.SelectedProfile is null)
 {
@@ -53,130 +59,92 @@
 }
 else
 {
-    <div class="cockpit-root">
-        <MudStack Spacing="8">
-            <MudText Typo="Typo.h4" Class="cockpit-page-title">Tender Overview</MudText>
+    <MudStack Spacing="6" Class="cockpit-main-stack cockpit-page-main">
+                <div>
+                    <MudText Typo="Typo.h4" Class="cockpit-page-title mb-1">Packaging Tender Decision Cockpit</MudText>
+                </div>
 
-            <MudPaper Elevation="0" Class="cockpit-global-slicers pa-3">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudSelect T="string"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense"
-                               Dense="true"
-                               Label="Country"
-                               Value="@_filterCountry"
-                               ValueChanged="OnCountryChanged"
-                               Class="cockpit-global-slicer">
-                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                        @foreach (var c in _filterCountries)
-                        {
-                            <MudSelectItem @key="c" Value="@c">@c</MudSelectItem>
-                        }
-                    </MudSelect>
+                <MudGrid Spacing="4" Class="decision-kpi-grid">
+                    <MudItem xs="12" sm="6" lg="3">
+                        <MudPaper Elevation="6" Class="decision-kpi-card pt-kpi-card--recommended pa-5">
+                            <MudText Typo="Typo.overline" Class="cockpit-muted">Recommended</MudText>
+                            <MudText Typo="Typo.h4" Class="decision-kpi-name decision-kpi-name--hero mt-1">
+                                @(_decisionInsight?.RecommendedSupplierName ?? "—")
+                            </MudText>
+                            @if (!string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId) && _decisionInsight!.IsSensitiveDecision)
+                            {
+                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap align-center">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Class="ma-0">Sensitive decision</MudChip>
+                                </MudStack>
+                            }
+                            <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="2" Class="mt-2">
+                                <MudText Typo="Typo.h4" Class="decision-kpi-metric ma-0">
+                                    @(string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId)
+                                        ? "–"
+                                        : _decisionInsight!.RecommendedWeightedScore.ToString("0.0", Da))
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">weighted CTR</MudText>
+                            </MudStack>
+                            <div class="decision-pillar-bar mt-3" title="Weighted contribution to CTR">
+                                <div class="decision-pillar-bar__comm" style="width: @($"{(_decisionInsight?.WeightedShareCommercial ?? 0m):0.#}%")"></div>
+                                <div class="decision-pillar-bar__tech" style="width: @($"{(_decisionInsight?.WeightedShareTechnical ?? 0m):0.#}%")"></div>
+                                <div class="decision-pillar-bar__reg" style="width: @($"{(_decisionInsight?.WeightedShareRegulatory ?? 0m):0.#}%")"></div>
+                            </div>
+                            <MudStack Row="true" Spacing="2" Class="mt-2 flex-wrap">
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">Comm @((_decisionInsight?.WeightedShareCommercial ?? 0m).ToString("0"))%</MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">Tech @((_decisionInsight?.WeightedShareTechnical ?? 0m).ToString("0"))%</MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">Reg @((_decisionInsight?.WeightedShareRegulatory ?? 0m).ToString("0"))%</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Class="decision-kpi-narrative mt-3">
+                                @(_decisionInsight?.Narrative ?? "Import suppliers or widen selection to generate insight.")
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">
+                                Value driver: @(_decisionInsight?.PrimaryValueDriver ?? "—")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
 
-                    <MudSelect T="string"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense"
-                               Dense="true"
-                               Label="Site"
-                               Value="@_filterSite"
-                               ValueChanged="OnSiteChanged"
-                               Disabled="@(_filterSitesForCountry.Length == 0)"
-                               Class="cockpit-global-slicer">
-                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                        @foreach (var s in _filterSitesForCountry)
-                        {
-                            <MudSelectItem @key="s" Value="@s">@s</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudItem xs="12" sm="6" lg="3">
+                        <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
+                            <MudText Typo="Typo.overline" Class="cockpit-muted">Lowest commercial anchor</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.LowestPriceSupplierName ?? "—")</MudText>
+                            <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
+                                @((_decisionInsight?.LowestCommercialSpend ?? 0m).ToString("N0", Da)) kr
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Total commercial spend (volume × price)</MudText>
+                        </MudPaper>
+                    </MudItem>
 
-                    <MudSelect T="string"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense"
-                               Dense="true"
-                               Label="Material"
-                               Value="@_filterMaterial"
-                               ValueChanged="OnMaterialChanged"
-                               Class="cockpit-global-slicer">
-                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                        @foreach (var m in _filterMaterials)
-                        {
-                            <MudSelectItem @key="m" Value="@m">@m</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudItem xs="12" sm="6" lg="3">
+                        <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
+                            <MudText Typo="Typo.overline" Class="cockpit-muted">Best TCO</MudText>
+                            <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.BestTcoSupplierName ?? "—")</MudText>
+                            <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
+                                @((_decisionInsight?.BestTcoTotal ?? 0m).ToString("N0", Da)) kr
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Lowest full TCO (incl. EPR, switching, MOQ)</MudText>
+                        </MudPaper>
+                    </MudItem>
 
-                    <MudSelect T="string"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense"
-                               Dense="true"
-                               Label="Adhesive"
-                               Value="@_filterAdhesive"
-                               ValueChanged="OnAdhesiveChanged"
-                               Class="cockpit-global-slicer">
-                        <MudSelectItem Value="@string.Empty">All</MudSelectItem>
-                        @foreach (var a in _filterAdhesives)
-                        {
-                            <MudSelectItem @key="a" Value="@a">@a</MudSelectItem>
-                        }
-                    </MudSelect>
-
-                    <MudSwitch T="bool"
-                               dense="true"
-                               Color="Color.Primary"
-                               Value="@_synergyToggle"
-                               ValueChanged="OnSynergyChanged">
-                        Supplier synergy
-                    </MudSwitch>
-                </MudStack>
-            </MudPaper>
-
-            <MudPaper Elevation="0" Outlined="true" Class="pa-4">
-                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Strategic weights (sum 100%)</MudText>
-                <MudText Typo="Typo.body2" Class="cockpit-muted">
-                    Commercial @Session.Commercial% • Technical @Session.Technical% • Regulatory @Session.Regulatory%
-                </MudText>
+                    <MudItem xs="12" sm="6" lg="3">
+                        <MudPaper Elevation="6" Class="decision-kpi-card decision-kpi-card--risk pa-5">
+                            <MudText Typo="Typo.overline" Class="cockpit-muted">Risk exposure</MudText>
+                            <MudText Typo="Typo.h3" Class="decision-kpi-metric mt-2">@RiskReviewRowCount</MudText>
+                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-2">
+                                Evidence rows flagged for review (compliance, outliers, or weak CTR).
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
 
                 @if (!string.IsNullOrWhiteSpace(_weightWarning))
                 {
-                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-2">
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mb-2">
                         @_weightWarning
                     </MudAlert>
                 }
 
-                <MudStack Spacing="2" Class="mt-3" Style="max-width: 520px;">
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.caption" Class="cockpit-muted">Commercial</MudText>
-                        <MudSlider T="int"
-                                   Min="0" Max="100" Step="1"
-                                   Value="@Session.Commercial"
-                                   ValueChanged="@(v => HandleWeightChange(Pillar.Commercial, v))"
-                                   Immediate="true"
-                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
-                    </MudStack>
-
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.caption" Class="cockpit-muted">Technical</MudText>
-                        <MudSlider T="int"
-                                   Min="0" Max="100" Step="1"
-                                   Value="@Session.Technical"
-                                   ValueChanged="@(v => HandleWeightChange(Pillar.Technical, v))"
-                                   Immediate="true"
-                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
-                    </MudStack>
-
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.caption" Class="cockpit-muted">Regulatory</MudText>
-                        <MudSlider T="int"
-                                   Min="0" Max="100" Step="1"
-                                   Value="@Session.Regulatory"
-                                   ValueChanged="@(v => HandleWeightChange(Pillar.Regulatory, v))"
-                                   Immediate="true"
-                                   valueLabelDisplay="ValueLabelDisplay.OnHover" />
-                    </MudStack>
-                </MudStack>
-            </MudPaper>
-
-            <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
+                <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
                 <MudTabPanel Text="Dashboard">
                     <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
@@ -253,19 +221,8 @@ else
                     <PriceMatrix />
                 </MudTabPanel>
 
-                <MudTabPanel Text="Full Table">
-                    <MudPaper Elevation="0" Class="cockpit-import-shell pa-3 mt-4">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Import Excel</MudText>
-                            <InputFile OnChange="OnExcelSelected" accept=".xlsx" />
-                            @if (!string.IsNullOrWhiteSpace(_importStatus))
-                            {
-                                <MudText Typo="Typo.caption" Class="cockpit-muted">@_importStatus</MudText>
-                            }
-                        </MudStack>
-                    </MudPaper>
-
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-slicer-bar pa-3 mt-4">
+                <MudTabPanel Text="Evidence table">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-slicer-bar pa-4 mt-4">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="cockpit-slicer-stack">
                             <MudTextField @bind-Value="_tableSearch"
                                           dense="true"
@@ -337,7 +294,11 @@ else
                         }
                     </MudPaper>
 
-                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0 mt-4">
+                    <MudStack Spacing="1" Class="mb-2 px-2">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Evidence table</MudText>
+                    </MudStack>
+
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0 mt-2">
                         <MudDataGrid T="SupplierPillarAnalysisRow"
                                      Items="@TableItems"
                                      Dense="true"
@@ -347,118 +308,229 @@ else
                                      selectionMode="DataGridSelectionMode.Single"
                                      SelectedItem="@_tableSelectedRow"
                                      SelectedItemChanged="OnTableSelectedRowChanged"
-                                     Class="cockpit-supplier-grid cockpit-supplier-grid--filter">
+                                     Class="cockpit-supplier-grid cockpit-supplier-grid--filter decision-evidence-grid">
                             <Columns>
                                 <HierarchyColumn T="SupplierPillarAnalysisRow" />
 
+                                <TemplateColumn Title="Status" Sortable="false">
+                                    <CellTemplate>
+                                        @{
+                                            var id = context.Item.Supplier.SupplierId;
+                                            var dto = GetTcoDto(id);
+                                        }
+                                        <MudStack Row="true" Spacing="1" Class="flex-wrap gap-1">
+                                            @if (IsRecommendedSupplier(id))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">Recommended</MudChip>
+                                            }
+                                            @if (IsLowestCommercialAnchor(id))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">Lowest commercial</MudChip>
+                                            }
+                                            @if (IsBestTcoAnchor(id))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Best TCO</MudChip>
+                                            }
+                                            @if (dto is not null && !dto.IsCompliant)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">Regulatory risk</MudChip>
+                                            }
+                                            @if (RowNeedsManualReview(context.Item))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">Review</MudChip>
+                                            }
+                                            else if (dto is not null && ShowConditionalChip(context.Item, dto))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Conditional</MudChip>
+                                            }
+                                        </MudStack>
+                                    </CellTemplate>
+                                </TemplateColumn>
+
                                 <PropertyColumn Property="x => x.Supplier.SupplierName" Title="Supplier" />
-                                <PropertyColumn Property="x => x.Supplier.LabelType" Title="Type" />
                                 <PropertyColumn Property="x => x.Supplier.Material" Title="Material" />
-                                <PropertyColumn Property="x => x.Supplier.Adhesive" Title="Adhesive" />
-                                <TemplateColumn Title="Sites / Locations" SortBy="@(x => string.Join(", ", x.Supplier.Sites))">
-                                    <CellTemplate>
-                                        <MudText Typo="Typo.body2" Class="d-block">@string.Join(", ", context.Item.Supplier.Sites)</MudText>
-                                    </CellTemplate>
-                                </TemplateColumn>
 
-                                <TemplateColumn Title="Quantity (labels)">
+                                <TemplateColumn Title="Price index" Sortable="false">
                                     <CellTemplate>
                                         @{
-                                            var isOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
-                                            var cls = isOutlier ? "text-end d-block cockpit-outlier-cell" : "text-end d-block";
-                                            var key = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
+                                            var dto = GetTcoDto(context.Item.Supplier.SupplierId);
                                         }
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
-                                            <MudTooltip Text="@GetOutlierTooltip(context.Item.Supplier.SupplierId, OutlierFieldQuantity)" Disabled="@(!isOutlier)">
-                                                <MudText Typo="Typo.body2" Class="@($"{cls} cockpit-num")">@context.Item.Supplier.QuantityLabels.ToString("N0", Da)</MudText>
-                                            </MudTooltip>
-                                            @if (isOutlier)
-                                            {
-                                                <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Accepted))">Accept</MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
-                                                </MudMenu>
-                                            }
-                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Style="font-weight:700;">
+                                            @(dto?.PriceScore.ToString("0.0", Da) ?? "–")
+                                        </MudText>
                                     </CellTemplate>
                                 </TemplateColumn>
 
-                                <TemplateColumn Title="Price">
+                                <TemplateColumn Title="Weighted CTR" Sortable="false">
                                     <CellTemplate>
                                         @{
-                                            var isOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldPrice) || IsExtremePrice(context.Item.Supplier.SupplierId);
-                                            var cls = isOutlier ? "text-end d-block cockpit-outlier-cell" : "text-end d-block";
-                                            var key = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldPrice);
+                                            var dto = GetTcoDto(context.Item.Supplier.SupplierId);
                                         }
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
-                                            <MudTooltip Text="@GetPriceTooltip(context.Item.Supplier.SupplierId)" Disabled="@(!isOutlier)">
-                                                <MudText Typo="Typo.body2" Class="@($"{cls} cockpit-num")">@context.Item.Supplier.Price.ToString("N2", Da)</MudText>
-                                            </MudTooltip>
-                                            @if (isOutlier)
-                                            {
-                                                <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Accepted))">Accept</MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => SetAnomalyStatus(key, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
-                                                </MudMenu>
-                                            }
-                                        </MudStack>
-                                    </CellTemplate>
-                                </TemplateColumn>
-
-                                <PropertyColumn Property="x => x.Supplier.CommercialScore" Title="Commercial" />
-                                <PropertyColumn Property="x => x.Supplier.TechnicalScore" Title="Technical" />
-                                <PropertyColumn Property="x => x.Supplier.RegulatoryScore" Title="Regulatory" />
-
-                                <TemplateColumn Title="Weighted score">
-                                    <CellTemplate>
-                                        <MudStack Spacing="0" Class="w-100">
-                                            <MudProgressLinear Value="@((double)context.Item.TotalScore)"
-                                                               Max="100"
-                                                               Rounded="true"
-                                                               Color="Color.Primary"
-                                                               Class="cockpit-weighted-bar" />
-                                            <MudText Typo="Typo.caption" Class="text-end cockpit-weighted-caption cockpit-num cockpit-num-muted">@FormatScore(context.Item.TotalScore)</MudText>
-                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Style="font-weight:700;">
+                                            @(dto?.FinalCtrScore.ToString("0.0", Da) ?? "–")
+                                        </MudText>
                                     </CellTemplate>
                                 </TemplateColumn>
                             </Columns>
 
                             <ChildRowContent>
-                                <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
-                                    <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Technical insight</MudText>
+                                <MudStack Spacing="4">
+                                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-3">Economics &amp; sites</MudText>
+                                        <MudGrid Spacing="3">
+                                            <MudItem xs="12" sm="6" md="3">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Label type</MudText>
+                                                <MudText Typo="Typo.body2">@context.Item.Supplier.LabelType</MudText>
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6" md="3">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Adhesive</MudText>
+                                                <MudText Typo="Typo.body2">@context.Item.Supplier.Adhesive</MudText>
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6" md="3">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Sites</MudText>
+                                                <MudText Typo="Typo.body2">@string.Join(", ", context.Item.Supplier.Sites)</MudText>
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6" md="3">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Quantity (labels)</MudText>
+                                                @{
+                                                    var isQtyOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
+                                                    var qtyKey = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldQuantity);
+                                                }
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    <MudText Typo="Typo.body2" Class="@(isQtyOutlier ? "cockpit-outlier-cell" : null)">
+                                                        @context.Item.Supplier.QuantityLabels.ToString("N0", Da)
+                                                    </MudText>
+                                                    @if (isQtyOutlier)
+                                                    {
+                                                        <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(qtyKey, AnomalyStatus.Accepted))">Accept</MudMenuItem>
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(qtyKey, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(qtyKey, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
+                                                        </MudMenu>
+                                                    }
+                                                </MudStack>
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6" md="3">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Unit price</MudText>
+                                                @{
+                                                    var isPriceOutlier = IsOutlier(context.Item.Supplier.SupplierId, OutlierFieldPrice) || IsExtremePrice(context.Item.Supplier.SupplierId);
+                                                    var priceKey = AnomalyKey(context.Item.Supplier.SupplierId, OutlierFieldPrice);
+                                                }
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    <MudText Typo="Typo.body2" Class="@(isPriceOutlier ? "cockpit-outlier-cell" : null)">
+                                                        @context.Item.Supplier.Price.ToString("N2", Da)
+                                                    </MudText>
+                                                    @if (isPriceOutlier)
+                                                    {
+                                                        <MudMenu Dense="true" Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(priceKey, AnomalyStatus.Accepted))">Accept</MudMenuItem>
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(priceKey, AnomalyStatus.Excluded))">Exclude</MudMenuItem>
+                                                            <MudMenuItem OnClick="@(() => SetAnomalyStatus(priceKey, AnomalyStatus.Clarification))">Clarify</MudMenuItem>
+                                                        </MudMenu>
+                                                    }
+                                                </MudStack>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudPaper>
 
-                                    <MudGrid Spacing="3">
-                                        <MudItem xs="12" md="4">
-                                            <MudText Typo="Typo.caption" Class="cockpit-muted">Quantity breakpoints</MudText>
-                                            <MudSimpleTable Dense="true">
-                                                <tbody>
-                                                    <tr><td>1k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt1k.ToString("N2", Da)</td></tr>
-                                                    <tr><td>5k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt5k.ToString("N2", Da)</td></tr>
-                                                    <tr><td>10k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt10k.ToString("N2", Da)</td></tr>
-                                                </tbody>
-                                            </MudSimpleTable>
-                                        </MudItem>
+                                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Raw pillar scores (supplier)</MudText>
+                                        <MudSimpleTable Dense="true" Class="decision-raw-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td>Commercial</td>
+                                                    <td class="text-end cockpit-num">@context.Item.Supplier.CommercialScore.ToString("0.0", Da)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Technical</td>
+                                                    <td class="text-end cockpit-num">@context.Item.Supplier.TechnicalScore.ToString("0.0", Da)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Regulatory</td>
+                                                    <td class="text-end cockpit-num">@context.Item.Supplier.RegulatoryScore.ToString("0.0", Da)</td>
+                                                </tr>
+                                            </tbody>
+                                        </MudSimpleTable>
+                                    </MudPaper>
 
-                                        <MudItem xs="12" md="4">
-                                            <MudText Typo="Typo.caption" Class="cockpit-muted">AI summary (technical deviations)</MudText>
-                                            @{
-                                                var r = _tcoResults.FirstOrDefault(x =>
-                                                    x.SupplierId.Equals(context.Item.Supplier.SupplierId, StringComparison.OrdinalIgnoreCase));
-                                                var technicalSummary = r is null
-                                                    ? "No technical deviations reported."
-                                                    : r.TechnicalSummary;
-                                            }
-                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@technicalSummary</MudText>
-                                        </MudItem>
+                                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Pillar blend (scoring model)</MudText>
+                                        <MudStack Spacing="0" Class="w-100">
+                                            <MudProgressLinear Value="@((double)context.Item.TotalScore)"
+                                                               Max="100"
+                                                               Rounded="true"
+                                                               Color="Color.Default"
+                                                               Class="cockpit-weighted-bar" />
+                                            <MudText Typo="Typo.caption" Class="text-end cockpit-weighted-caption cockpit-num cockpit-num-muted mt-1">
+                                                @FormatScore(context.Item.TotalScore)
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
 
-                                        <MudItem xs="12" md="4">
-                                            <MudText Typo="Typo.caption" Class="cockpit-muted">Logistics info</MudText>
-                                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@context.Item.Supplier.LogisticsConstraints</MudText>
-                                        </MudItem>
-                                    </MudGrid>
-                                </MudPaper>
+                                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">TCO engine &amp; breakdown</MudText>
+                                        @{
+                                            var tco = GetTcoDto(context.Item.Supplier.SupplierId);
+                                        }
+                                        @if (tco is null)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="cockpit-muted">No TCO row — supplier may be filtered from selection.</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudGrid Spacing="2">
+                                                <MudItem xs="12" md="4">
+                                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Commercial spend</MudText>
+                                                    <MudText Typo="Typo.body1">@tco.Commercial.ToString("N0", Da) kr</MudText>
+                                                </MudItem>
+                                                <MudItem xs="12" md="4">
+                                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Total TCO</MudText>
+                                                    <MudText Typo="Typo.body1">@tco.Total.ToString("N0", Da) kr</MudText>
+                                                </MudItem>
+                                                <MudItem xs="12" md="4">
+                                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Compliance</MudText>
+                                                    <MudText Typo="Typo.body2">@(tco.IsCompliant ? "OK" : "Missing weight / review")</MudText>
+                                                </MudItem>
+                                                <MudItem xs="12">
+                                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Calculation breakdown</MudText>
+                                                    <MudText Typo="Typo.body2" Class="cockpit-muted">@tco.CalculationBreakdown</MudText>
+                                                </MudItem>
+                                            </MudGrid>
+                                        }
+                                    </MudPaper>
+
+                                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-insight-card pa-4">
+                                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Technical &amp; logistics</MudText>
+                                        <MudGrid Spacing="3">
+                                            <MudItem xs="12" md="4">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Quantity breakpoints</MudText>
+                                                <MudSimpleTable Dense="true">
+                                                    <tbody>
+                                                        <tr><td>1k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt1k.ToString("N2", Da)</td></tr>
+                                                        <tr><td>5k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt5k.ToString("N2", Da)</td></tr>
+                                                        <tr><td>10k</td><td class="text-end cockpit-num">@context.Item.Supplier.PriceAt10k.ToString("N2", Da)</td></tr>
+                                                    </tbody>
+                                                </MudSimpleTable>
+                                            </MudItem>
+
+                                            <MudItem xs="12" md="4">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Technical summary</MudText>
+                                                @{
+                                                    var r = GetTcoDto(context.Item.Supplier.SupplierId);
+                                                    var technicalSummary = r is null
+                                                        ? "No technical deviations reported."
+                                                        : r.TechnicalSummary;
+                                                }
+                                                <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@technicalSummary</MudText>
+                                            </MudItem>
+
+                                            <MudItem xs="12" md="4">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Logistics</MudText>
+                                                <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">@context.Item.Supplier.LogisticsConstraints</MudText>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudPaper>
+                                </MudStack>
                             </ChildRowContent>
                         </MudDataGrid>
                     </MudPaper>
@@ -568,8 +640,7 @@ else
                     </MudPaper>
                 </MudTabPanel>
             </MudTabs>
-        </MudStack>
-    </div>
+    </MudStack>
 }
 
 @code
@@ -605,9 +676,12 @@ else
 
     private readonly List<PackagingTenderTool.Blazor.Models.LabelTender.LabelTenderDashboardDto> _tcoResults = [];
 
+    private TenderDecisionInsight? _decisionInsight;
+
     private List<LabelLineItem> _importedLineItems = [];
     private string _importStatus = string.Empty;
     private readonly List<ImportUnitMismatchFlag> _importFlags = [];
+    private bool _isImporting;
 
     private SupplierOutlierReport _outliers = new(new Dictionary<string, IReadOnlyList<SupplierOutlierFlag>>(StringComparer.OrdinalIgnoreCase));
 
@@ -633,24 +707,45 @@ else
 
     private volatile bool _isCalculating;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Session.Changed += OnSessionChanged;
+        Nav.LocationChanged += OnNavLocationChanged;
+        SidebarBridge.ImportExcelAsync = OnExcelSelected;
+        SidebarBridge.OnCountryChanged = OnCountryChanged;
+        SidebarBridge.OnSiteChanged = OnSiteChanged;
+        SidebarBridge.OnMaterialChanged = OnMaterialChanged;
+        SidebarBridge.OnAdhesiveChanged = OnAdhesiveChanged;
+        SidebarBridge.OnSynergyChanged = OnSynergyChanged;
+
+        await Task.Yield();
         RefreshData();
     }
 
     protected override void OnParametersSet()
     {
-        // Deep-link support: /labeltender#audit takes you directly to Audit Board tab.
         if (Nav.Uri.Contains("#audit", StringComparison.OrdinalIgnoreCase))
-        {
             _activePanelIndex = 3;
-        }
+        else
+            SyncTabFromUri();
+    }
+
+    private void OnNavLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        SyncTabFromUri();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
         Session.Changed -= OnSessionChanged;
+        Nav.LocationChanged -= OnNavLocationChanged;
+        SidebarBridge.ImportExcelAsync = null;
+        SidebarBridge.OnCountryChanged = null;
+        SidebarBridge.OnSiteChanged = null;
+        SidebarBridge.OnMaterialChanged = null;
+        SidebarBridge.OnAdhesiveChanged = null;
+        SidebarBridge.OnSynergyChanged = null;
     }
 
     private void OnSessionChanged()
@@ -666,7 +761,72 @@ else
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private void OnActivePanelChanged(int v) => _activePanelIndex = v;
+    private void OnActivePanelChanged(int v)
+    {
+        _activePanelIndex = v;
+        var tab = v switch
+        {
+            0 => "dashboard",
+            1 => "matrix",
+            2 => "evidence",
+            3 => "audit",
+            _ => "dashboard"
+        };
+
+        Nav.NavigateTo($"/labeltender?tab={tab}", replace: true);
+    }
+
+    private void SyncTabFromUri()
+    {
+        var uri = Nav.Uri;
+        var qIdx = uri.IndexOf('?', StringComparison.Ordinal);
+        var query = qIdx >= 0 ? uri[qIdx..] : string.Empty;
+        if (!query.Contains("tab=", StringComparison.OrdinalIgnoreCase))
+        {
+            _activePanelIndex = 0;
+            return;
+        }
+
+        foreach (var part in query.TrimStart('?').Split('&'))
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length != 2 || !kv[0].Equals("tab", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var raw = Uri.UnescapeDataString(kv[1]);
+            _activePanelIndex = raw.ToLowerInvariant() switch
+            {
+                "dashboard" => 0,
+                "matrix" => 1,
+                "evidence" => 2,
+                "audit" => 3,
+                _ => _activePanelIndex
+            };
+            return;
+        }
+    }
+
+    private void SyncSidebarBridge()
+    {
+        SidebarBridge.ImportStatus = _importStatus;
+        SidebarBridge.FilterCountry = _filterCountry;
+        SidebarBridge.FilterSite = _filterSite;
+        SidebarBridge.FilterMaterial = _filterMaterial;
+        SidebarBridge.FilterAdhesive = _filterAdhesive;
+        SidebarBridge.SynergyToggle = _synergyToggle;
+        SidebarBridge.SitesSelectDisabled = false;
+        SidebarBridge.FilterCountries = _filterCountries;
+        SidebarBridge.FilterSitesForCountry = _filterSitesForCountry;
+        SidebarBridge.FilterMaterials = _filterMaterials;
+        SidebarBridge.FilterAdhesives = _filterAdhesives;
+        SidebarBridge.DrawerSuppliers = _suppliersAll
+            .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
+            .GroupBy(s => s.SupplierId!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new LabelTenderSidebarBridge.DrawerSupplierRow(g.Key, g.First().SupplierName))
+            .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        SidebarBridge.NotifyChanged();
+    }
 
     private void OnCountryChanged(string v)
     {
@@ -716,45 +876,122 @@ else
 
     private async Task OnExcelSelected(InputFileChangeEventArgs e)
     {
+        var snapshot = CaptureImportSnapshot();
+        _isImporting = true;
+        _importStatus = "Importing…";
+        SidebarBridge.LastImportedFileName = e.File.Name;
+        PushImportUiToBridge();
+
         try
         {
-            _importStatus = "Importing…";
-            _importFlags.Clear();
+            LabelTenderExcelImportGuard.EnsureXlsxExtension(e.File.Name);
 
             await using var fileStream = e.File.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
             await using var ms = new MemoryStream();
             await fileStream.CopyToAsync(ms);
             ms.Position = 0;
 
-            // Importer expects a seekable stream. MemoryStream avoids "synchronous reads" crashes.
-            var result = Importer.ImportTenderWithReport(ms);
-            _importedLineItems = result.Tender.LabelLineItems.ToList();
-
-            NormalizePricePerThousand(_importedLineItems);
-            NormalizeMaterialWeights(_importedLineItems);
-            BuildImportFlags(_importedLineItems);
-
-            if (_importedLineItems.Count > 0)
+            LabelsTenderImportResult result;
+            try
             {
-                _suppliersAll = BuildSuppliersFromImportedLines(_importedLineItems);
-
-                // Keep "all suppliers selected" behavior when importing.
-                if (Session.SelectedSuppliers.Count == 0)
-                    Session.ReplaceSelectedSuppliers(_suppliersAll.Select(s => s.SupplierId).ToArray());
-
+                result = Importer.ImportTenderWithReport(ms);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Label tender Excel import failed while reading the workbook.");
+                RestoreTenderState(snapshot);
+                _importStatus = LabelTenderImportFailureMessage.Format(ex);
+                Snackbar.Add(_importStatus, Severity.Error);
                 RefreshData();
+                return;
             }
 
+            var newLines = result.Tender.LabelLineItems.ToList();
+            NormalizePricePerThousand(newLines);
+            NormalizeMaterialWeights(newLines);
+
+            if (newLines.Count == 0)
+            {
+                RestoreTenderState(snapshot);
+                _importStatus = "Import failed: No tender data rows were found. Check that item rows exist below the header.";
+                Snackbar.Add(_importStatus, Severity.Warning);
+                RefreshData();
+                return;
+            }
+
+            _importFlags.Clear();
+            BuildImportFlags(newLines);
+
+            _importedLineItems = newLines;
+            _suppliersAll = BuildSuppliersFromImportedLines(_importedLineItems);
+
+            var importedIds = _suppliersAll
+                .Select(s => s.SupplierId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            Session.ReplaceSelectedSuppliers(importedIds);
+            if (importedIds.Length > 0)
+                Session.SetActiveSupplier(importedIds[0]);
+
             _importStatus = $"Imported {_importedLineItems.Count} rows • Flags: {_importFlags.Count}";
+            RefreshData();
         }
         catch (Exception ex)
         {
-            _importStatus = $"Import failed: {ex.Message}";
+            Logger.LogWarning(ex, "Label tender Excel import failed.");
+            RestoreTenderState(snapshot);
+            _importStatus = LabelTenderImportFailureMessage.Format(ex);
+            Snackbar.Add(_importStatus, Severity.Error);
+            RefreshData();
         }
         finally
         {
+            _isImporting = false;
+            PushImportUiToBridge();
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private sealed record TenderImportSnapshot(
+        List<LabelLineItem> ImportedLines,
+        List<SupplierModel> SuppliersAll,
+        List<ImportUnitMismatchFlag> Flags,
+        string[] SelectedSupplierIds,
+        string ActiveSupplierId);
+
+    private TenderImportSnapshot CaptureImportSnapshot() =>
+        new(
+            _importedLineItems.ToList(),
+            _suppliersAll.ToList(),
+            _importFlags.ToList(),
+            Session.SelectedSuppliers.ToArray(),
+            Session.ActiveSupplierId);
+
+    private void RestoreTenderState(TenderImportSnapshot snap)
+    {
+        _suppressSessionChanged = true;
+        try
+        {
+            _importedLineItems = [.. snap.ImportedLines];
+            _suppliersAll = [.. snap.SuppliersAll];
+            _importFlags.Clear();
+            _importFlags.AddRange(snap.Flags);
+            Session.ReplaceSelectedSuppliers(snap.SelectedSupplierIds);
+            Session.SetActiveSupplier(snap.ActiveSupplierId);
+        }
+        finally
+        {
+            _suppressSessionChanged = false;
+        }
+    }
+
+    private void PushImportUiToBridge()
+    {
+        SidebarBridge.ImportStatus = _importStatus;
+        SidebarBridge.ImportInProgress = _isImporting;
+        SidebarBridge.NotifyChanged();
     }
 
     private static void NormalizePricePerThousand(List<LabelLineItem> items)
@@ -942,7 +1179,23 @@ else
             q = q.Where(i => string.Equals(i.Site, _filterSite, StringComparison.OrdinalIgnoreCase));
 
         if (!string.IsNullOrWhiteSpace(_filterMaterial))
-            q = q.Where(i => string.Equals(i.Material, _filterMaterial, StringComparison.OrdinalIgnoreCase));
+        {
+            q = q.Where(i =>
+                TcoEngine.NormalizeTenderDimension(i.Material).Equals(
+                    _filterMaterial.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_filterCountry))
+        {
+            q = q.Where(i =>
+            {
+                var code = GetCountryFromSite(i.Site ?? string.Empty);
+                if (!string.IsNullOrEmpty(code))
+                    return code.Equals(_filterCountry.Trim(), StringComparison.OrdinalIgnoreCase);
+                return TcoEngine.UnknownDimensionValue.Equals(_filterCountry.Trim(), StringComparison.OrdinalIgnoreCase);
+            });
+        }
 
         // Adhesive is not a first-class column in the current import, so we cannot filter by it here yet.
         // Keep SKU count robust and deterministic.
@@ -952,6 +1205,42 @@ else
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count());
+    }
+
+    /// <summary>Aligns selected/active supplier ids with the current tender supplier list (import vs demo, stale ids).</summary>
+    private void ReconcileSessionWithTenderSuppliers()
+    {
+        var ids = _suppliersAll
+            .Select(s => s.SupplierId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            Session.SetActiveSupplier(string.Empty);
+            return;
+        }
+
+        var selected = Session.SelectedSuppliers.ToArray();
+        var validSelected = selected.Where(id => ids.Contains(id, StringComparer.OrdinalIgnoreCase)).ToArray();
+
+        if (validSelected.Length == 0)
+            Session.ReplaceSelectedSuppliers(ids);
+        else if (validSelected.Length != selected.Length)
+            Session.ReplaceSelectedSuppliers(validSelected);
+
+        var current = Session.SelectedSuppliers.ToArray();
+        var fallbackActive = current.Length > 0
+            ? current.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First()
+            : ids.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
+
+        var active = Session.ActiveSupplierId;
+        var activeInSelection = !string.IsNullOrWhiteSpace(active) && Session.SelectedSuppliers.Contains(active);
+        if (string.IsNullOrWhiteSpace(active)
+            || !ids.Contains(active, StringComparer.OrdinalIgnoreCase)
+            || !activeInSelection)
+            Session.SetActiveSupplier(fallbackActive);
     }
 
     private void RefreshData()
@@ -968,6 +1257,8 @@ else
                 _suppliersSelected = [];
                 _pillarRows = [];
                 _tableRows = [];
+                _tcoResults.Clear();
+                _decisionInsight = null;
                 return;
             }
 
@@ -977,53 +1268,37 @@ else
                 _suppliersAll = LabelTenderDemoSupplierData.Create().ToList();
             }
 
-            _filterCountries = _suppliersAll
-                .SelectMany(s => s.Sites)
-                .Select(GetCountryFromSite)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            ReconcileSessionWithTenderSuppliers();
 
-            if (!string.IsNullOrWhiteSpace(_filterCountry) && !_filterCountries.Contains(_filterCountry, StringComparer.OrdinalIgnoreCase))
+            var filterOpts = TcoEngine.GetTenderFilterOptions(_suppliersAll, _filterCountry);
+            if (!string.IsNullOrWhiteSpace(_filterCountry)
+                && !filterOpts.Countries.Any(c => c.Equals(_filterCountry, StringComparison.OrdinalIgnoreCase)))
+            {
                 _filterCountry = string.Empty;
+                filterOpts = TcoEngine.GetTenderFilterOptions(_suppliersAll, _filterCountry);
+            }
 
-            _filterSitesForCountry = _suppliersAll
-                .SelectMany(s => s.Sites)
-                .Where(site => string.IsNullOrWhiteSpace(_filterCountry) || string.Equals(GetCountryFromSite(site), _filterCountry, StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            _filterCountries = filterOpts.Countries.ToArray();
+            _filterSitesForCountry = filterOpts.Sites.ToArray();
+            _filterMaterials = filterOpts.Materials.ToArray();
+            _filterAdhesives = filterOpts.Adhesives.ToArray();
 
             if (!string.IsNullOrWhiteSpace(_filterSite) && !_filterSitesForCountry.Contains(_filterSite, StringComparer.OrdinalIgnoreCase))
                 _filterSite = string.Empty;
 
-            _filterMaterials = _suppliersAll
-                .Select(s => s.Material)
-                .Where(m => !string.IsNullOrWhiteSpace(m))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
             if (!string.IsNullOrWhiteSpace(_filterMaterial) && !_filterMaterials.Contains(_filterMaterial, StringComparer.OrdinalIgnoreCase))
                 _filterMaterial = string.Empty;
-
-            _filterAdhesives = _suppliersAll
-                .Select(s => s.Adhesive)
-                .Where(a => !string.IsNullOrWhiteSpace(a))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(a => a, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
 
             if (!string.IsNullOrWhiteSpace(_filterAdhesive) && !_filterAdhesives.Contains(_filterAdhesive, StringComparer.OrdinalIgnoreCase))
                 _filterAdhesive = string.Empty;
 
             var suppliersFiltered = _suppliersAll
-                .Where(s =>
-                    (string.IsNullOrWhiteSpace(_filterCountry) || s.Sites.Any(site => string.Equals(GetCountryFromSite(site), _filterCountry, StringComparison.OrdinalIgnoreCase)))
-                    && (string.IsNullOrWhiteSpace(_filterSite) || s.Sites.Any(site => string.Equals(site, _filterSite, StringComparison.OrdinalIgnoreCase)))
-                    && (string.IsNullOrWhiteSpace(_filterMaterial) || string.Equals(s.Material, _filterMaterial, StringComparison.OrdinalIgnoreCase))
-                    && (string.IsNullOrWhiteSpace(_filterAdhesive) || string.Equals(s.Adhesive, _filterAdhesive, StringComparison.OrdinalIgnoreCase)))
+                .Where(s => TcoEngine.SupplierMatchesTenderFilters(
+                    s,
+                    _filterCountry,
+                    _filterSite,
+                    _filterMaterial,
+                    _filterAdhesive))
                 .ToList();
 
             // Seed supplier settings defaults (archetype values come from demo SupplierModel).
@@ -1047,8 +1322,17 @@ else
 
             Session.SetPendingClarificationsCount(_anomalies.Values.Count(a => a.Status is AnomalyStatus.Pending or AnomalyStatus.Clarification));
 
-            _tableSites = suppliersFiltered.SelectMany(s => s.Sites).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
-            _tableMaterials = suppliersFiltered.Select(s => s.Material).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(m => m, StringComparer.OrdinalIgnoreCase).ToArray();
+            _tableSites = suppliersFiltered
+                .SelectMany(s => s.Sites ?? [])
+                .Select(s => TcoEngine.NormalizeTenderDimension(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _tableMaterials = suppliersFiltered
+                .Select(s => TcoEngine.NormalizeTenderDimension(s.Material))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             _tableSupplierOptions = suppliersFiltered
                 .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
                 .GroupBy(s => s.SupplierId, StringComparer.OrdinalIgnoreCase)
@@ -1078,6 +1362,8 @@ else
 
             _tcoResults.Clear();
             _tcoResults.AddRange(TcoEngine.GetResults(Session, _suppliersSelected));
+            _decisionInsight = TcoEngine.GetDecisionInsight(Session, _tcoResults, _suppliersSelected);
+            SyncSidebarBridge();
         }
         finally
         {
@@ -1234,10 +1520,27 @@ else
             IEnumerable<SupplierPillarAnalysisRow> q = _tableRows;
 
             if (_tableMaterialsSelected.Count > 0)
-                q = q.Where(r => _tableMaterialsSelected.Contains(r.Supplier.Material));
+            {
+                q = q.Where(r =>
+                    _tableMaterialsSelected.Contains(
+                        TcoEngine.NormalizeTenderDimension(r.Supplier.Material),
+                        StringComparer.OrdinalIgnoreCase));
+            }
 
             if (_tableSitesSelected.Count > 0)
-                q = q.Where(r => r.Supplier.Sites.Any(s => _tableSitesSelected.Contains(s)));
+            {
+                q = q.Where(r =>
+                {
+                    var sites = r.Supplier.Sites ?? [];
+                    if (sites.Count == 0)
+                        return _tableSitesSelected.Contains(TcoEngine.UnknownDimensionValue, StringComparer.OrdinalIgnoreCase);
+
+                    return sites.Any(s =>
+                        _tableSitesSelected.Contains(
+                            TcoEngine.NormalizeTenderDimension(s),
+                            StringComparer.OrdinalIgnoreCase));
+                });
+            }
 
             if (_tableSuppliersSelected.Count > 0)
                 q = q.Where(r => _tableSuppliersSelected.Contains(r.Supplier.SupplierId));
@@ -1463,4 +1766,57 @@ else
     private void SelectLabels() => Session.SelectLabels();
 
     private static string FormatScore(decimal value) => value.ToString("0.0", Da);
+
+    private LabelTenderDashboardDto? GetTcoDto(string supplierId) =>
+        string.IsNullOrWhiteSpace(supplierId)
+            ? null
+            : _tcoResults.FirstOrDefault(x =>
+                x.SupplierId.Equals(supplierId.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private bool IsRecommendedSupplier(string id) =>
+        _decisionInsight is not null
+        && !string.IsNullOrWhiteSpace(id)
+        && id.Equals(_decisionInsight.RecommendedSupplierId, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsLowestCommercialAnchor(string id) =>
+        _decisionInsight is not null
+        && !string.IsNullOrWhiteSpace(id)
+        && id.Equals(_decisionInsight.LowestPriceSupplierId, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsBestTcoAnchor(string id) =>
+        _decisionInsight is not null
+        && !string.IsNullOrWhiteSpace(id)
+        && id.Equals(_decisionInsight.BestTcoSupplierId, StringComparison.OrdinalIgnoreCase);
+
+    private bool RowNeedsManualReview(SupplierPillarAnalysisRow row)
+    {
+        var dto = GetTcoDto(row.Supplier.SupplierId);
+        if (dto is null)
+            return true;
+
+        if (!dto.IsCompliant)
+            return true;
+
+        if (dto.FinalCtrScore < 45m)
+            return true;
+
+        if (IsOutlier(row.Supplier.SupplierId, OutlierFieldPrice)
+            || IsOutlier(row.Supplier.SupplierId, OutlierFieldQuantity))
+            return true;
+
+        return IsExtremePrice(row.Supplier.SupplierId);
+    }
+
+    private bool ShowConditionalChip(SupplierPillarAnalysisRow row, LabelTenderDashboardDto dto)
+    {
+        if (IsRecommendedSupplier(row.Supplier.SupplierId))
+            return false;
+
+        if (RowNeedsManualReview(row))
+            return false;
+
+        return dto.IsCompliant && dto.FinalCtrScore >= 48m && dto.FinalCtrScore < 68m;
+    }
+
+    private int RiskReviewRowCount => TableItems.Count(RowNeedsManualReview);
 }    

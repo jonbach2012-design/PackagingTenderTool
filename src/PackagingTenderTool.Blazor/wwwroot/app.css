@@ -611,6 +611,15 @@
     background: #f9f9f9;
 }
 
+/* Label tender route: single main-column padding (avoid stacking with page-level px) */
+.cockpit-main--label-tender {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    padding: clamp(12px, 2vw, 16px) clamp(16px, 3vw, 28px) clamp(24px, 4vw, 40px) clamp(16px, 3vw, 28px);
+}
+
 .cockpit-root,
 .cockpit-root .mud-typography {
     color: #333;
@@ -634,6 +643,441 @@
     color: #2d3436 !important;
     font-weight: 700 !important;
     letter-spacing: -0.02em;
+}
+
+/* Decision cockpit — strategic layout */
+.cockpit-layout .mud-main-content {
+    background: #f6f7f4;
+    min-height: 100vh;
+}
+
+.cockpit-decision-drawer {
+    background: #ffffff !important;
+    border-right: 1px solid rgba(45, 52, 54, 0.1) !important;
+}
+
+.cockpit-import-headline {
+    font-weight: 800 !important;
+    color: #2d3436 !important;
+    letter-spacing: -0.02em;
+}
+
+.cockpit-import-input {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.cockpit-import-status {
+    color: rgba(45, 52, 54, 0.7);
+}
+
+.cockpit-main-stack {
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.decision-kpi-grid {
+    align-items: stretch;
+}
+
+.decision-kpi-card {
+    border: 1px solid rgba(45, 52, 54, 0.1);
+    border-radius: 12px;
+    background: #ffffff !important;
+    height: 100%;
+    box-shadow: 0 2px 12px rgba(45, 52, 54, 0.06);
+}
+
+/* Recommended supplier KPI (main cockpit — accent matches label shell) */
+.pt-kpi-card--recommended {
+    border: 2px solid #7fa15a !important;
+    box-shadow: 0 8px 28px rgba(17, 24, 39, 0.12);
+}
+
+.decision-kpi-name--hero {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.02em;
+}
+
+.decision-kpi-card--risk {
+    border-color: rgba(211, 87, 87, 0.35);
+}
+
+.decision-kpi-name {
+    font-weight: 800 !important;
+    color: #2d3436 !important;
+}
+
+.decision-kpi-metric {
+    font-weight: 800 !important;
+    color: #2d3436 !important;
+}
+
+.decision-kpi-narrative {
+    line-height: 1.45;
+    color: rgba(45, 52, 54, 0.85);
+}
+
+.decision-pillar-bar {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 10px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(45, 52, 54, 0.06);
+}
+
+.decision-pillar-bar__comm {
+    height: 100%;
+    background: #91a363;
+}
+
+.decision-pillar-bar__tech {
+    height: 100%;
+    background: #4682b4;
+}
+
+.decision-pillar-bar__reg {
+    height: 100%;
+    background: #ffb300;
+}
+
+.decision-guardrail {
+    border-radius: 10px !important;
+}
+
+.decision-weights-panel {
+    border-radius: 12px !important;
+}
+
+.decision-evidence-grid .mud-table-root {
+    border-radius: 8px;
+}
+
+.decision-raw-table td {
+    padding: 6px 10px !important;
+}
+
+/* Label tender shell sidebar (layout drawer) */
+.lt-shell-sidebar {
+    padding-bottom: 1rem;
+}
+
+.lt-shell-section-title {
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 0.72rem !important;
+    color: rgba(45, 52, 54, 0.65);
+}
+
+.lt-nav-btn {
+    justify-content: flex-start !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+}
+
+.lt-nav-btn--active {
+    background: rgba(145, 163, 99, 0.14) !important;
+    color: #2d3436 !important;
+}
+
+.pt-drawer--label-shell {
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    --lt-shell-bg: #1b3a2a;
+    --lt-shell-hover: #244c38;
+    --lt-shell-accent: #7fa15a;
+}
+
+/* Label-tender route: Scandi forest control column (scoped to .pt-drawer--label-shell only) */
+.pt-drawer--label-shell.mud-drawer {
+    background-color: var(--lt-shell-bg) !important;
+}
+
+.pt-drawer--label-shell .mud-drawer-content {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.pt-drawer--label-shell .lt-shell-sidebar .cockpit-muted,
+.pt-drawer--label-shell .lt-shell-section .cockpit-muted,
+.pt-drawer--label-shell .cockpit-import-status {
+    color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.pt-drawer--label-shell .cockpit-import-headline,
+.pt-drawer--label-shell .lt-shell-section-title {
+    color: rgba(255, 255, 255, 0.96) !important;
+}
+
+/*
+ * MudBlazor outlined inputs: .mud-input-label-outlined uses background-color: var(--mud-palette-surface)
+ * (see MudBlazor.min.css). On the dark shell this reads as white “tabs” behind floating labels.
+ */
+.pt-drawer--label-shell label.mud-input-label.mud-input-label-outlined,
+.pt-drawer--label-shell .mud-input-label.mud-input-label-outlined {
+    background-color: var(--lt-shell-bg) !important;
+}
+
+/* Closed selects / numeric fields: dark field + Scandi accent border */
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input.mud-input-outlined,
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input.mud-input-text {
+    background-color: transparent !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input-root,
+.pt-drawer--label-shell .lt-shell-filter-select.mud-input-control .mud-input-root {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input-outlined-border {
+    border: 1px solid #7fa15a !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select:hover .mud-input-outlined-border {
+    border-color: var(--lt-shell-accent) !important;
+}
+
+.pt-drawer--label-shell .mud-input-outlined-border {
+    border-color: rgba(127, 161, 90, 0.35) !important;
+}
+
+.pt-drawer--label-shell .mud-input:hover .mud-input-outlined-border {
+    border-color: rgba(127, 161, 90, 0.55) !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input-slot input,
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input-slot,
+.pt-drawer--label-shell .mud-input-slot input,
+.pt-drawer--label-shell .mud-select .mud-input-slot input {
+    color: #f8f9fa !important;
+}
+
+/* Softer “empty” look for placeholder / shrink label when not focused — MudBlazor uses label shrink */
+.pt-drawer--label-shell .mud-input-label,
+.pt-drawer--label-shell .mud-input-label-outlined {
+    color: rgba(248, 249, 250, 0.72) !important;
+}
+
+.pt-drawer--label-shell .mud-input:focus-within .mud-input-label,
+.pt-drawer--label-shell .mud-input.mud-input-input-control .mud-input-label.mud-input-label-inputcontrol {
+    color: rgba(248, 249, 250, 0.72) !important;
+}
+
+/* MudBlazor: shrink/focus label color defaults to text-primary / palette-primary */
+.pt-drawer--label-shell .lt-shell-filter-select .mud-shrink ~ label.mud-input-label.mud-input-label-inputcontrol,
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input:focus-within ~ label.mud-input-label.mud-input-label-inputcontrol {
+    color: rgba(248, 249, 250, 0.92) !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select .mud-input:focus-within ~ label.mud-input-label.mud-input-label-inputcontrol {
+    color: var(--lt-shell-accent) !important;
+}
+
+/* Remove default blue focus ring in shell (Mud uses palette-primary on outlined border) */
+.pt-drawer--label-shell .mud-input-outlined.mud-input-adorned:focus-within,
+.pt-drawer--label-shell .mud-input-outlined:focus-within {
+    border-color: var(--lt-shell-accent) !important;
+}
+
+.pt-drawer--label-shell .mud-input-outlined:focus-within .mud-input-outlined-border {
+    border-color: var(--lt-shell-accent) !important;
+    border-width: 2px !important;
+    box-shadow: 0 0 0 1px rgba(127, 161, 90, 0.35) !important;
+}
+
+.pt-drawer--label-shell .lt-shell-filter-select:focus-within .mud-input-outlined-border {
+    outline: 2px solid rgba(127, 161, 90, 0.55);
+    outline-offset: 2px;
+}
+
+.pt-drawer--label-shell .mud-select .mud-input-adornment-end .mud-icon-root,
+.pt-drawer--label-shell .mud-select .mud-input-adornment-end svg {
+    color: rgba(248, 249, 250, 0.58) !important;
+    fill: rgba(248, 249, 250, 0.58) !important;
+}
+
+/* Native Excel picker — readable on dark sidebar (Chromium / Firefox) */
+.pt-drawer--label-shell .lt-shell-file-import {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pt-drawer--label-shell .lt-shell-file-input-native {
+    width: 100%;
+    max-width: 100%;
+    padding: 8px 0;
+    font-size: 0.82rem;
+    color: rgba(248, 249, 250, 0.88) !important;
+    background: transparent !important;
+}
+
+.pt-drawer--label-shell .lt-shell-file-input-native::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #7fa15a;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f8f9fa;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pt-drawer--label-shell .lt-shell-file-input-native::file-selector-button:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.pt-drawer--label-shell .lt-shell-file-name {
+    color: rgba(248, 249, 250, 0.88) !important;
+    word-break: break-all;
+}
+
+.pt-drawer--label-shell .lt-shell-file-empty {
+    color: rgba(248, 249, 250, 0.55) !important;
+}
+
+/* Popovers anchored from filter selects: readable list (dark text on light paper) */
+.mud-popover .mud-paper.lt-shell-select-popover-paper,
+.lt-shell-select-popover-paper.mud-paper {
+    background: #f6faf7 !important;
+    color: #1b3a2a !important;
+}
+
+.lt-shell-select-popover-paper .mud-list-item,
+.lt-shell-select-popover-paper .mud-list-item .mud-typography {
+    color: #1b3a2a !important;
+}
+
+.lt-shell-select-popover-paper .mud-list-item:hover {
+    background: rgba(36, 76, 56, 0.12) !important;
+}
+
+.pt-drawer--label-shell .lt-nav-btn {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.pt-drawer--label-shell .lt-nav-btn:hover {
+    background: var(--lt-shell-hover) !important;
+    color: #ffffff !important;
+}
+
+.pt-drawer--label-shell .lt-nav-btn--active {
+    background: rgba(127, 161, 90, 0.28) !important;
+    color: #ffffff !important;
+    border-left: 3px solid var(--lt-shell-accent);
+    padding-left: 9px !important;
+}
+
+.pt-drawer--label-shell .lt-nav-btn .mud-icon-root {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.pt-drawer--label-shell .pt-nav-menu .mud-nav-link {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.pt-drawer--label-shell .pt-nav-menu .mud-nav-link .mud-icon-root {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.pt-drawer--label-shell .pt-nav-menu .mud-nav-link.mud-nav-link-active {
+    color: #d4e8b8 !important;
+}
+
+.pt-drawer--label-shell .pt-nav-menu .mud-nav-link.mud-nav-link-active .mud-icon-root {
+    color: #c8e0a8 !important;
+}
+
+.pt-drawer--label-shell .mud-divider {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.pt-drawer--label-shell .cockpit-drawer-panel {
+    background: transparent !important;
+    min-height: 0;
+}
+
+.pt-drawer--label-shell .cockpit-drawer-section-title {
+    color: rgba(255, 255, 255, 0.95) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 2px solid rgba(127, 161, 90, 0.45) !important;
+}
+
+.pt-drawer--label-shell .cockpit-pillar-label,
+.pt-drawer--label-shell .cockpit-pillar-percent,
+.pt-drawer--label-shell .label-tender-slider-label,
+.pt-drawer--label-shell .cockpit-total-weight-text {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.pt-drawer--label-shell .mud-typography.cockpit-muted {
+    color: rgba(255, 255, 255, 0.58) !important;
+}
+
+/* Sliders: accent green, not theme primary blue */
+.pt-drawer--label-shell .lt-shell-slider.mud-slider-primary .mud-slider-inner-container > div:first-child,
+.pt-drawer--label-shell .mud-slider-success .mud-slider-inner-container > div:first-child {
+    background-color: var(--lt-shell-accent) !important;
+}
+
+.pt-drawer--label-shell .mud-slider.mud-slider-success .mud-slider-inner-container .mud-slider-filled {
+    background-color: var(--lt-shell-accent) !important;
+}
+
+.pt-drawer--label-shell .mud-switch.mud-success .mud-switch-span {
+    background-color: rgba(127, 161, 90, 0.45) !important;
+}
+
+.pt-drawer--label-shell .mud-switch.mud-success.mud-checked .mud-switch-span {
+    background-color: var(--lt-shell-accent) !important;
+}
+
+/* Numeric fields & recyclability select inside drawer */
+.pt-drawer--label-shell .cockpit-drawer-panel .mud-input-outlined .mud-input-slot input {
+    color: #f8f9fa !important;
+}
+
+.pt-drawer--label-shell .cockpit-drawer-panel .mud-input-adornment {
+    color: rgba(248, 249, 250, 0.85) !important;
+}
+
+.pt-drawer--label-shell .lt-shell-settings-stack .mud-input-control,
+.pt-drawer--label-shell .lt-shell-settings-stack .mud-select {
+    margin-bottom: 10px;
+}
+
+.pt-drawer--label-shell .lt-shell-settings-stack .mud-input-control:last-child,
+.pt-drawer--label-shell .lt-shell-settings-stack .mud-select:last-child {
+    margin-bottom: 0;
+}
+
+/* Replace default theme “primary” blue accents inside the label shell */
+.pt-drawer--label-shell .mud-checkbox.mud-checked .mud-icon-root,
+.pt-drawer--label-shell .mud-checkbox.mud-checked path {
+    color: var(--lt-shell-accent) !important;
+    fill: var(--lt-shell-accent) !important;
+}
+
+.pt-drawer--label-shell .mud-button-root.mud-icon-button:not(:hover) .mud-icon-root {
+    color: rgba(248, 249, 250, 0.75) !important;
+}
+
+.pt-drawer--label-shell .mud-expand-panel-header {
+    color: #f8f9fa !important;
+}
+
+.pt-drawer--label-shell .mud-expand-panel-header .mud-expand-panel-text {
+    color: inherit !important;
+}
+
+.cockpit-page-main {
+    width: 100%;
 }
 
 /* Radzen shell (Step 1) — muted procurement aesthetic */

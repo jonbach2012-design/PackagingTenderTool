@@ -1856,10 +1856,11 @@ internal sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            statusLabel.Text = $"Import failed: {ex.Message}";
-            SetImportFeedback("Import failed", ex.Message, AppTheme.Error, isBusy: false);
+            var userMessage = LabelTenderImportFailureMessage.Format(ex);
+            statusLabel.Text = userMessage;
+            SetImportFeedback("Import failed", userMessage, AppTheme.Error, isBusy: false);
             AppExceptionReporter.LogSilently(ex);
-            MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, userMessage, "Import failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {

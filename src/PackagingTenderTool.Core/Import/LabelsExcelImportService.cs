@@ -10,7 +10,8 @@ public sealed class LabelsExcelImportService
 {
     private static readonly string[] RequiredColumns =
     [
-        nameof(LabelLineItem.ItemNo)
+        nameof(LabelLineItem.ItemNo),
+        nameof(LabelLineItem.SupplierName)
     ];
 
     private static readonly IReadOnlyDictionary<string, string[]> ColumnAliases =
@@ -19,12 +20,25 @@ public sealed class LabelsExcelImportService
             [nameof(LabelLineItem.ItemNo)] = ["Item no", "Item no.", "Item number"],
             [nameof(LabelLineItem.ItemName)] = ["Item name", "Item"],
             [nameof(LabelLineItem.SupplierName)] = ["Supplier name", "Supplier"],
-            [nameof(LabelLineItem.Site)] = ["Site", "DSH Site"],
+            [nameof(LabelLineItem.Site)] = ["Site", "DSH Site", "Location", "Plant"],
             [nameof(LabelLineItem.Quantity)] = ["Quantity", "Qty"],
-            [nameof(LabelLineItem.Spend)] = ["Spend", "Spend (NOK)", "Spend NOK"],
+            [nameof(LabelLineItem.Spend)] =
+            [
+                "Spend", "Spend (NOK)", "Spend (DKK)", "Spend (SEK)", "Spend (EUR)",
+                "Spend NOK", "Spend DKK", "Spend SEK", "Spend EUR"
+            ],
             [nameof(LabelLineItem.PricePerThousand)] = ["Price per 1,000", "Price per 1000", "Price/1000"],
-            [nameof(LabelLineItem.Price)] = ["Price", "Price (DKK)", "Price DKK"],
-            [nameof(LabelLineItem.TheoreticalSpend)] = ["Theoretical spend", "Theoretical spend (NOK)", "Theoretical spend NOK"],
+            [nameof(LabelLineItem.Price)] =
+            [
+                "Price", "Price (DKK)", "Price (NOK)", "Price (SEK)", "Price (EUR)",
+                "Price DKK", "Price NOK", "Price SEK", "Price EUR"
+            ],
+            [nameof(LabelLineItem.TheoreticalSpend)] =
+            [
+                "Theoretical spend", "Theoretical spend (NOK)", "Theoretical spend (DKK)", "Theoretical spend (SEK)",
+                "Theoretical spend (EUR)", "Theoretical spend NOK", "Theoretical spend DKK", "Theoretical spend SEK",
+                "Theoretical spend EUR"
+            ],
             [nameof(LabelLineItem.TechnicalRating)] = ["TechnicalRating", "Technical rating", "MaterialQuality", "Material quality"],
             [nameof(LabelLineItem.LabelSize)] = ["Label size"],
             [nameof(LabelLineItem.WindingDirection)] = ["Winding direction"],
@@ -62,6 +76,8 @@ public sealed class LabelsExcelImportService
         string tenderName = "Imported Labels Tender",
         TenderSettings? settings = null)
     {
+        LabelTenderExcelImportGuard.EnsureXlsxExtension(filePath);
+
         using var stream = File.OpenRead(filePath);
 
         return ImportTenderWithReport(stream, tenderName, settings);
@@ -91,80 +107,119 @@ public sealed class LabelsExcelImportService
         return ImportLineItemsWithReport(excelStream).Tender.LabelLineItems;
     }
 
+    public const string WorkbookOpenFailedMarker = "WORKBOOK_OPEN_FAILED";
+    public const string NoWorksheetMarker = "NO_WORKSHEET";
+    public const string HeaderNotRecognizedMarker = "HEADER_NOT_RECOGNIZED";
+    public const string MissingRequiredColumnMarker = "MISSING_REQUIRED_COLUMN";
+
     public LabelsTenderImportResult ImportLineItemsWithReport(Stream excelStream)
     {
         ArgumentNullException.ThrowIfNull(excelStream);
 
-        using var workbook = new XLWorkbook(excelStream);
-        var worksheet = workbook.Worksheets.FirstOrDefault()
-            ?? throw new InvalidOperationException("The Excel workbook does not contain a worksheet.");
-
-        var headerRow = FindHeaderRow(worksheet)
-            ?? throw new InvalidOperationException("The Excel worksheet does not contain a recognizable Labels tender header row.");
-        var columnMap = BuildColumnMap(headerRow);
-        ValidateRequiredColumns(columnMap);
-        var lineItems = new List<LabelLineItem>();
-        var rawRows = new List<RawLabelTenderRow>();
-        var issues = new List<LabelsImportIssue>();
-        var categoryMapper = new CategoryMapper();
-        var scannedRows = 0;
-        var skippedRows = 0;
-
-        foreach (var row in worksheet.RowsUsed().Where(row => row.RowNumber() > headerRow.RowNumber()))
+        XLWorkbook workbook;
+        try
         {
-            if (!RowHasAnyContent(row))
-            {
-                continue;
-            }
-
-            scannedRows++;
-            var rawRow = MapRawRow(row, columnMap);
-            if (ShouldSkipRow(rawRow))
-            {
-                skippedRows++;
-                issues.Add(new LabelsImportIssue
-                {
-                    RowNumber = row.RowNumber(),
-                    FieldName = "Row",
-                    Message = "Skipped row because it did not look like a detailed tender item row.",
-                    Severity = LabelsImportIssueSeverity.Info
-                });
-                continue;
-            }
-
-            var lineItem = MapRow(row, columnMap, categoryMapper);
-            rawRows.Add(rawRow);
-            AddRowIssues(row.RowNumber(), lineItem, issues);
-            lineItems.Add(lineItem);
+            workbook = new XLWorkbook(excelStream);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(WorkbookOpenFailedMarker, ex);
         }
 
-        var cleanedRows = new PackagingTenderTool.Core.Services.LabelDataCleaningService().CleanMany(lineItems).ToList();
-        var invalidRows = lineItems.Count(lineItem => lineItem.SourceManualReviewFlags.Count > 0);
-        var rowsWithSpend = lineItems.Where(lineItem => lineItem.Spend is > 0).ToList();
-
-        return new LabelsTenderImportResult
+        try
         {
-            Tender = new Tender { LabelLineItems = lineItems },
-            RawRows = rawRows,
-            CleanedRows = cleanedRows,
-            Issues = issues,
-            Summary = new LabelsImportSummary
+            if (!workbook.Worksheets.Any())
             {
-                WorksheetName = worksheet.Name,
-                HeaderRowNumber = headerRow.RowNumber(),
-                TotalRowsScanned = scannedRows,
-                ImportedRows = lineItems.Count,
-                ValidRows = lineItems.Count - invalidRows,
-                InvalidRows = invalidRows,
-                SkippedRows = skippedRows,
-                ManualReviewFlagCount = lineItems.Sum(lineItem => lineItem.SourceManualReviewFlags.Count),
-                SupplierCount = DistinctCount(lineItems.Select(lineItem => lineItem.SupplierName)),
-                SiteCount = DistinctCount(lineItems.Select(lineItem => lineItem.Site)),
-                SizeCount = DistinctCount(cleanedRows.Select(row => row.NormalizedLabelSize)),
-                MaterialCount = DistinctCount(cleanedRows.Select(row => row.NormalizedMaterial)),
-                TotalSpend = rowsWithSpend.Sum(lineItem => lineItem.Spend!.Value)
+                throw new InvalidOperationException(NoWorksheetMarker);
             }
-        };
+
+            IXLWorksheet? worksheet = null;
+            IXLRow? headerRow = null;
+            foreach (var candidateSheet in workbook.Worksheets)
+            {
+                var candidateHeader = FindHeaderRow(candidateSheet);
+                if (candidateHeader is not null)
+                {
+                    worksheet = candidateSheet;
+                    headerRow = candidateHeader;
+                    break;
+                }
+            }
+
+            if (worksheet is null || headerRow is null)
+            {
+                throw new InvalidOperationException(HeaderNotRecognizedMarker);
+            }
+
+            var columnMap = BuildColumnMap(headerRow);
+            ValidateRequiredColumns(columnMap);
+            var lineItems = new List<LabelLineItem>();
+            var rawRows = new List<RawLabelTenderRow>();
+            var issues = new List<LabelsImportIssue>();
+            var categoryMapper = new CategoryMapper();
+            var scannedRows = 0;
+            var skippedRows = 0;
+
+            foreach (var row in worksheet.RowsUsed().Where(row => row.RowNumber() > headerRow.RowNumber()))
+            {
+                if (!RowHasAnyContent(row))
+                {
+                    continue;
+                }
+
+                scannedRows++;
+                var rawRow = MapRawRow(row, columnMap);
+                if (ShouldSkipRow(rawRow))
+                {
+                    skippedRows++;
+                    issues.Add(new LabelsImportIssue
+                    {
+                        RowNumber = row.RowNumber(),
+                        FieldName = "Row",
+                        Message = "Skipped row because it did not look like a detailed tender item row.",
+                        Severity = LabelsImportIssueSeverity.Info
+                    });
+                    continue;
+                }
+
+                var lineItem = MapRow(row, columnMap, categoryMapper);
+                rawRows.Add(rawRow);
+                AddRowIssues(row.RowNumber(), lineItem, issues);
+                lineItems.Add(lineItem);
+            }
+
+            var cleanedRows = new PackagingTenderTool.Core.Services.LabelDataCleaningService().CleanMany(lineItems).ToList();
+            var invalidRows = lineItems.Count(lineItem => lineItem.SourceManualReviewFlags.Count > 0);
+            var rowsWithSpend = lineItems.Where(lineItem => lineItem.Spend is > 0).ToList();
+
+            return new LabelsTenderImportResult
+            {
+                Tender = new Tender { LabelLineItems = lineItems },
+                RawRows = rawRows,
+                CleanedRows = cleanedRows,
+                Issues = issues,
+                Summary = new LabelsImportSummary
+                {
+                    WorksheetName = worksheet.Name,
+                    HeaderRowNumber = headerRow.RowNumber(),
+                    TotalRowsScanned = scannedRows,
+                    ImportedRows = lineItems.Count,
+                    ValidRows = lineItems.Count - invalidRows,
+                    InvalidRows = invalidRows,
+                    SkippedRows = skippedRows,
+                    ManualReviewFlagCount = lineItems.Sum(lineItem => lineItem.SourceManualReviewFlags.Count),
+                    SupplierCount = DistinctCount(lineItems.Select(lineItem => lineItem.SupplierName)),
+                    SiteCount = DistinctCount(lineItems.Select(lineItem => lineItem.Site)),
+                    SizeCount = DistinctCount(cleanedRows.Select(row => row.NormalizedLabelSize)),
+                    MaterialCount = DistinctCount(cleanedRows.Select(row => row.NormalizedMaterial)),
+                    TotalSpend = rowsWithSpend.Sum(lineItem => lineItem.Spend!.Value)
+                }
+            };
+        }
+        finally
+        {
+            workbook.Dispose();
+        }
     }
 
     private static int DistinctCount(IEnumerable<string?> values)
@@ -201,6 +256,38 @@ public sealed class LabelsExcelImportService
         return columnMap;
     }
 
+    private static string DisplayRequiredColumnName(string propertyName) =>
+        propertyName switch
+        {
+            nameof(LabelLineItem.ItemNo) => "Item no.",
+            nameof(LabelLineItem.SupplierName) => "Supplier name",
+            _ => propertyName
+        };
+
+    /// <summary>
+    /// Whether a row looks like a Labels tender <em>header</em> (grid identity). Supplier name is validated
+    /// separately via <see cref="ValidateRequiredColumns"/> so a sheet missing that column still matches here
+    /// and then fails with a missing-column message, not <see cref="HeaderNotRecognizedMarker"/>.
+    /// Uses the same <see cref="BuildColumnMap"/> / <see cref="ColumnAliases"/> as mapping.
+    /// </summary>
+    private static bool IsLabelsTenderIdentityHeader(IReadOnlyDictionary<string, int> columnMap)
+    {
+        if (!columnMap.ContainsKey(nameof(LabelLineItem.ItemNo))
+            || !columnMap.ContainsKey(nameof(LabelLineItem.ItemName))
+            || !columnMap.ContainsKey(nameof(LabelLineItem.Quantity))
+            || !columnMap.ContainsKey(nameof(LabelLineItem.Material)))
+        {
+            return false;
+        }
+
+        var hasPriceLike = columnMap.ContainsKey(nameof(LabelLineItem.Price))
+            || columnMap.ContainsKey(nameof(LabelLineItem.PricePerThousand))
+            || columnMap.ContainsKey(nameof(LabelLineItem.Spend))
+            || columnMap.ContainsKey(nameof(LabelLineItem.TheoreticalSpend));
+
+        return hasPriceLike;
+    }
+
     private static IXLRow? FindHeaderRow(IXLWorksheet worksheet)
     {
         return worksheet.RowsUsed()
@@ -210,7 +297,7 @@ public sealed class LabelsExcelImportService
                 ColumnMap = BuildColumnMap(row)
             })
             .OrderByDescending(candidate => candidate.ColumnMap.Count)
-            .FirstOrDefault(candidate => candidate.ColumnMap.ContainsKey(nameof(LabelLineItem.ItemNo)))?
+            .FirstOrDefault(candidate => IsLabelsTenderIdentityHeader(candidate.ColumnMap))?
             .Row;
     }
 
@@ -221,8 +308,8 @@ public sealed class LabelsExcelImportService
             .ToList();
         if (missingColumns.Count > 0)
         {
-            throw new InvalidOperationException(
-                $"The Labels tender worksheet is missing required columns: {string.Join(", ", missingColumns)}.");
+            var display = missingColumns.Select(static c => DisplayRequiredColumnName(c)).ToArray();
+            throw new InvalidOperationException($"{MissingRequiredColumnMarker}:{string.Join('|', display)}");
         }
     }
 

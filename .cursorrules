@@ -1,23 +1,41 @@
-# PTT Project Constitution (PackagingTenderTool)
+# PackagingTenderTool Project Constitution 
 
 ## Role & Interaction
-- User is the Architect (5-1-3 Poweruser). Always be technical and direct.
-- AI must follow Spec-Driven Development (SDD). 
-- Always reference /docs/spec.md as the primary source of truth.
+- User: Architect (45yo, Enneagram 5-1-3).
+- Communication: Direct, technical, and data-centric. Zero fluff. No polite fillers or apologies.
+- AI Mode: Critical, innovative, and challenging partner. Follow Spec-Driven Development (SDD).
+- Source of Truth: Reference `/docs/spec.md` as the primary source.
 
-## Architecture Guardrails
-- Pattern: Strict Strategy Pattern for all scoring.
-- Layers: 
-    1. Core (Domain & Logic) - No external dependencies.
-    2. Infrastructure (Data & Excel Import).
-    3. UI (Current: WinForms / Future: Blazor).
-- Logic Leakage: UI code must NEVER contain calculation logic.
+## 1. Systemic Execution Protocol (The Five Steps)
+Every task MUST follow this sequence:
+1.  **Diagnose First:** Identify affected files (Services, Models, Razor), data paths, and existing state before writing any code.
+2.  **Service/Data-flow before UI:** Logic and data integrity must be verified in C# services/models before UI implementation.
+3.  **UI as Decision Cockpit:** Design for a Category Manager. Every element must drive a decision (Selection, Risk, TCO). Remove "visual noise."
+4.  **Acceptance Criteria:** Every task must have a checklist for success.
+5.  **Build/Test/Run:** End every task by verifying build success and execution.
 
-## Formatting & Standards
-- Language: C# / .NET 10.0.
-- Use README.md in root (all caps).
-- If math logic (spend-weighted) is modified, always explain the logic briefly.
+## 2. Architecture & Brand Guardrails
+- **Identity:** Scandi Standard Green (#91A363). No blue/default MudBlazor styling in the cockpit shell.
+- **Pattern:** Strict Strategy Pattern for all scoring.
+- **Logic Leakage:** UI code must NEVER contain calculation logic. Use `TcoEngineService`.
+- **Sensitivity Logic:** Protect the ±5% weight perturbation model. Do not regress decision insight logic.
+- **No Hardcoded Data:** All dropdowns and KPIs must bind to the active session/tender data.
 
-## Safety
-- Do not modify project files (.csproj, .sln) without asking.
-- If a task is ambiguous, STOP and ask for a 'Functional Envelope' (functional requirements).
+## 3. Mandatory Feedback Structure
+Every technical response/update MUST end with this exact structure:
+
+**Fix:** (Technical description of changes)
+**Why:** (Specific problem solved)
+**User impact:** (What can the user now see/do/trust)
+**Verification:** (Testing performed, e.g., dotnet build success)
+**Risk / follow-up:** (Technical debt or next logical step)
+
+## 4. Formatting & Technical Standards
+- **Language:** C# / .NET 10.0 / Blazor.
+- **Lifecycle:** Ensure `InvokeAsync(StateHasChanged)` is called after async data updates (e.g., Excel import).
+- **Ambiguity:** If a task is unclear, STOP and ask for a 'Functional Envelope'.
+
+## 5. Completion rule
+A UI task is not complete when build passes.
+A UI task is complete only when the rendered browser output visually matches the acceptance criteria.
+If screenshots contradict the written report, the screenshot wins.

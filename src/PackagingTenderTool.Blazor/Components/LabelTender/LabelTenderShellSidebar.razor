@@ -1,0 +1,224 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@using PackagingTenderTool.Blazor.Components.Layout
+@using PackagingTenderTool.Blazor.Services
+@inject LabelTenderSidebarBridge Bridge
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="lt-shell-sidebar">
+    <MudStack Spacing="3" Class="pa-3">
+        <section class="lt-shell-section">
+            <MudText Typo="Typo.overline" Class="cockpit-muted">Data intake</MudText>
+            <MudText Typo="Typo.h5" Class="cockpit-import-headline">Excel import</MudText>
+            <MudText Typo="Typo.body2" Class="cockpit-muted">
+                Upload tender lines (.xlsx) — drives TCO, compliance, and recommendations.
+            </MudText>
+            @if (Bridge.ImportInProgress)
+            {
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-1">
+                    <MudProgressCircular Size="Size.Small" Color="Color.Default" Indeterminate="true" />
+                    <MudText Typo="Typo.caption" Class="cockpit-muted">Importing…</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <div class="lt-shell-file-import">
+                    <InputFile OnChange="OnExcel"
+                               accept=".xlsx"
+                               class="lt-shell-file-input-native cockpit-import-input" />
+                    @if (!string.IsNullOrWhiteSpace(Bridge.LastImportedFileName))
+                    {
+                        <MudText Typo="Typo.caption" Class="lt-shell-file-name mt-1">@Bridge.LastImportedFileName</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Class="lt-shell-file-empty mt-1">No file selected</MudText>
+                    }
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Bridge.ImportStatus))
+            {
+                <MudText Typo="Typo.caption" Class="cockpit-import-status">@Bridge.ImportStatus</MudText>
+            }
+        </section>
+
+        <MudDivider />
+
+        <section class="lt-shell-section">
+            <MudText Typo="Typo.subtitle2" Class="lt-shell-section-title">Filter settings</MudText>
+            <MudStack Spacing="2">
+                <MudSelect T="string"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Label="Country"
+                           Value="@Bridge.FilterCountry"
+                           ValueChanged="OnCountry"
+                           AnchorOrigin="Origin.BottomCenter"
+                           PopoverClass="lt-shell-select-popover-paper"
+                           Class="w-100 lt-shell-filter-select">
+                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                    @foreach (var c in Bridge.FilterCountries)
+                    {
+                        <MudSelectItem @key="c" Value="@c">@c</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Label="Site"
+                           Value="@Bridge.FilterSite"
+                           ValueChanged="OnSite"
+                           Disabled="@Bridge.SitesSelectDisabled"
+                           AnchorOrigin="Origin.BottomCenter"
+                           PopoverClass="lt-shell-select-popover-paper"
+                           Class="w-100 lt-shell-filter-select">
+                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                    @foreach (var s in Bridge.FilterSitesForCountry)
+                    {
+                        <MudSelectItem @key="s" Value="@s">@s</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Label="Material"
+                           Value="@Bridge.FilterMaterial"
+                           ValueChanged="OnMaterial"
+                           AnchorOrigin="Origin.BottomCenter"
+                           PopoverClass="lt-shell-select-popover-paper"
+                           Class="w-100 lt-shell-filter-select">
+                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                    @foreach (var m in Bridge.FilterMaterials)
+                    {
+                        <MudSelectItem @key="m" Value="@m">@m</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Label="Adhesive"
+                           Value="@Bridge.FilterAdhesive"
+                           ValueChanged="OnAdhesive"
+                           AnchorOrigin="Origin.BottomCenter"
+                           PopoverClass="lt-shell-select-popover-paper"
+                           Class="w-100 lt-shell-filter-select">
+                    <MudSelectItem Value="@string.Empty">All</MudSelectItem>
+                    @foreach (var a in Bridge.FilterAdhesives)
+                    {
+                        <MudSelectItem @key="a" Value="@a">@a</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSwitch T="bool"
+                           dense="true"
+                           Color="Color.Success"
+                           Value="@Bridge.SynergyToggle"
+                           ValueChanged="OnSynergy">
+                    Supplier synergy
+                </MudSwitch>
+            </MudStack>
+        </section>
+    </MudStack>
+
+    <MudDivider Class="my-1" />
+
+    <LabelTenderDrawerPanel />
+
+    <MudDivider Class="my-1" />
+
+    <section class="lt-shell-section px-3 pb-2">
+        <MudText Typo="Typo.subtitle2" Class="lt-shell-section-title mb-2">Navigation &amp; views</MudText>
+        <MudStack Spacing="0" Class="lt-cockpit-nav">
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Dashboard"
+                       Class="@NavBtnClass("dashboard")"
+                       OnClick="@(() => GoTab("dashboard"))">
+                Dashboard
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.GridOn"
+                       Class="@NavBtnClass("matrix")"
+                       OnClick="@(() => GoTab("matrix"))">
+                Price matrix
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.FactCheck"
+                       Class="@NavBtnClass("evidence")"
+                       OnClick="@(() => GoTab("evidence"))">
+                Evidence table
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.VerifiedUser"
+                       Class="@NavBtnClass("audit")"
+                       OnClick="@(() => GoTab("audit"))">
+                Audit board
+            </MudButton>
+        </MudStack>
+    </section>
+
+    <MudDivider Class="my-1" />
+
+    <div class="pt-drawer-nav pa-2">
+        <MudText Typo="Typo.caption" Class="cockpit-muted px-2 mb-1">System</MudText>
+        <NavMenu />
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Bridge.Changed += OnBridgeChanged;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnBridgeChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    private async Task OnExcel(InputFileChangeEventArgs e)
+    {
+        if (Bridge.ImportExcelAsync is null)
+            return;
+
+        await Bridge.ImportExcelAsync(e);
+    }
+
+    private void OnCountry(string v) => Bridge.OnCountryChanged?.Invoke(v ?? string.Empty);
+
+    private void OnSite(string v) => Bridge.OnSiteChanged?.Invoke(v ?? string.Empty);
+
+    private void OnMaterial(string v) => Bridge.OnMaterialChanged?.Invoke(v ?? string.Empty);
+
+    private void OnAdhesive(string v) => Bridge.OnAdhesiveChanged?.Invoke(v ?? string.Empty);
+
+    private void OnSynergy(bool v) => Bridge.OnSynergyChanged?.Invoke(v);
+
+    private void GoTab(string tab) =>
+        Nav.NavigateTo($"/labeltender?tab={tab}");
+
+    private string NavBtnClass(string tab)
+    {
+        var uri = Nav.Uri;
+        var active = uri.Contains($"tab={tab}", StringComparison.OrdinalIgnoreCase)
+            || (tab == "dashboard" && !uri.Contains("tab=", StringComparison.OrdinalIgnoreCase));
+        return active ? "lt-nav-btn lt-nav-btn--active" : "lt-nav-btn";
+    }
+
+    public void Dispose()
+    {
+        Bridge.Changed -= OnBridgeChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

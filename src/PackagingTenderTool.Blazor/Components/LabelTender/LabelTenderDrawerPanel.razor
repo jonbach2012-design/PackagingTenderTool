@@ -1,9 +1,10 @@
 @implements IDisposable
 
+@using PackagingTenderTool.Blazor.Services
 @using PackagingTenderTool.Core.Models
-@using PackagingTenderTool.Core.Services.LabelTenderScoring
 
 @inject PackagingProfileSession Session
+@inject LabelTenderSidebarBridge TenderBridge
 
 @if (Session.SelectedProfile == PackagingProfileSession.ProfileLabels)
 {
@@ -37,8 +38,8 @@
                                Value="Session.Commercial"
                                ValueChanged="OnCommercialChanged"
                                valueLabelDisplay="ValueLabelDisplay.OnHover"
-                               Color="Color.Primary"
-                               Class="label-tender-slider-accent" />
+                               Color="Color.Success"
+                               Class="label-tender-slider-accent lt-shell-slider" />
                 </MudStack>
 
                 <MudStack Spacing="0">
@@ -64,8 +65,8 @@
                                Value="Session.Technical"
                                ValueChanged="OnTechnicalChanged"
                                valueLabelDisplay="ValueLabelDisplay.OnHover"
-                               Color="Color.Primary"
-                               Class="label-tender-slider-accent" />
+                               Color="Color.Success"
+                               Class="label-tender-slider-accent lt-shell-slider" />
                 </MudStack>
 
                 <MudStack Spacing="0">
@@ -91,8 +92,8 @@
                                Value="Session.Regulatory"
                                ValueChanged="OnRegulatoryChanged"
                                valueLabelDisplay="ValueLabelDisplay.OnHover"
-                               Color="Color.Primary"
-                               Class="label-tender-slider-accent" />
+                               Color="Color.Success"
+                               Class="label-tender-slider-accent lt-shell-slider" />
                 </MudStack>
 
                 <MudStack Spacing="1" Class="cockpit-total-weight">
@@ -119,28 +120,35 @@
             </MudText>
 
             <MudStack Spacing="1" Class="cockpit-drawer-stack cockpit-drawer-supplier-stack">
-                <MudCheckBox T="bool"
-                             Value="@IsAllSelected"
-                             ValueChanged="OnSelectAllChanged"
-                             Label="Select All"
-                             Dense="true"
-                             Class="cockpit-checkbox" />
+                @if (Suppliers.Length == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="cockpit-muted">Use Excel import on this page to load suppliers.</MudText>
+                }
+                else
+                {
+                    <MudCheckBox T="bool"
+                                 Value="@IsAllSelected"
+                                 ValueChanged="OnSelectAllChanged"
+                                 Label="Select All"
+                                 Dense="true"
+                                 Class="cockpit-checkbox" />
 
-                <MudDivider Class="my-1" />
+                    <MudDivider Class="my-1" />
 
-                <MudStack Spacing="0">
-                    @foreach (var supplier in Suppliers)
-                    {
-                        var selected = Session.SelectedSuppliers.Contains(supplier.Id);
-                        <MudCheckBox T="bool"
-                                     @key="supplier.Id"
-                                     Dense="true"
-                                     Class="cockpit-checkbox"
-                                     Value="@selected"
-                                     ValueChanged="@(v => OnSupplierToggled(supplier.Id, v))"
-                                     Label="@supplier.Name" />
-                    }
-                </MudStack>
+                    <MudStack Spacing="0">
+                        @foreach (var supplier in Suppliers)
+                        {
+                            var selected = Session.SelectedSuppliers.Contains(supplier.Id);
+                            <MudCheckBox T="bool"
+                                         @key="supplier.Id"
+                                         Dense="true"
+                                         Class="cockpit-checkbox"
+                                         Value="@selected"
+                                         ValueChanged="@(v => OnSupplierToggled(supplier.Id, v))"
+                                         Label="@supplier.Name" />
+                        }
+                    </MudStack>
+                }
             </MudStack>
         </div>
 
@@ -157,12 +165,12 @@
 
         <MudDivider Class="my-2" />
 
-        <div class="px-2">
+        <div class="px-2 lt-shell-settings-stack">
             <MudText Typo="Typo.h6" Class="cockpit-drawer-section-title mb-2">SUPPLIER SETTINGS</MudText>
 
             @if (string.IsNullOrWhiteSpace(Session.ActiveSupplierId))
             {
-                <MudText Typo="Typo.body2" Class="cockpit-muted">Select a supplier above to configure switching, recyclability, and MOQ risk.</MudText>
+                <MudText Typo="Typo.body2" Class="cockpit-muted">Select a supplier to configure tender assumptions.</MudText>
             }
             else
             {
@@ -174,6 +182,7 @@
                                  Margin="Margin.Dense"
                                  Variant="Variant.Outlined"
                                  Immediate="true"
+                                 Class="w-100 lt-shell-filter-select"
                                  Value="@Session.GetStartupCost(active)"
                                  ValueChanged="@(v => Session.SetStartupCost(active, v))"
                                  Disabled="@incumbent"
@@ -186,6 +195,7 @@
                                  Margin="Margin.Dense"
                                  Variant="Variant.Outlined"
                                  Immediate="true"
+                                 Class="w-100 lt-shell-filter-select"
                                  Value="@Session.GetMonthlySupportCost(active)"
                                  ValueChanged="@(v => Session.SetMonthlySupportCost(active, v))"
                                  Disabled="@incumbent"
@@ -198,6 +208,9 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            Label="Recyclability grade"
+                           Class="w-100 lt-shell-filter-select"
+                           AnchorOrigin="Origin.BottomCenter"
+                           PopoverClass="lt-shell-select-popover-paper"
                            Value="@Session.GetSupplierRecyclabilityGrade(active)"
                            ValueChanged="@(v => Session.SetSupplierRecyclabilityGrade(active, v))">
                     <MudSelectItem Value="RecyclingGrade.A">A</MudSelectItem>
@@ -212,6 +225,7 @@
                                  Margin="Margin.Dense"
                                  Variant="Variant.Outlined"
                                  Immediate="true"
+                                 Class="w-100 lt-shell-filter-select"
                                  Value="@Session.GetSupplierMoqPenaltyPct(active)"
                                  ValueChanged="@(v => Session.SetSupplierMoqPenaltyPct(active, v))"
                                  Adornment="Adornment.Start"
@@ -232,8 +246,8 @@
                                    Value="Session.MaxCo2Impact"
                                    ValueChanged="OnMaxCo2Changed"
                                    valueLabelDisplay="ValueLabelDisplay.OnHover"
-                                   Color="Color.Primary"
-                                   Class="label-tender-slider-accent" />
+                                   Color="Color.Success"
+                                   Class="label-tender-slider-accent lt-shell-slider" />
                         <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxCo2Impact.ToString("0.00")</MudText>
                     </MudStack>
 
@@ -246,8 +260,8 @@
                                    Value="Session.MaxLeadTimeDays"
                                    ValueChanged="OnMaxLeadChanged"
                                    valueLabelDisplay="ValueLabelDisplay.OnHover"
-                                   Color="Color.Primary"
-                                   Class="label-tender-slider-accent" />
+                                   Color="Color.Success"
+                                   Class="label-tender-slider-accent lt-shell-slider" />
                         <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxLeadTimeDays.ToString("0")</MudText>
                     </MudStack>
                 </MudStack>
@@ -258,13 +272,9 @@
 
 @code
 {
-    private static readonly SupplierOption[] Suppliers =
-        LabelTenderDemoSupplierData.Create()
-            .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
-            .GroupBy(s => s.SupplierId, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .Select(s => new SupplierOption(s.SupplierId, s.SupplierName))
-            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+    private SupplierOption[] Suppliers =>
+        TenderBridge.DrawerSuppliers
+            .Select(r => new SupplierOption(r.Id, r.Name))
             .ToArray();
 
     private bool IsAllSelected => Suppliers.Length > 0 && Suppliers.All(n => Session.SelectedSuppliers.Contains(n.Id));
@@ -287,9 +297,10 @@
     protected override void OnInitialized()
     {
         Session.Changed += OnSessionChanged;
+        TenderBridge.Changed += OnBridgeChanged;
 
-        // Default: all suppliers selected (per cockpit requirement).
-        if (Session.SelectedSuppliers.Count == 0)
+        // Default: all suppliers selected once the bridge has rows (avoid clearing selection on first paint).
+        if (Session.SelectedSuppliers.Count == 0 && Suppliers.Length > 0)
         {
             Session.ReplaceSelectedSuppliers(Suppliers.Select(s => s.Id).ToArray());
         }
@@ -300,7 +311,10 @@
     public void Dispose()
     {
         Session.Changed -= OnSessionChanged;
+        TenderBridge.Changed -= OnBridgeChanged;
     }
+
+    private void OnBridgeChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void OnSessionChanged()
     {

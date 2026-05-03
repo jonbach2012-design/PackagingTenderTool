@@ -2,15 +2,11 @@
 
 Emne: Fra AI-genereret kaos til deterministisk System Design
 
-
-
 1. Problemanalyse (Det kritiske udgangspunkt)
 
 Ved implementering af et visuelt TCO-dashboard genererede AI’en komplekse rendering-fejl (diagonale tekst-elementer og manglende barer). En ukritisk tilgang ville have været at bede AI’en om "flere fixes".
 
 Kritisk observation: Jeg identificerede, at fejlen ikke lå i selve dataene, men i arkitekturen (misbrug af RenderTreeBuilder sekvensnumre) og kulturelle mismatch (decimal-komma vs. decimal-punktum i SVG).
-
-
 
 1. Bevisførelse gennem Isolation (PoC)
 
@@ -20,8 +16,6 @@ Logik: Hvis en isoleret DTO (Data Transfer Object) kunne rendere en graf korrekt
 
 Resultat: /chart-test leverede perfekte data, hvilket gav det nødvendige datagrundlag for en total sanering af hoveddashboardet.
 
-
-
 1. Root Cause Analysis (De tekniske fund)
 
 Gennem logisk deduktion fandt jeg frem til to fundamentale fejlårsager, som AI'en ikke selv kunne gennemskue:
@@ -29,8 +23,6 @@ Gennem logisk deduktion fandt jeg frem til to fundamentale fejlårsager, som AI'
 Sequence Instability: Den manuelle C#-rendering mistede overblikket over DOM-id'er, hvilket skabte visuelle "spøgelser". Løsningen var en refactoring til ren Razor-markup (@foreach), hvilket flyttede kontrollen tilbage til systemets kerne.
 
 Culture Mismatch: SVG-attributter (width/x/y) fejlede, fordi systemet brugte dansk decimalformat (komma). Ved at tvinge InvariantCulture (FmtSvg) sikrede jeg, at maskinen altid taler det korrekte sprog til browseren.
-
-
 
 1. Strategisk Implementering (Value Chain Logic)
 

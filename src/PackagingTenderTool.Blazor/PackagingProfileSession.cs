@@ -197,6 +197,7 @@ public sealed class PackagingProfileSession
 
         SelectedProfile = ProfileLabels;
         _selectedSupplierIds.Clear();
+        ActiveSupplierId = string.Empty;
         Notify();
     }
 
@@ -208,6 +209,7 @@ public sealed class PackagingProfileSession
         {
             _selectedSupplierIds.Add(n.Trim());
         }
+        EnsureActiveSupplierInSelection();
         Notify();
     }
 
@@ -218,14 +220,41 @@ public sealed class PackagingProfileSession
             return;
         }
 
+        var id = supplierId.Trim();
         var changed = isSelected
-            ? _selectedSupplierIds.Add(supplierId.Trim())
-            : _selectedSupplierIds.Remove(supplierId.Trim());
+            ? _selectedSupplierIds.Add(id)
+            : _selectedSupplierIds.Remove(id);
 
         if (changed)
         {
+            EnsureActiveSupplierInSelection(preferredSupplierId: isSelected ? id : null);
             Notify();
         }
+    }
+
+    private void EnsureActiveSupplierInSelection(string? preferredSupplierId = null)
+    {
+        // CRITICAL: Active supplier must always be a selected supplier (or empty if none are selected).
+        if (_selectedSupplierIds.Count == 0)
+        {
+            ActiveSupplierId = string.Empty;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(ActiveSupplierId)
+            && _selectedSupplierIds.Contains(ActiveSupplierId))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredSupplierId)
+            && _selectedSupplierIds.Contains(preferredSupplierId))
+        {
+            ActiveSupplierId = preferredSupplierId;
+            return;
+        }
+
+        ActiveSupplierId = _selectedSupplierIds.OrderBy(static x => x, StringComparer.OrdinalIgnoreCase).First();
     }
 
     public void SetCommercial(int value) => ApplyPrimaryWeight(value, which: 0);

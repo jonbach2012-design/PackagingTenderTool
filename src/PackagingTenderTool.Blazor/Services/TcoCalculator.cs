@@ -6,9 +6,9 @@ namespace PackagingTenderTool.Blazor.Services;
 public sealed class TcoCalculator : ITcoCalculator
 {
     private readonly IOptionsSnapshot<TcoSettings> options;
-    private readonly ScenarioStateService scenarioState;
+    private readonly IScenarioStateService scenarioState;
 
-    public TcoCalculator(IOptionsSnapshot<TcoSettings> options, ScenarioStateService scenarioState)
+    public TcoCalculator(IOptionsSnapshot<TcoSettings> options, IScenarioStateService scenarioState)
     {
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.scenarioState = scenarioState ?? throw new ArgumentNullException(nameof(scenarioState));
