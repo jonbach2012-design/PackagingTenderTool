@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 
 namespace PackagingTenderTool.Core.Services;
@@ -137,7 +138,7 @@ public sealed class LabelDataCleaningService
     private static bool TryNormalizeDimension(string value, out string normalized)
     {
         normalized = string.Empty;
-        if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
+        if (!FlexibleNumberParser.TryParseFlexibleDecimal(value, out var decimalValue))
         {
             return false;
         }

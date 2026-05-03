@@ -1,3 +1,126 @@
+:root {
+    --scandi-brand: #91A363;
+    --scandi-brand-dark: #1b3a2a;
+    --status-error: #D32F2F;
+    --status-warning: #F57C00;
+    --surface-white: #FFFFFF;
+}
+
+.issue-fatal {
+    border-left: 4px solid var(--status-error);
+}
+
+.issue-error {
+    border-left: 4px solid var(--status-error);
+}
+
+.issue-warning {
+    border-left: 4px solid var(--status-warning);
+}
+
+.issue-info {
+    border-left: 4px solid var(--scandi-brand);
+}
+
+.import-validation-root {
+    border: 1px solid var(--scandi-brand);
+    border-radius: 8px;
+    background: var(--surface-white);
+    padding: 10px 10px 8px;
+    margin-top: 8px;
+}
+
+.import-validation-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.import-validation-stat {
+    flex: 1 1 80px;
+    min-width: 72px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(145, 163, 99, 0.45);
+    background: rgba(145, 163, 99, 0.08);
+}
+
+.import-validation-stat-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--scandi-brand-dark);
+}
+
+.import-validation-stat-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--scandi-brand-dark);
+}
+
+.import-validation-title {
+    font-weight: 800 !important;
+    font-size: 0.75rem !important;
+    padding: 6px 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+}
+
+.import-validation-title--error {
+    background: var(--status-error);
+    color: var(--surface-white) !important;
+}
+
+.import-validation-title--warning {
+    background: var(--status-warning);
+    color: var(--surface-white) !important;
+}
+
+.import-validation-meta {
+    color: var(--scandi-brand-dark);
+    opacity: 0.88;
+}
+
+.import-validation-issue-row td {
+    vertical-align: top;
+}
+
+/* MudTable renders <tr>; left border on tr is often clipped — show severity strip on first cell */
+.import-validation-issue-table tbody tr.issue-fatal > td:first-child,
+.import-validation-issue-table tbody tr.issue-error > td:first-child {
+    box-shadow: inset 4px 0 0 0 var(--status-error);
+}
+
+.import-validation-issue-table tbody tr.issue-warning > td:first-child {
+    box-shadow: inset 4px 0 0 0 var(--status-warning);
+}
+
+.import-validation-issue-table tbody tr.issue-info > td:first-child {
+    box-shadow: inset 4px 0 0 0 var(--scandi-brand);
+}
+
+.import-validation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(145, 163, 99, 0.35);
+    background: var(--surface-white);
+}
+
+.import-validation-btn-primary.mud-button-root {
+    color: var(--surface-white) !important;
+    background-color: var(--scandi-brand) !important;
+}
+
+.import-validation-btn-primary.mud-button-root:hover {
+    filter: brightness(0.95);
+}
+
 /* Full-screen profile landing */
 .profile-landing {
     min-height: calc(100dvh - 48px);

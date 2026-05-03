@@ -1,0 +1,100 @@
+@using Microsoft.JSInterop
+@using MudBlazor
+@using PackagingTenderTool.Core.Import
+@inject IJSRuntime Js
+
+@if (Report is not null && Report.Issues.Count > 0)
+{
+    <div class="import-validation-root">
+        @if (!string.IsNullOrEmpty(Report.SummaryBannerClass))
+        {
+            <MudText Typo="Typo.body2" Class="@Report.SummaryBannerClass">@Report.SummaryBannerText</MudText>
+        }
+
+        <div class="import-validation-stats">
+            <div class="import-validation-stat">
+                <div class="import-validation-stat-label">Rows scanned</div>
+                <div class="import-validation-stat-value">@Report.RowsAttempted</div>
+            </div>
+            <div class="import-validation-stat">
+                <div class="import-validation-stat-label">Imported</div>
+                <div class="import-validation-stat-value">@Report.RowsImported</div>
+            </div>
+            <div class="import-validation-stat">
+                <div class="import-validation-stat-label">Issues</div>
+                <div class="import-validation-stat-value">@Report.Issues.Count</div>
+            </div>
+        </div>
+
+        <MudText Typo="Typo.caption" Class="import-validation-meta mb-1">
+            Sheet @Report.SheetName · Header row @Report.HeaderRowNumber
+        </MudText>
+
+        <MudTable Items="@Report.GetIssuesOrderedForDisplay()"
+                  Hover="true"
+                  Dense="true"
+                  Class="import-validation-issue-table"
+                  Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Row</MudTh>
+                <MudTh>Column</MudTh>
+                <MudTh>Severity</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Raw value</MudTh>
+                <MudTh>Message</MudTh>
+                <MudTh>Suggested action</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTr Class="@context.SeverityClass">
+                    <MudTd DataLabel="Row">@(context.RowNumber?.ToString() ?? "—")</MudTd>
+                    <MudTd DataLabel="Column">@(context.ColumnName ?? "—")</MudTd>
+                    <MudTd DataLabel="Severity">@context.Severity</MudTd>
+                    <MudTd DataLabel="Type">@context.IssueType</MudTd>
+                    <MudTd DataLabel="Raw">@(context.RawValue ?? "—")</MudTd>
+                    <MudTd DataLabel="Message">@context.Message</MudTd>
+                    <MudTd DataLabel="Action">@(context.SuggestedAction ?? "—")</MudTd>
+                </MudTr>
+            </RowTemplate>
+        </MudTable>
+
+        <div class="import-validation-actions">
+            <MudButton Variant="Variant.Filled"
+                       Class="import-validation-btn-primary"
+                       Size="Size.Small"
+                       OnClick="DownloadCsvAsync">
+                Download error log (CSV)
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Size="Size.Small"
+                       OnClick="TryAgainAsync">
+                Try again
+            </MudButton>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public ImportValidationReport? Report { get; set; }
+
+    private async Task DownloadCsvAsync()
+    {
+        if (Report is null)
+        {
+            return;
+        }
+
+        var csv = ImportValidationReportCsvExporter.ToCsv(Report);
+        if (string.IsNullOrEmpty(csv))
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("ptImportValidation.downloadCsv", "label-import-validation.csv", csv);
+    }
+
+    private async Task TryAgainAsync()
+    {
+        await Js.InvokeVoidAsync("ptImportValidation.clickFileInput");
+    }
+}

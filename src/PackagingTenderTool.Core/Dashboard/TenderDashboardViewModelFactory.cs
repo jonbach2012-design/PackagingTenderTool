@@ -1,11 +1,22 @@
 using System.Globalization;
 using PackagingTenderTool.Core.Analytics;
+using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 
 namespace PackagingTenderTool.Core.Dashboard;
 
 public sealed class TenderDashboardViewModelFactory
 {
+    private static int DashboardSeverityRank(string severity) =>
+        severity switch
+        {
+            nameof(ImportValidationSeverity.Fatal) => 4,
+            nameof(ImportValidationSeverity.Error) => 3,
+            nameof(ImportValidationSeverity.Warning) => 2,
+            nameof(ImportValidationSeverity.Info) => 1,
+            _ => 0
+        };
+
     public TenderDashboardViewModel Create(TenderEvaluationResult result)
     {
         return Create(result, new TenderDashboardQuery());
@@ -176,13 +187,13 @@ public sealed class TenderDashboardViewModelFactory
             Issues = result.ImportIssues
                 .Select(issue => new DashboardIssueRow
                 {
-                    RowNumber = issue.RowNumber,
-                    FieldName = issue.FieldName,
+                    RowNumber = issue.RowNumber ?? 0,
+                    FieldName = issue.ColumnName ?? string.Empty,
                     Message = issue.Message,
-                    SourceValue = issue.SourceValue,
+                    SourceValue = issue.RawValue,
                     Severity = issue.Severity.ToString()
                 })
-                .OrderByDescending(issue => issue.Severity)
+                .OrderByDescending(issue => DashboardSeverityRank(issue.Severity))
                 .ThenBy(issue => issue.RowNumber)
                 .ToList()
         };

@@ -90,7 +90,7 @@ public sealed class LabelsExcelImportServiceTests
             && flag.Severity == ManualReviewSeverity.Error);
         Assert.Contains(lineItem.SourceManualReviewFlags, flag =>
             flag.FieldName == nameof(LabelLineItem.NumberOfColors)
-            && flag.SourceValue == "2.5"
+            && (flag.SourceValue == "2.5" || flag.SourceValue == "2,5")
             && flag.Severity == ManualReviewSeverity.Error);
     }
 
@@ -130,7 +130,7 @@ public sealed class LabelsExcelImportServiceTests
             ["Item no", "Item name", "Material", "Supplier name", "Quantity", "Spend", "Price per 1,000", "Winding direction", "Label size"],
             [
                 ["LBL-004", "N", "PP white", "Acme Labels", 1m, 100m, 10m, "Left", "80x120"],
-                ["LBL-005", "N", "invalid", "", 1m, 0m, "invalid", "Left", ""]
+                ["LBL-005", "N", "invalid", "Contested Supplier", 1m, 0m, "invalid", "Left", ""]
             ]);
         var settings = new TenderSettings
         {
@@ -169,10 +169,10 @@ public sealed class LabelsExcelImportServiceTests
             flag.FieldName == nameof(LabelLineItem.PricePerThousand)
             && flag.SourceValue == "invalid");
         Assert.Contains(lineEvaluations[1].ManualReviewFlags, flag =>
-            flag.FieldName == nameof(LabelLineItem.SupplierName));
+            flag.FieldName == nameof(LabelLineItem.LabelSize));
         Assert.Equal(2, supplierEvaluations.Count);
         Assert.Contains(supplierEvaluations, evaluation => evaluation.SupplierName == "Acme Labels");
-        Assert.Contains(supplierEvaluations, evaluation => evaluation.SupplierName == string.Empty);
+        Assert.Contains(supplierEvaluations, evaluation => evaluation.SupplierName == "Contested Supplier");
     }
 
     [Fact]
@@ -476,7 +476,7 @@ public sealed class LabelsExcelImportServiceTests
         Assert.Equal("Import failed: Missing required column 'Supplier name'.", msg);
     }
 
-    private static MemoryStream CreateWorkbookStream(
+    public static MemoryStream CreateWorkbookStream(
         IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<object?>> rows)
     {

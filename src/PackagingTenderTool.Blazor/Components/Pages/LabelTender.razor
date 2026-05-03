@@ -880,6 +880,7 @@ else
         _isImporting = true;
         _importStatus = "Importing…";
         SidebarBridge.LastImportedFileName = e.File.Name;
+        SidebarBridge.LastImportValidationReport = null;
         PushImportUiToBridge();
 
         try
@@ -900,7 +901,21 @@ else
             {
                 Logger.LogWarning(ex, "Label tender Excel import failed while reading the workbook.");
                 RestoreTenderState(snapshot);
+                SidebarBridge.LastImportValidationReport = null;
                 _importStatus = LabelTenderImportFailureMessage.Format(ex);
+                Snackbar.Add(_importStatus, Severity.Error);
+                RefreshData();
+                return;
+            }
+
+            if (!result.ImportCommitted)
+            {
+                RestoreTenderState(snapshot);
+                SidebarBridge.LastImportValidationReport = result.ValidationReport;
+                var blocking = result.ValidationReport?.Issues.Count(i => i.BlocksImport) ?? 0;
+                _importStatus = blocking > 0
+                    ? $"Import blocked: {blocking} blocking row issue(s). Fix the workbook (see validation list) and try again."
+                    : "Import blocked: validation failed. See validation list in the sidebar.";
                 Snackbar.Add(_importStatus, Severity.Error);
                 RefreshData();
                 return;
@@ -913,6 +928,7 @@ else
             if (newLines.Count == 0)
             {
                 RestoreTenderState(snapshot);
+                SidebarBridge.LastImportValidationReport = null;
                 _importStatus = "Import failed: No tender data rows were found. Check that item rows exist below the header.";
                 Snackbar.Add(_importStatus, Severity.Warning);
                 RefreshData();
@@ -935,13 +951,30 @@ else
             if (importedIds.Length > 0)
                 Session.SetActiveSupplier(importedIds[0]);
 
-            _importStatus = $"Imported {_importedLineItems.Count} rows • Flags: {_importFlags.Count}";
+            var actionable = result.ValidationReport?.Issues
+                .Where(i => i.Severity != ImportValidationSeverity.Info)
+                .ToList() ?? [];
+            SidebarBridge.LastImportValidationReport = actionable.Count > 0 ? result.ValidationReport : null;
+
+            var rowErr = actionable.Count(i => i.Severity == ImportValidationSeverity.Error && !i.BlocksImport);
+            var warns = actionable.Count(i => i.Severity == ImportValidationSeverity.Warning);
+            if (rowErr > 0 || warns > 0)
+            {
+                _importStatus =
+                    $"Imported {_importedLineItems.Count} rows • Review: {rowErr} data issue(s), {warns} warning(s). See sidebar for the validation list.";
+            }
+            else
+            {
+                _importStatus = $"Imported {_importedLineItems.Count} rows • Flags: {_importFlags.Count}";
+            }
+
             RefreshData();
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Label tender Excel import failed.");
             RestoreTenderState(snapshot);
+            SidebarBridge.LastImportValidationReport = null;
             _importStatus = LabelTenderImportFailureMessage.Format(ex);
             Snackbar.Add(_importStatus, Severity.Error);
             RefreshData();

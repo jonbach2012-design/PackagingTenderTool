@@ -12,7 +12,13 @@ public sealed class LabelsTenderImportResult
 
     public List<CleanedLabelLineItem> CleanedRows { get; set; } = [];
 
-    public List<LabelsImportIssue> Issues { get; set; } = [];
+    public List<ImportValidationIssue> Issues { get; set; } = [];
 
-    public bool HasErrors => Issues.Any(issue => issue.Severity == LabelsImportIssueSeverity.Error);
+    /// <summary>Structured validation view (aligned with <see cref="Issues"/>).</summary>
+    public ImportValidationReport? ValidationReport { get; set; }
+
+    /// <summary>False when blocking row issues require fixes before the tender is replaced.</summary>
+    public bool ImportCommitted { get; set; } = true;
+
+    public bool HasErrors => Issues.Any(issue => issue.Severity == ImportValidationSeverity.Error);
 }

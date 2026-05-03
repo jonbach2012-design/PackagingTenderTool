@@ -13,7 +13,7 @@ public sealed class TenderEvaluationResult
 
     public LabelsImportSummary? ImportSummary { get; set; }
 
-    public List<LabelsImportIssue> ImportIssues { get; set; } = [];
+    public List<ImportValidationIssue> ImportIssues { get; set; } = [];
 
     public List<CleanedLabelLineItem> CleanedLineItems { get; set; } = [];
 

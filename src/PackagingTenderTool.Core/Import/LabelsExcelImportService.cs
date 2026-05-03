@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
@@ -54,6 +55,88 @@ public sealed class LabelsExcelImportService
             [nameof(LabelLineItem.HasTraceability)] = ["Traceability", "Has traceability"],
             [nameof(LabelLineItem.Comment)] = ["Comment", "Comments"]
         };
+
+    private static readonly Regex ColorsRangePattern = new(
+        @"^\s*(\d+)\s*(?:to|-|/)\s*(\d+)\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    /// <summary>Decimal-like columns where parse failures are written to <see cref="ImportValidationIssue"/> during import.</summary>
+    private static readonly HashSet<string> NumericImportValidationFieldNames = new(StringComparer.Ordinal)
+    {
+        nameof(LabelLineItem.Quantity),
+        nameof(LabelLineItem.Spend),
+        nameof(LabelLineItem.PricePerThousand),
+        nameof(LabelLineItem.Price),
+        nameof(LabelLineItem.TheoreticalSpend),
+        nameof(LabelLineItem.TechnicalRating),
+        nameof(LabelLineItem.LabelWeightGrams),
+        nameof(LabelLineItem.NumberOfColors)
+    };
+
+    private static bool IsNumericImportValidationField(string? fieldName) =>
+        fieldName is not null && NumericImportValidationFieldNames.Contains(fieldName);
+
+    private static string ColumnDisplayName(string propertyName) =>
+        propertyName switch
+        {
+            nameof(LabelLineItem.ItemNo) => "Item no.",
+            nameof(LabelLineItem.ItemName) => "Item name",
+            nameof(LabelLineItem.SupplierName) => "Supplier name",
+            nameof(LabelLineItem.Site) => "Site",
+            nameof(LabelLineItem.Quantity) => "Quantity",
+            nameof(LabelLineItem.Spend) => "Spend",
+            nameof(LabelLineItem.PricePerThousand) => "Price per 1,000",
+            nameof(LabelLineItem.Price) => "Price",
+            nameof(LabelLineItem.TheoreticalSpend) => "Theoretical spend",
+            nameof(LabelLineItem.TechnicalRating) => "Technical rating",
+            nameof(LabelLineItem.LabelSize) => "Label size",
+            nameof(LabelLineItem.WindingDirection) => "Winding direction",
+            nameof(LabelLineItem.Material) => "Material",
+            nameof(LabelLineItem.ReelDiameterOrPcsPerRoll) => "Reel diameter / pcs per roll",
+            nameof(LabelLineItem.NumberOfColors) => "No. of colors",
+            nameof(LabelLineItem.LabelWeightGrams) => "Label weight (g)",
+            nameof(LabelLineItem.IsMonoMaterial) => "Mono-material design",
+            nameof(LabelLineItem.IsEasyToSeparate) => "Easy separation",
+            nameof(LabelLineItem.IsReusableOrRecyclableMaterial) => "Reusable or recyclable material",
+            nameof(LabelLineItem.HasTraceability) => "Traceability",
+            nameof(LabelLineItem.Comment) => "Comment",
+            _ => propertyName
+        };
+
+    private static string FormatRowColumnMessage(int rowNumber, string columnDisplay, string rawValue, string problemPhrase)
+    {
+        var raw = string.IsNullOrEmpty(rawValue) ? "(empty)" : $"'{rawValue}'";
+        return $"Row {rowNumber}, {columnDisplay}: Value {raw} {problemPhrase}";
+    }
+
+    /// <summary>Keeps <see cref="LabelLineItem.SourceManualReviewFlags"/> for evaluation and mirrors the same finding on <see cref="ImportValidationIssue"/>.</summary>
+    private static void RecordNumericParseFailure(
+        int rowNumber,
+        string fieldName,
+        string? sourceValue,
+        string reason,
+        string? suggestedAction,
+        LabelLineItem lineItem,
+        ICollection<ImportValidationIssue> issues)
+    {
+        AddInvalidNumericFlag(
+            lineItem.SourceManualReviewFlags,
+            fieldName,
+            sourceValue ?? string.Empty,
+            reason,
+            suggestedAction);
+        issues.Add(new ImportValidationIssue
+        {
+            RowNumber = rowNumber,
+            ColumnName = ColumnDisplayName(fieldName),
+            RawValue = sourceValue,
+            Message = reason,
+            SuggestedAction = suggestedAction,
+            IssueType = ImportValidationIssueType.InvalidCellValue,
+            Severity = ImportValidationSeverity.Error,
+            BlocksImport = false
+        });
+    }
 
     public Tender ImportTender(
         string filePath,
@@ -155,7 +238,7 @@ public sealed class LabelsExcelImportService
             ValidateRequiredColumns(columnMap);
             var lineItems = new List<LabelLineItem>();
             var rawRows = new List<RawLabelTenderRow>();
-            var issues = new List<LabelsImportIssue>();
+            var issues = new List<ImportValidationIssue>();
             var categoryMapper = new CategoryMapper();
             var scannedRows = 0;
             var skippedRows = 0;
@@ -172,48 +255,89 @@ public sealed class LabelsExcelImportService
                 if (ShouldSkipRow(rawRow))
                 {
                     skippedRows++;
-                    issues.Add(new LabelsImportIssue
+                    issues.Add(new ImportValidationIssue
                     {
                         RowNumber = row.RowNumber(),
-                        FieldName = "Row",
+                        ColumnName = "—",
                         Message = "Skipped row because it did not look like a detailed tender item row.",
-                        Severity = LabelsImportIssueSeverity.Info
+                        IssueType = ImportValidationIssueType.RowSkipped,
+                        Severity = ImportValidationSeverity.Info
                     });
                     continue;
                 }
 
-                var lineItem = MapRow(row, columnMap, categoryMapper);
+                var lineItem = MapRow(row.RowNumber(), row, columnMap, categoryMapper, issues);
                 rawRows.Add(rawRow);
                 AddRowIssues(row.RowNumber(), lineItem, issues);
+                if (columnMap.ContainsKey(nameof(LabelLineItem.Site))
+                    && string.IsNullOrWhiteSpace(lineItem.Site))
+                {
+                    issues.Add(new ImportValidationIssue
+                    {
+                        RowNumber = row.RowNumber(),
+                        ColumnName = ColumnDisplayName(nameof(LabelLineItem.Site)),
+                        Message = $"Row {row.RowNumber()}, {ColumnDisplayName(nameof(LabelLineItem.Site))}: Site is blank.",
+                        IssueType = ImportValidationIssueType.ManualReviewRequired,
+                        Severity = ImportValidationSeverity.Warning,
+                        SuggestedAction = "Enter site / plant (e.g. DSH site code) when available for spend breakdown."
+                    });
+                }
+
                 lineItems.Add(lineItem);
             }
 
-            var cleanedRows = new PackagingTenderTool.Core.Services.LabelDataCleaningService().CleanMany(lineItems).ToList();
-            var invalidRows = lineItems.Count(lineItem => lineItem.SourceManualReviewFlags.Count > 0);
-            var rowsWithSpend = lineItems.Where(lineItem => lineItem.Spend is > 0).ToList();
+            var blocking = issues.Any(issue => issue.BlocksImport || issue.Severity == ImportValidationSeverity.Fatal);
+            List<LabelLineItem> committedLineItems = lineItems;
+            List<RawLabelTenderRow> committedRawRows = rawRows;
+            List<CleanedLabelLineItem> cleanedRows;
+            if (blocking)
+            {
+                committedLineItems = [];
+                committedRawRows = [];
+                cleanedRows = [];
+            }
+            else
+            {
+                cleanedRows = new LabelDataCleaningService().CleanMany(committedLineItems).ToList();
+            }
+
+            var invalidRows = committedLineItems.Count(lineItem => lineItem.SourceManualReviewFlags.Count > 0);
+            var rowsWithSpend = committedLineItems.Where(lineItem => lineItem.Spend is > 0).ToList();
+
+            var summary = new LabelsImportSummary
+            {
+                WorksheetName = worksheet.Name,
+                HeaderRowNumber = headerRow.RowNumber(),
+                TotalRowsScanned = scannedRows,
+                ImportedRows = committedLineItems.Count,
+                ValidRows = committedLineItems.Count - invalidRows,
+                InvalidRows = invalidRows,
+                SkippedRows = skippedRows,
+                ManualReviewFlagCount = committedLineItems.Sum(lineItem => lineItem.SourceManualReviewFlags.Count),
+                SupplierCount = DistinctCount(committedLineItems.Select(lineItem => lineItem.SupplierName)),
+                SiteCount = DistinctCount(committedLineItems.Select(lineItem => lineItem.Site)),
+                SizeCount = DistinctCount(cleanedRows.Select(row => row.NormalizedLabelSize)),
+                MaterialCount = DistinctCount(cleanedRows.Select(row => row.NormalizedMaterial)),
+                TotalSpend = rowsWithSpend.Sum(lineItem => lineItem.Spend!.Value)
+            };
+
+            var validationReport = ImportValidationReport.Create(
+                worksheet.Name,
+                headerRow.RowNumber(),
+                scannedRows,
+                committedLineItems.Count,
+                issues,
+                importCommitted: !blocking);
 
             return new LabelsTenderImportResult
             {
-                Tender = new Tender { LabelLineItems = lineItems },
-                RawRows = rawRows,
+                Tender = new Tender { LabelLineItems = committedLineItems },
+                RawRows = committedRawRows,
                 CleanedRows = cleanedRows,
                 Issues = issues,
-                Summary = new LabelsImportSummary
-                {
-                    WorksheetName = worksheet.Name,
-                    HeaderRowNumber = headerRow.RowNumber(),
-                    TotalRowsScanned = scannedRows,
-                    ImportedRows = lineItems.Count,
-                    ValidRows = lineItems.Count - invalidRows,
-                    InvalidRows = invalidRows,
-                    SkippedRows = skippedRows,
-                    ManualReviewFlagCount = lineItems.Sum(lineItem => lineItem.SourceManualReviewFlags.Count),
-                    SupplierCount = DistinctCount(lineItems.Select(lineItem => lineItem.SupplierName)),
-                    SiteCount = DistinctCount(lineItems.Select(lineItem => lineItem.Site)),
-                    SizeCount = DistinctCount(cleanedRows.Select(row => row.NormalizedLabelSize)),
-                    MaterialCount = DistinctCount(cleanedRows.Select(row => row.NormalizedMaterial)),
-                    TotalSpend = rowsWithSpend.Sum(lineItem => lineItem.Spend!.Value)
-                }
+                ValidationReport = validationReport,
+                ImportCommitted = !blocking,
+                Summary = summary
             };
         }
         finally
@@ -351,19 +475,35 @@ public sealed class LabelsExcelImportService
         return !hasItemIdentity;
     }
 
-    private static void AddRowIssues(int rowNumber, LabelLineItem lineItem, ICollection<LabelsImportIssue> issues)
+    private static void AddRowIssues(int rowNumber, LabelLineItem lineItem, ICollection<ImportValidationIssue> issues)
     {
         foreach (var flag in lineItem.SourceManualReviewFlags)
         {
-            issues.Add(new LabelsImportIssue
+            var field = flag.FieldName ?? "Source";
+            if (IsNumericImportValidationField(field)
+                && flag.Severity == ManualReviewSeverity.Error)
+            {
+                // Mirror row already added in RecordNumericParseFailure (ImportValidationReport).
+                continue;
+            }
+
+            var issueType = flag.Reason.Contains("converted to", StringComparison.OrdinalIgnoreCase)
+                            || flag.Reason.Contains("Please confirm", StringComparison.OrdinalIgnoreCase)
+                ? ImportValidationIssueType.ManualReviewRequired
+                : ImportValidationIssueType.InvalidCellValue;
+
+            issues.Add(new ImportValidationIssue
             {
                 RowNumber = rowNumber,
-                FieldName = flag.FieldName ?? "Source",
+                ColumnName = ColumnDisplayName(field),
+                RawValue = flag.SourceValue,
                 Message = flag.Reason,
-                SourceValue = flag.SourceValue,
+                SuggestedAction = flag.SuggestedAction,
+                IssueType = issueType,
                 Severity = flag.Severity == ManualReviewSeverity.Error
-                    ? LabelsImportIssueSeverity.Error
-                    : LabelsImportIssueSeverity.Warning
+                    ? ImportValidationSeverity.Error
+                    : ImportValidationSeverity.Warning,
+                BlocksImport = false
             });
         }
 
@@ -379,25 +519,46 @@ public sealed class LabelsExcelImportService
 
         if (lineItem.Spend is null)
         {
-            issues.Add(MissingRequiredValue(rowNumber, nameof(LabelLineItem.Spend)));
+            issues.Add(MissingOptionalSpend(rowNumber));
         }
     }
 
-    private static LabelsImportIssue MissingRequiredValue(int rowNumber, string fieldName)
+    private static ImportValidationIssue MissingRequiredValue(int rowNumber, string fieldName)
     {
-        return new LabelsImportIssue
+        var col = ColumnDisplayName(fieldName);
+        return new ImportValidationIssue
         {
             RowNumber = rowNumber,
-            FieldName = fieldName,
-            Message = "Required value is missing from a detailed tender row.",
-            Severity = LabelsImportIssueSeverity.Warning
+            ColumnName = col,
+            RawValue = null,
+            Message = $"Row {rowNumber}, {col}: Required value is missing.",
+            IssueType = ImportValidationIssueType.EmptyRequiredCell,
+            Severity = ImportValidationSeverity.Error,
+            BlocksImport = true,
+            SuggestedAction = $"Enter {col} for this row before importing."
+        };
+    }
+
+    private static ImportValidationIssue MissingOptionalSpend(int rowNumber)
+    {
+        var col = ColumnDisplayName(nameof(LabelLineItem.Spend));
+        return new ImportValidationIssue
+        {
+            RowNumber = rowNumber,
+            ColumnName = col,
+            Message = $"Row {rowNumber}, {col}: Spend is empty — commercial totals may be incomplete.",
+            IssueType = ImportValidationIssueType.ManualReviewRequired,
+            Severity = ImportValidationSeverity.Warning,
+            SuggestedAction = "Enter spend for this line when available."
         };
     }
 
     private static LabelLineItem MapRow(
+        int excelRowNumber,
         IXLRow row,
         IReadOnlyDictionary<string, int> columnMap,
-        CategoryMapper categoryMapper)
+        CategoryMapper categoryMapper,
+        ICollection<ImportValidationIssue> issues)
     {
         var lineItem = new LabelLineItem
         {
@@ -413,72 +574,90 @@ public sealed class LabelsExcelImportService
         };
 
         lineItem.Quantity = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.Quantity),
             nameof(LabelLineItem.Quantity),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.Spend = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.Spend),
             nameof(LabelLineItem.Spend),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.PricePerThousand = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.PricePerThousand),
             nameof(LabelLineItem.PricePerThousand),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.Price = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.Price),
             nameof(LabelLineItem.Price),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.TheoreticalSpend = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.TheoreticalSpend),
             nameof(LabelLineItem.TheoreticalSpend),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.TechnicalRating = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.TechnicalRating),
             nameof(LabelLineItem.TechnicalRating),
-            lineItem.SourceManualReviewFlags);
-        lineItem.NumberOfColors = GetInteger(
+            lineItem,
+            issues);
+        lineItem.NumberOfColors = ParseNumberOfColors(
+            excelRowNumber,
             row,
             columnMap,
-            nameof(LabelLineItem.NumberOfColors),
-            nameof(LabelLineItem.NumberOfColors),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.LabelWeightGrams = GetDecimal(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.LabelWeightGrams),
             nameof(LabelLineItem.LabelWeightGrams),
-            lineItem.SourceManualReviewFlags);
+            lineItem,
+            issues);
         lineItem.IsMonoMaterial = GetBoolean(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.IsMonoMaterial),
             nameof(LabelLineItem.IsMonoMaterial),
             lineItem.SourceManualReviewFlags);
         lineItem.IsEasyToSeparate = GetBoolean(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.IsEasyToSeparate),
             nameof(LabelLineItem.IsEasyToSeparate),
             lineItem.SourceManualReviewFlags);
         lineItem.IsReusableOrRecyclableMaterial = GetBoolean(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.IsReusableOrRecyclableMaterial),
             nameof(LabelLineItem.IsReusableOrRecyclableMaterial),
             lineItem.SourceManualReviewFlags);
         lineItem.HasTraceability = GetBoolean(
+            excelRowNumber,
             row,
             columnMap,
             nameof(LabelLineItem.HasTraceability),
@@ -488,6 +667,96 @@ public sealed class LabelsExcelImportService
         AddEprSchemeIfPossible(lineItem, categoryMapper);
 
         return lineItem;
+    }
+
+    private static int? ParseNumberOfColors(
+        int excelRowNumber,
+        IXLRow row,
+        IReadOnlyDictionary<string, int> columnMap,
+        LabelLineItem lineItem,
+        ICollection<ImportValidationIssue> issues)
+    {
+        const string fieldName = nameof(LabelLineItem.NumberOfColors);
+        if (!columnMap.TryGetValue(fieldName, out var columnNumber))
+        {
+            return null;
+        }
+
+        var cell = row.Cell(columnNumber);
+        if (cell.IsEmpty())
+        {
+            return null;
+        }
+
+        var col = ColumnDisplayName(fieldName);
+        var sourceValue = cell.GetFormattedString().Trim();
+
+        if (cell.DataType == XLDataType.Number
+            && cell.TryGetValue<decimal>(out var numericValue))
+        {
+            if (numericValue % 1m == 0m)
+            {
+                return decimal.ToInt32(numericValue);
+            }
+
+            RecordNumericParseFailure(
+                excelRowNumber,
+                fieldName,
+                sourceValue,
+                FormatRowColumnMessage(excelRowNumber, col, sourceValue, "is not a valid whole number."),
+                "Enter a whole number (no decimals) for this column.",
+                lineItem,
+                issues);
+            return null;
+        }
+
+        var rangeMatch = ColorsRangePattern.Match(sourceValue);
+        if (rangeMatch.Success)
+        {
+            var lo = int.Parse(rangeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+            var hi = int.Parse(rangeMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+            var upper = Math.Max(lo, hi);
+            lineItem.OriginalColorsValue = sourceValue;
+            var msg =
+                $"Row {excelRowNumber}, {col}: Value '{sourceValue}' was converted to {upper}. Please confirm.";
+            lineItem.SourceManualReviewFlags.Add(new ManualReviewFlag
+            {
+                FieldName = fieldName,
+                SourceValue = sourceValue,
+                Reason = msg,
+                Severity = ManualReviewSeverity.Warning,
+                SuggestedAction = "Confirm the effective colour count in manual review before relying on scores."
+            });
+            return upper;
+        }
+
+        if (!FlexibleNumberParser.TryParseFlexibleDecimal(sourceValue, out var d))
+        {
+            RecordNumericParseFailure(
+                excelRowNumber,
+                fieldName,
+                sourceValue,
+                FormatRowColumnMessage(excelRowNumber, col, sourceValue, "is not a valid whole number."),
+                "Enter a single whole number (e.g. 4), or a compact range like 5-6.",
+                lineItem,
+                issues);
+            return null;
+        }
+
+        if (d % 1m != 0m)
+        {
+            RecordNumericParseFailure(
+                excelRowNumber,
+                fieldName,
+                sourceValue,
+                FormatRowColumnMessage(excelRowNumber, col, sourceValue, "is not a valid whole number."),
+                "Enter a whole number without decimals.",
+                lineItem,
+                issues);
+            return null;
+        }
+
+        return decimal.ToInt32(d);
     }
 
     private static void AddEprSchemeIfPossible(LabelLineItem lineItem, CategoryMapper categoryMapper)
@@ -553,11 +822,13 @@ public sealed class LabelsExcelImportService
     }
 
     private static decimal? GetDecimal(
+        int excelRowNumber,
         IXLRow row,
         IReadOnlyDictionary<string, int> columnMap,
         string propertyName,
         string fieldName,
-        ICollection<ManualReviewFlag> manualReviewFlags)
+        LabelLineItem lineItem,
+        ICollection<ImportValidationIssue> issues)
     {
         if (!columnMap.TryGetValue(propertyName, out var columnNumber))
         {
@@ -570,24 +841,33 @@ public sealed class LabelsExcelImportService
             return null;
         }
 
-        var sourceValue = cell.GetFormattedString().Trim();
-        if (TryParseDecimal(sourceValue, out var parsedValue))
-        {
-            return parsedValue;
-        }
-
         if (cell.DataType == XLDataType.Number
             && cell.TryGetValue<decimal>(out var numericValue))
         {
             return numericValue;
         }
 
-        AddInvalidNumericFlag(manualReviewFlags, fieldName, sourceValue, "Imported numeric value could not be parsed.");
+        var sourceValue = cell.GetFormattedString().Trim();
+        if (FlexibleNumberParser.TryParseFlexibleDecimal(sourceValue, out var parsedValue))
+        {
+            return parsedValue;
+        }
+
+        var colName = ColumnDisplayName(fieldName);
+        RecordNumericParseFailure(
+            excelRowNumber,
+            fieldName,
+            sourceValue,
+            FormatRowColumnMessage(excelRowNumber, colName, sourceValue, "is not a valid number."),
+            "Replace the cell with a numeric value using digits and standard grouping (e.g. 1.200,50 or 1,200.50).",
+            lineItem,
+            issues);
 
         return null;
     }
 
     private static bool? GetBoolean(
+        int excelRowNumber,
         IXLRow row,
         IReadOnlyDictionary<string, int> columnMap,
         string propertyName,
@@ -617,34 +897,13 @@ public sealed class LabelsExcelImportService
             return parsedValue;
         }
 
-        AddInvalidNumericFlag(manualReviewFlags, fieldName, sourceValue, "Imported boolean value could not be parsed.");
-
-        return null;
-    }
-
-    private static int? GetInteger(
-        IXLRow row,
-        IReadOnlyDictionary<string, int> columnMap,
-        string propertyName,
-        string fieldName,
-        ICollection<ManualReviewFlag> manualReviewFlags)
-    {
-        var decimalValue = GetDecimal(row, columnMap, propertyName, fieldName, manualReviewFlags);
-        if (decimalValue is null)
-        {
-            return null;
-        }
-
-        if (decimalValue.Value % 1m == 0m)
-        {
-            return decimal.ToInt32(decimalValue.Value);
-        }
-
+        var col = ColumnDisplayName(fieldName);
         AddInvalidNumericFlag(
             manualReviewFlags,
             fieldName,
-            decimalValue.Value.ToString("G", CultureInfo.InvariantCulture),
-            "Imported integer value had a decimal component.");
+            sourceValue,
+            FormatRowColumnMessage(excelRowNumber, col, sourceValue, "is not a valid yes/no value."),
+            "Use true/false, yes/no, 1/0, or a boolean cell.");
 
         return null;
     }
@@ -653,40 +912,17 @@ public sealed class LabelsExcelImportService
         ICollection<ManualReviewFlag> manualReviewFlags,
         string fieldName,
         string sourceValue,
-        string reason)
+        string reason,
+        string? suggestedAction = null)
     {
         manualReviewFlags.Add(new ManualReviewFlag
         {
             FieldName = fieldName,
             SourceValue = sourceValue,
             Reason = reason,
-            Severity = ManualReviewSeverity.Error
+            Severity = ManualReviewSeverity.Error,
+            SuggestedAction = suggestedAction
         });
-    }
-
-    private static bool TryParseDecimal(string sourceValue, out decimal value)
-    {
-        var normalizedValue = NormalizeDecimalValue(sourceValue);
-        if (normalizedValue is not null
-            && decimal.TryParse(
-                normalizedValue,
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out value))
-        {
-            return true;
-        }
-
-        return decimal.TryParse(
-                sourceValue,
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out value)
-            || decimal.TryParse(
-                sourceValue,
-                NumberStyles.Number,
-                CultureInfo.CurrentCulture,
-                out value);
     }
 
     private static bool TryParseBoolean(string sourceValue, out bool value)
@@ -714,54 +950,6 @@ public sealed class LabelsExcelImportService
         }
     }
 
-
-    private static string? NormalizeDecimalValue(string sourceValue)
-    {
-        var value = sourceValue
-            .Trim()
-            .Replace(" ", string.Empty)
-            .Replace("\u00A0", string.Empty);
-        value = new string(value
-            .Where(character => char.IsDigit(character)
-                || character == ','
-                || character == '.'
-                || character == '-')
-            .ToArray());
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var lastCommaIndex = value.LastIndexOf(',');
-        var lastDotIndex = value.LastIndexOf('.');
-
-        if (lastCommaIndex >= 0 && lastDotIndex >= 0)
-        {
-            return lastCommaIndex > lastDotIndex
-                ? value.Replace(".", string.Empty).Replace(',', '.')
-                : value.Replace(",", string.Empty);
-        }
-
-        if (lastCommaIndex >= 0)
-        {
-            if (value.Count(character => character == ',') > 1
-                || value.Length - lastCommaIndex - 1 == 3)
-            {
-                return value.Replace(",", string.Empty);
-            }
-
-            return value.Replace(',', '.');
-        }
-
-        if (lastDotIndex >= 0
-            && (value.Count(character => character == '.') > 1
-                || value.Length - lastDotIndex - 1 == 3))
-        {
-            return value.Replace(".", string.Empty);
-        }
-
-        return value;
-    }
 
     private static bool RowHasAnyContent(IXLRow row)
     {

@@ -37,6 +37,9 @@ public sealed class LabelLineItem
 
     public int? NumberOfColors { get; set; }
 
+    /// <summary>Original cell text for colour count when a range or note was normalized (e.g. "5 to 6").</summary>
+    public string? OriginalColorsValue { get; set; }
+
     public decimal? LabelWeightGrams { get; set; }
 
     // Normalization 2.0: split taxable mass (Scandi Standard / Kronfågel fallback ratios).

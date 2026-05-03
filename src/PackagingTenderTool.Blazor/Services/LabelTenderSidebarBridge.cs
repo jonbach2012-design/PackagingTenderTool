@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.Forms;
+using PackagingTenderTool.Core.Import;
 
 namespace PackagingTenderTool.Blazor.Services;
 
@@ -13,6 +14,9 @@ public sealed class LabelTenderSidebarBridge
 
     /// <summary>Last uploaded Excel file name (sidebar display).</summary>
     public string LastImportedFileName { get; set; } = string.Empty;
+
+    /// <summary>Latest structured import validation (blocking failures, row corrections, warnings).</summary>
+    public ImportValidationReport? LastImportValidationReport { get; set; }
 
     public Func<InputFileChangeEventArgs, Task>? ImportExcelAsync { get; set; }
 
