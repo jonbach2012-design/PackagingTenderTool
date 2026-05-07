@@ -20,7 +20,7 @@ Every documentation file has a single owner and a single audience. Before creati
 | `.cursorrules` | AI agent (Cursor) | This file. Project constitution and guardrails. |
 | `docs/ARCHITECTURE.md` | Developer / AI agent | System orientation, layers, named services, invariants, repo structure |
 | `docs/spec.md` | Developer / AI agent | Full specification — formulas, EPR matrix, domain model, scoring detail |
-| `docs/plan.md` | Developer | Historical baseline — read only, do not update |
+| `docs/plan_HISTORICAL.md` |` | Developer | Historical baseline — read only, do not update |
 | `docs/DEVELOPER_LOG.md` | Developer | Refactoring journal, root cause analyses |
 | `docs/learning/SL_LearningGoals.md` | Personal | Education only — not project documentation |
 

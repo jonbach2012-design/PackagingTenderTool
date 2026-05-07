@@ -271,12 +271,21 @@ Dette afsnit dokumenterer de vigtigste beslutninger — ikke blot hvad der blev 
 
 **Valgt:** Stabile DTO-grænser (`LabelTenderDashboardDto`, `TcoDecisionOutput`, `CalculationBreakdown`) som eneste kontraktflade mellem motor og UI.
 
-**Hvorfor:** Når UI-kode indeholder beregningslogik, er systemet umuligt at teste uden en browser. DTO-grænser er en firewall mod AI-drift: en AI-agent kan ændre en Razor-komponent uden at ødelægge beregningslogikken, fordi de er adskilt af en stabil kontrakt.
+**Hvorfor:** Når UI-kode indeholder beregningslogik, er systemet umuligt at teste uden en browser og visuelt miljø. Det øger risikoen for, at ændringer i Razor-komponenter utilsigtet påvirker selve beslutningslogikken.
+DTO-grænser fungerer som en firewall mod AI-drift: En AI-agent kan ændre layout, tabeller, cards eller visualiseringer uden at ødelægge beregningerne, fordi UI’et kun må arbejde med en stabil kontrakt.
 
+Kort sagt:
+Motoren beregner. DTO’en leverer. Razor viser.
 Det er sådan man undgår at få lort i ventilatoren.
 
 💡 Analogi — Dorte Trøjgaard (tidligere chef)
-En DTO er som Dorte. Dorte leverer præcis det hun har lovet — ikke mere, ikke mindre. Vil du have noget andet, skal I have en ny aftale. Du ringer ikke til Dorte og beder hende om at omstrukturere hele virksomheden mens hun er på vej med budgettet. En DTO er en pakke med færdige oplysninger — den beregner ikke, den beslutter ikke, den bare leverer. Og når Razor-koden kun må tale med Dorte (DTOen) og ikke direkte med motoren, er koden dum og stabil. Dum kode er god kode.
+En DTO er som Dorte.
+Dorte leverer præcis det, hun har lovet — ikke mere, ikke mindre. Vil du have noget andet, skal der laves en ny aftale.
+Du ringer ikke til Dorte og beder hende om at omstrukturere hele virksomheden, mens hun er på vej med budgettet.
+En DTO er en pakke med færdige oplysninger. Den beregner ikke. Den beslutter ikke. Den leverer bare.
+Når Razor-koden kun må tale med Dorte — altså DTO’en — og ikke direkte med motoren, bliver UI-koden dum og stabil.
+
+Og dum kode er god kode.
 
 ---
 
@@ -536,6 +545,9 @@ I dette projekt: AI kunne sagtens generere SVG-rendering. Men uden forståelse f
 
 Man skal vide noget om domænet. Ellers koder AI hvad den *mener* er korrekt — ikke hvad der *er* korrekt.
 
+Kort sagt:
+AI kan skrive koden. Den kan ikke eje forståelsen.
+
 💡 Analogi — En dygtig sekretær uden faglig viden
 En AI er som en ekstremt dygtig sekretær der kan skrive hurtigt, formulere sig præcist og producere dokumenter på rekordtid. Men hvis du beder sekretæren om at skrive en juridisk kontrakt uden at fortælle hvad der skal stå — skriver hun noget der lyder juridisk korrekt men måske er fuldstændig forkert i sagen. AI koder hvad den tror du mener. Domæneviden er det du fortæller sekretæren inden hun begynder at skrive.
 
@@ -543,9 +555,14 @@ En AI er som en ekstremt dygtig sekretær der kan skrive hurtigt, formulere sig 
 
 "Never trust an AI" er ikke en negativ holdning til teknologien. Det er en professionel tilgang til kvalitetssikring.
 
-AI-output skal verificeres — gennem tests, code review og arkitektoniske guardrails. `.cursorrules` i dette projekt er et eksempel på systematisk styring: AI-agenten får eksplicitte regler for hvad der er tilladt og forbudt, ikke blot en åben invitation til at kode frit.
+AI-output skal verificeres gennem tests, code review og arkitektoniske guardrails. I dette projekt er .cursorrules et konkret eksempel på systematisk styring: AI-agenten får tydelige regler for, hvad der er tilladt og forbudt.
 
-Grundigt forarbejde er ikke spild af tid. Det er forudsætningen for at AI-assisteret udvikling kan fungere uden at producere kaos.
+Det er væsentligt bedre end blot at give AI en åben opgave som “byg dashboardet”.
+
+Grundigt forarbejde er derfor ikke spild af tid. Det er det, der gør AI-assisteret udvikling brugbart i stedet for kaotisk.
+
+Kort sagt:
+AI skal ikke have frie tøjler. Den skal have hegn om marken. Ellers ender køerne i Limfjorden.
 
 ### Kvalitetssikring af input er afgørende
 
@@ -554,6 +571,9 @@ Det gælder ikke kun for kode. Det gælder for alle data AI arbejder med.
 Uden korrekte, validerede og veldefinerede input — hvad enten det er en specifikation, et Excel-ark eller en arkitekturgrænse — vil AI interpolere og gætte. Og AI gætter overbevisende. Det er præcis det der gør ukontrolleret AI-output farligt.
 
 I PackagingTenderTool er Excel-importrobusthed et konkret eksempel: uensartede kolonnenavne, kulturafhængige talformater og manglende data får systemet til at fejle — ikke fordi motoren er forkert, men fordi inputdata ikke er kvalitetssikret tilstrækkeligt.
+
+Kort sagt:
+Garbage in, polished garbage out.
 
 ---
 
