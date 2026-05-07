@@ -127,6 +127,9 @@ En AI-agent kender ikke den eksisterende sekvensnummerstruktur. Hver gang AI gen
 
 Razor markup er deklarativ. Den er lettere at inspicere, teste og begrænse. Og vigtigst: den er svær for en AI-agent at ødelægge ved en fejl, fordi strukturen er synlig og tydelig.
 
+💡 Analogi — Lyskryds vs. rundkørsel
+Med RenderTreeBuilder skulle du selv styre trafikken i et kæmpe lyskryds og give hvert køretøj et unikt nummer. Glemte du at omdøbe numrene når du indsatte et nyt, skabte du harmonika-sammenstød. AI'en var særlig dårlig til dette — den kom til at give forskellige ting det samme nummer. Med Razor @foreach har du bygget en rundkørsel. Trafikken flyder af sig selv, og ingen kan køre galt, fordi vejen er lagt på forhånd.
+
 ---
 
 ### 4.2 Kulturmismatch — dansk komma vs. SVG-punktum
@@ -168,6 +171,9 @@ x="@bar.X"
 ```
 
 `FmtSvg()` gør reglen eksplicit og håndhævet. Det er ikke en konvention man skal huske — det er en struktur der tvinger korrekt adfærd.
+
+💡 Analogi — USB-C vs. løse ledninger
+Med løse ledninger skal du huske hvilken farve der er plus og minus. Glemmer du det, kortslutter du apparatet. Det er en konvention — en regel du skal huske i hovedet. FmtSvg() er USB-C-stikket: det er fysisk umuligt at tilslutte forkert. Du kan ikke "glemme" at bruge punktum i stedet for komma, fordi strukturen tvinger korrekt adfærd — uanset om det er dig eller en AI der skriver koden.
 
 ---
 
@@ -269,6 +275,9 @@ Dette afsnit dokumenterer de vigtigste beslutninger — ikke blot hvad der blev 
 
 Det er sådan man undgår at få lort i ventilatoren.
 
+💡 Analogi — Dorte Trøjgaard (tidligere chef)
+En DTO er som Dorte. Dorte leverer præcis det hun har lovet — ikke mere, ikke mindre. Vil du have noget andet, skal I have en ny aftale. Du ringer ikke til Dorte og beder hende om at omstrukturere hele virksomheden mens hun er på vej med budgettet. En DTO er en pakke med færdige oplysninger — den beregner ikke, den beslutter ikke, den bare leverer. Og når Razor-koden kun må tale med Dorte (DTOen) og ikke direkte med motoren, er koden dum og stabil. Dum kode er god kode.
+
 ---
 
 ## 8. Teoretiske forbindelser
@@ -291,6 +300,9 @@ Når ansvarsområder er adskilt, kan fejl lokaliseres præcist. I dette projekt 
 **Konsekvensen af brud:**
 Når beregningslogik lækker ind i UI, opstår der fejl der ikke kan reproduceres uden en browser, ikke kan testes i isolation og ikke kan lokaliseres præcist. Det er præcis det der skete — og det er præcis derfor refaktoreringen var nødvendig.
 
+💡 Analogi — Køkkenet, tjeneren og kasseapparatet
+På en restaurant laver køkkenet maden, tjeneren serverer den, og kasseapparatet tager betaling. Ingen af dem laver hinandens arbejde. Hvis tjeneren begynder at lave mad, og kokken begynder at tage imod betaling, opstår der kaos — og når noget går galt, ved ingen hvem der er ansvarlig. SoC er restaurantens arbejdsdeling: TcoEngineService er køkkenet, DTOen er bakken tjeneren bærer, og Razor er borddækningen. Hver del ved præcis hvad den skal gøre — og ingenting andet.
+
 ---
 
 ### 8.2 Single Responsibility Principle (SRP)
@@ -307,6 +319,9 @@ SRP reducerer risikoen for at en ændring ét sted ødelægger noget et andet st
 **Konsekvensen af brud:**
 Når én klasse har for mange ansvar, kan den ikke ændres sikkert. En AI-agent der "fikser" én ting i en klasse med mange ansvar risikerer at ødelægge noget andet i samme klasse — uden at vide det.
 
+💡 Analogi — Schweizisk lommekniv vs. specialværktøj
+En schweizisk lommekniv kan gøre mange ting — men den er ikke den bedste til noget af det. Vil du skrue en skrue fast professionelt, bruger du en rigtig skruetrækker. SRP siger: én klasse, ét ansvar. FmtSvg() er en specialiseret skruetrækker — den gør én ting perfekt. Hvis du bygger din kode som lommeknive der kan alt, ved du aldrig hvilken del der går galt når noget fejler. Og AI'en elsker at bygge lommeknive.
+
 ---
 
 ### 8.3 Kontraktbaseret design og DTO-stabilitet
@@ -319,6 +334,9 @@ DTOs (`LabelTenderDashboardDto`, `TcoDecisionOutput`) er kontrakten mellem motor
 
 **Hvorfor det er vigtigt:**
 AI-agenter ændrer gerne DTOs for at løse et lokalt problem uden at forstå den globale konsekvens. En stabil kontrakt beskytter systemets integritet på tværs af sessioner og agenter. Det er ikke bureaukrati — det er den mekanisme der forhindrer stille regression.
+
+💡 Analogi — Postmanden og pakken
+En kontrakt er som en postordre. Du bestiller præcis det der står i kataloget — ikke hvad postmanden synes ville være bedre. Ændrer du kataloget uden at give kunderne besked, sender du forkerte pakker. En DTO-ændring er det samme: alle der har "bestilt" den eksisterende DTO skal orienteres — ellers modtager de noget de ikke kan bruge.
 
 ---
 
@@ -333,6 +351,9 @@ En test skal bevise én ting. En PoC skal besvare ét præcist spørgsmål. Isol
 **Hvorfor det er vigtigt:**
 Uden en isoleret PoC ville man have fortsat med at patch det forkerte sted. Isolation er den hurtigste vej til den rigtige diagnose. Det er samme princip som en unit test — og det er derfor TDD er en naturlig forlængelse af denne tilgang.
 
+💡 Analogi — Elektriker der tester et enkelt kabel
+Forestil dig en elektriker der skal finde en fejl i et helt hus. Han kunne prøve at tænde alle kontakter på én gang og se hvad der sker. Eller han kunne isolere ét kabel ad gangen og teste det i et rent miljø. /chart-test var det isolerede kabel. Ikke fordi det var sjovere — men fordi det var den eneste måde at bevise præcis hvor fejlen sad. Isolation er ikke spild af tid. Det er den hurtigste vej til den rigtige diagnose.
+
 ---
 
 ### 8.5 Algoritmisk kompleksitet — O(n) frem for O(n²)
@@ -345,6 +366,9 @@ Dashboard-forberedelsen bruger dictionary-baserede opslag til at matche leverand
 
 **Hvorfor det er vigtigt:**
 Performance er en del af arkitekturen — ikke et eftertanke. Et dashboard der er korrekt men langsomt er ubrugeligt i produktion. En AI-agent der "løser" et rendering-problem ved at tilføje et nested loop har introduceret et arkitektonisk problem der ikke er synligt ved lav datamængde — men som kollapser ved reel brug.
+
+💡 Analogi — Telefonbogen vs. at ringe til alle
+Du skal finde "Jensen, Lars" i en telefonbog med 1.000 navne. O(n²) ville være at ringe til hvert navn og spørge: "Kender du Jensen, Lars? Og kender du ham? Og ham?" — én opringning per navn per navn. Det er 1.000.000 opringninger. O(n) er at slå op i registeret direkte — ét opslag, ét svar. I koden bruger vi dictionaries som et register. Når en tender har 200 linjer og 10 leverandører, er forskellen 210 operationer vs. 2.000. Det mærkes ikke ved 10 rækker. Det kollapser ved 10.000
 
 ---
 
@@ -460,6 +484,9 @@ Det konkrete eksempel fra dette projekt: `RenderTreeBuilder`-problemet og kultur
 
 Hastighed uden styring er ikke en fordel. Det er en accelerator for kaos.
 
+💡 Analogi — Gæld på kreditkortet
+Teknisk gæld fungerer præcis som gæld på et kreditkort. Du låner tid nu — "det fikser vi senere" — og betaler renter bagefter i form af bugs, refaktorering og debugging. AI gør det muligt at optage gæld 10 gange hurtigere end normalt. Du kan købe 500 linjer teknisk gæld på 10 minutter. Det ser fint ud på kontoudtoget i dag. Men renterne kommer — og de kommer med eskalationsrenter.
+
 ---
 
 ## 13. Hvad ville jeg gøre anderledes?
@@ -492,6 +519,9 @@ Et godt eksempel på denne tilgang fra et andet projekt:
 
 Det er præcis den tilgang der manglede i starten af dette projekt. En use case tvinger én til at tænke i aktører, handlinger og systemgrænser — ikke i klasser og metoder. Det er det rigtige abstraktionsniveau at starte på.
 
+💡 Analogi — Flyvemaskinens black box
+En pilot stoler ikke blindt på at instrumenterne virker. Inden hver flyvning er der en tjekliste. TDD er programmørens tjekliste: skriv testen først (definer hvad der skal ske), lad AI implementere (start motoren), kør testen (tjek at instrumenterne peger rigtigt). En AI siger aldrig "jeg er usikker". Den producerer altid et svar der lyder overbevisende — ligesom et instrument der viser 1.000 meters højde selvom du flyver i 50. Testen er det eneste der beviser om svaret er korrekt.
+
 ---
 
 ## 14. Hvad dette fortæller om AI-assisteret softwareudvikling
@@ -505,6 +535,9 @@ AI kan kode hvad den bliver bedt om. Men hvis udvikleren ikke ved hvad der skal 
 I dette projekt: AI kunne sagtens generere SVG-rendering. Men uden forståelse for at SVG kræver `InvariantCulture`, eller at `RenderTreeBuilder` kræver stabile sekvensnumre, producerede AI kode der så rigtig ud men var arkitektonisk forkert.
 
 Man skal vide noget om domænet. Ellers koder AI hvad den *mener* er korrekt — ikke hvad der *er* korrekt.
+
+💡 Analogi — En dygtig sekretær uden faglig viden
+En AI er som en ekstremt dygtig sekretær der kan skrive hurtigt, formulere sig præcist og producere dokumenter på rekordtid. Men hvis du beder sekretæren om at skrive en juridisk kontrakt uden at fortælle hvad der skal stå — skriver hun noget der lyder juridisk korrekt men måske er fuldstændig forkert i sagen. AI koder hvad den tror du mener. Domæneviden er det du fortæller sekretæren inden hun begynder at skrive.
 
 ### AI kræver systematisk styring — ikke tillid
 
