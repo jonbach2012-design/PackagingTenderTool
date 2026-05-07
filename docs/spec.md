@@ -1,21 +1,29 @@
-PackagingTenderTool Specification
+# PackagingTenderTool — System Specification
 
-1. Purpose
+<!-- AUDIENCE: Developer / AI agent | OWNER: docs/spec.md -->
+<!-- This is the canonical technical reference. Detail lives here. -->
+<!-- Summary and orientation lives in docs/ARCHITECTURE.md. -->
+
+---
+
+## 1. Purpose
 
 PackagingTenderTool is intended to support structured evaluation of packaging tenders in a way that is more reusable, transparent, and explainable than a spreadsheet-only process.
 
-The solution should help transform tender input data into:
+The solution transforms tender input data into:
 
-- validated and normalized line data
+- validated and normalised line data
 - structured supplier evaluation
 - analytics and summary outputs
-- reusable frontend-ready models for later UI presentation
+- reusable frontend-ready models for UI presentation
 
 Version 1 focuses on one packaging profile at a time, with Labels as the first supported profile.
 
-1. System Architecture & Dataflow
+---
 
-For at sikre fuld gennemsigtighed i beslutningsprocessen følger systemet et lineært dataflow, hvor brugerens strategiske vægtning (Weights) og de faktuelle leverandørdata (TCO) smeltes sammen i beregningsmotoren.
+## 2. System Architecture & Dataflow
+
+The system follows a linear dataflow where the user's strategic weighting (Weights) and the factual supplier data (TCO) are merged in the calculation engine. Every visual change in the dashboard can be traced directly back to either a change in input data or an adjustment to the strategic prioritisation.
 
 ```mermaid
 graph TD
@@ -44,11 +52,9 @@ graph TD
     style L fill:#91a363,stroke:#333,stroke-width:2px
 ```
 
+---
 
-
-Dette flow sikrer, at hver visuel ændring i dashboardet kan spores direkte tilbage til enten en ændring i input-data eller en justering af den strategiske prioritering.
-
-1. Version 1 Scope
+## 3. Version 1 Scope
 
 Version 1 includes:
 
@@ -62,28 +68,39 @@ Version 1 includes:
 - Excel import for tender input
 - validation and cleaning of imported data
 - analytics outputs based on imported and cleaned data
-- reusable output models for future frontend use
+- reusable output models for frontend use
 
-Version 1 does not require:
+Version 1 does not include:
 
 - multiple packaging profiles in the same tender
 - final advanced scoring logic for all dimensions
-- knockout/exclusion rules
+- knockout / exclusion rules
 - M3-based supplier identity
 
-1. Current Implementation Direction
-  !-- UPDATED: Blazor is now the active frontend. WinForms is retired. -->
+---
 
-The current implementation direction is:
+## 4. Frontend Direction
 
-- WinForms is retained only as a minimal verification shell — no new development targets it
-- Blazor with MudBlazor and Radzen is the active frontend (Decision Cockpit)
-- core value is in reusable architecture: TcoEngineService, DTOs, Strategy Pattern
-- prioritise business logic, import, analytics, filters, export, and frontend-ready models
+### Origin — WinForms prototype
 
-Brand identity: Scandi Standard Green #91A363.
+The project started with a WinForms shell as a rapid way to get the engine running and verify core logic end-to-end. It served its purpose — import, evaluation, and supplier classification were all verified through WinForms. However, WinForms proved unsuitable for the actual product requirements: interactive SVG rendering, real-time weight sliders, browser-based stakeholder access, and data-heavy dashboard composition all require a web-based framework.
 
-1. Main Use Case
+WinForms is retained only as a minimal verification shell. No new development targets it.
+
+### Current — Blazor cockpit
+
+The active frontend is Blazor with MudBlazor and Radzen components. This enables:
+
+- real-time what-if weight sliders
+- deterministic SVG rendering with full culture control
+- interactive tooltips and explainability overlays
+- browser-based access without local install
+
+Brand identity: Scandi Standard Green `#91A363`. No default MudBlazor blue in the cockpit shell.
+
+---
+
+## 5. Main Use Case
 
 A user should be able to:
 
@@ -91,39 +108,40 @@ A user should be able to:
 - import Labels tender data from Excel
 - validate and parse the data
 - identify invalid, missing, or suspicious data
-- normalize the imported values
+- normalise the imported values
 - evaluate tender data at line level
 - aggregate results at supplier level
 - calculate analytics and summary outputs
 - adjust scoring weights via real-time sliders in the Blazor cockpit
-- expose results in a form that can later be presented in a richer frontend
+- review supplier rankings with full score explainability
 
-1. Core Business Direction
+---
 
-The business direction remains:
+## 6. Core Business Direction
 
 - supplier evaluation starts at line level
 - line-level results roll up to supplier level
-- spend is important in aggregation
-- missing or invalid data should trigger Manual Review rather than early automatic exclusion
-- scoring should remain explainable
+- spend is the aggregation weight
+- missing or invalid data triggers Manual Review — not automatic exclusion
+- scoring must remain explainable
 - decision support must be understandable both technically and commercially
+- lowest price does not automatically win — regulatory and technical factors can and should outweigh short-term savings
 
-1. Packaging Profile
+---
 
-7.1 Version 1 Packaging Profile
+## 7. Packaging Profile
 
-Version 1 supports:
+### 7.1 Version 1 Profile
 
-- Labels
+Version 1 supports Labels as the first and only packaging profile.
 
-Additional packaging profiles may be introduced later, such as:
+Additional profiles planned for future versions:
 
 - trays
 - cardboard
 - other packaging formats
 
-7.2 Packaging Profile Role
+### 7.2 Profile Role
 
 A packaging profile defines:
 
@@ -132,47 +150,49 @@ A packaging profile defines:
 - scoring logic direction
 - interpretation of technical and regulatory criteria
 
-1. Input Data
+Each profile implements the Strategy Pattern interface. New profiles do not modify `TcoEngineService`.
 
-8.1 Input Source
+---
 
-Version 1 uses Excel input as the main source for tender data.
+## 8. Input Data
 
-The uploaded tender file should be treated as the primary real-world data reference for the current development direction.
+### 8.1 Input Source
 
-8.2 Expected Input Characteristics
+Version 1 uses Excel as the primary input source for tender data. The uploaded tender file is the primary real-world data reference.
 
-The system should support structured tender rows with fields such as:
+### 8.2 Expected Input Fields
 
-- item number
-- item name
+The system supports structured tender rows with fields including:
+
+- item number and item name
 - supplier name
-- site / country / business location where relevant
-- quantity
-- spend
-- price / theoretical spend related values
+- site / country / business location
+- quantity and spend
+- price / theoretical spend values
 - label size
 - material
 - reel / roll information where relevant
-- color-related fields
-- free-text comments where useful
+- colour-related fields
+- free-text comments
 
-Exact column names may vary and should be validated explicitly by the import layer.
+Exact column names may vary and must be validated explicitly by the import layer.
 
-8.3 Detail Rows vs Summary Rows
+### 8.3 Detail Rows vs Summary Rows
 
 The import process must distinguish between:
 
-- detailed tender rows
-- summary or report rows inside the same file
+- detailed tender rows (evaluation input)
+- summary or report rows inside the same file (excluded from evaluation)
 
-Summary blocks must not be treated as normal evaluation lines unless explicitly used for validation or comparison purposes.
+Summary blocks must not be treated as normal evaluation lines.
 
-1. Import and Validation
+---
 
-9.1 Import Goals
+## 9. Import and Validation
 
-The import layer should:
+### 9.1 Import Goals
+
+The import layer must:
 
 - read tender rows from Excel
 - validate required columns
@@ -181,329 +201,370 @@ The import layer should:
 - report issues clearly
 - support a path from raw rows to cleaned domain rows
 
-9.2 Import Result Requirements
+### 9.2 Import Result Reporting
 
-The import result should support reporting of:
+The import result must report:
 
-- rows imported
-- valid rows
-- invalid rows
-- skipped rows
+- rows imported / valid / invalid / skipped
 - supplier count
 - site count
 - size count
 - material count
-- total spend where relevant
+- total spend where available
 
-9.3 Data Quality Handling
+### 9.3 Data Quality Handling
 
-Missing or invalid data should:
+Missing or invalid data must:
 
 - trigger Manual Review where appropriate
 - be captured as import issues
-- not automatically exclude a supplier in version 1 unless a later rule explicitly requires that
+- not automatically exclude a supplier in version 1
 
-9.4 Manual Review
+### 9.4 Manual Review
 
-Manual Review should be used for:
+Manual Review applies to:
 
 - missing required values
 - invalid values
 - uncertain interpretation
 - suspicious but non-blocking data patterns
 
-Manual Review is intended as a safety mechanism, not as a final decision on supplier exclusion.
+Manual Review is a safety mechanism — not a final exclusion decision.
 
-1. Data Layers
+---
 
-The solution should keep the following data layers distinct.
+## 10. Data Layers
 
-10.1 Raw Import Data
+The solution keeps the following layers strictly separate.
 
-Represents rows as read from the source file with minimal transformation.
+### 10.1 Raw Import Data
 
-Purpose:
+Rows as read from the source file with minimal transformation. Preserves imported structure, supports diagnostics, isolates parsing concerns.
 
-- preserve imported structure
-- support diagnostics
-- isolate parsing concerns
+### 10.2 Cleaned / Normalised Domain Data
 
-10.2 Cleaned / Normalized Domain Data
+Validated and normalised business data used for scoring. Standardises values, reduces import format noise, provides consistent input to scoring and analytics.
 
-Represents validated and normalized business data used for evaluation.
+### 10.3 Analytics / Summary Results
 
-Purpose:
+Aggregated outputs and decision-support metrics. Supports ranking, comparison, and insight generation.
 
-- standardize values
-- reduce noise from import format differences
-- provide consistent input to scoring and analytics
+### 10.4 Frontend-ready View Models
 
-10.3 Analytics / Summary Results
+Reusable output structures bound to the Blazor/Radzen UI. Key types: `LabelTenderDashboardDto`, `TcoDecisionOutput`, `CalculationBreakdown`. DTO contracts are stable — breaking changes require an explicit ADR and full UI impact analysis.
 
-Represents aggregated outputs and decision-support metrics.
+---
 
-Purpose:
+## 11. Normalisation Rules
 
-- support ranking, comparison, and insight generation
-- support later export and presentation
-
-10.4 Frontend-ready View Models
-
-Represents reusable output structures that later can be bound to a Blazor/Radzen UI.
-
-Purpose:
-
-- avoid coupling analytics directly to WinForms
-- support later dashboard, table, and filter views
-
-1. Normalization Rules
-
-Version 1 should normalize where practical:
+Version 1 normalises where practical:
 
 - label size values
 - material names
-- color-related values
-- number formats
+- colour-related values
+- number formats (including culture-safe decimal handling)
 - spend and monetary fields
-- site/country naming where useful
+- site / country naming where useful
 
-Normalization should be:
+Normalisation must be conservative, explainable, and testable. The system does not invent interpretations when source data is unclear.
 
-- conservative
-- explainable
-- testable
+---
 
-The system should not aggressively invent interpretations when source data is unclear.
+## 12. Domain Model
 
-1. Domain Model Direction
+The domain model supports the following concepts:
 
-The domain model should support at least the following concepts:
+- `Tender`
+- `TenderSettings`
+- `PackagingProfile`
+- `LabelLineItem`
+- `Supplier`
+- `LineEvaluation`
+- `SupplierEvaluation`
+- `ScoreBreakdown`
+- `ManualReviewFlag`
+- `TenderEvaluationResult`
 
-- Tender
-- TenderSettings
-- PackagingProfile
-- LabelLineItem
-- Supplier
-- LineEvaluation
-- SupplierEvaluation
-- ScoreBreakdown
-- ManualReviewFlag
-- TenderEvaluationResult
+Supporting models include raw import row models, cleaned line item models, import summary / issue models, analytics summary models, and dashboard view models.
 
-Supporting or adjacent models may include:
+---
 
-- raw import row models
-- cleaned line item models
-- import summary / issue models
-- analytics summary models
-- dashboard / output view models
+## 13. Evaluation Structure & Strategy Pattern
 
-The exact class design may evolve, but the responsibility boundaries should remain clear.
+### 13.1 Strategy Pattern Enforcement
 
-1. Evaluation Structure & Strategy
+Evaluation is implemented using the Strategy Pattern. Each packaging profile provides its own implementation. Labels is the first profile.
 
-13.1 Strategy Pattern Enforcement
+- Every score is accompanied by a `CalculationBreakdown` explaining every deduction or bonus.
+- Weights are read from `TenderSettings` to support real-time slider adjustments.
+- No calculation logic lives in Razor components or view models.
 
-Evaluation must be implemented using the Strategy Pattern. Each packaging profile (starting with Labels) must provide its own implementation of evaluation logic.
+### 13.2 Manual Review & Robustness
 
-- Explainability: Every score must be accompanied by a logic-container that explains the deduction or bonus.
-- GUI Readiness: Calculation weights must be read from TenderSettings to support real-time slider adjustments (1-100) in the frontend.
+The engine is resilient to missing data:
 
-13.2 Manual Review & Robustness
+- If a line lacks critical data, the engine does not return 0 for the entire dimension.
+- The specific line is flagged with `ManualReviewFlag = True`.
+- The supplier's aggregated result is marked `Status: Conditional`.
 
-The engine must be resilient to missing data to avoid "all-or-nothing" results:
+---
 
-- If a line lacks critical data (e.g., price or material info), the engine must not return a 0 score for the entire dimension.
-- Instead, the specific line is flagged with ManualReviewFlag = True.
-- The supplier's aggregated result is marked with Status: Conditional, allowing users to drill down and identify missing data points.
+## 14. Scoring Logic & Formulas
 
-1. Scoring Logic & Formula
+### 14.1 Dynamic Weighting
 
-14.1 Dynamic Weighting (Slider-Ready)
+The total score is a spend-weighted sum across three dimensions: Commercial, Technical, and Regulatory. Weights are adjustable via GUI sliders and always normalised to sum to 100.
 
-The total score is a weighted sum of three dimensions: Commercial, Technical, and Regulatory. Weights (W) are adjustable via the GUI but must always be normalized.
+Line score formula:
 
-Line Score Formula: For each line (i), a LineScore (LS) is calculated:
-
+```
 LS_i = (Score_Comm,i × W_Comm) + (Score_Tech,i × W_Tech) + (Score_Reg,i × W_Reg)
+```
 
-14.1.1 Implemented What-If Weight Normalization (Deterministic)
+Weight invariant: `W_Comm + W_Tech + W_Reg = 100`
 
-In the current Labels cockpit implementation, weights are treated as linked sliders (Commercial/Technical/Regulatory) and are maintained to always sum to 100% by deterministically distributing the remainder across the two non-primary pillars (proportional to their prior ratio).
+Weights are maintained deterministically — when one slider moves, the remainder is distributed proportionally across the other two.
 
-Effective invariant: W_Comm + W_Tech + W_Reg = 100
+### 14.2 Spend-Weighted Supplier Aggregation
 
-14.2 Spend-Weighted Supplier Aggregation
-
-To determine a supplier's total score (S_total), each line score is weighted by its relative Spend:
-
+```
 S_total = Σ(LS_i × Spend_i) / Σ(Spend_i)
+```
 
-14.3 Regulatory Dimension (PPWR & EPR)
+### 14.3 Regulatory Dimension (PPWR & EPR)
 
-Regulatory criteria are weighted highest by default (W_Reg = 40).
+Default weight: `W_Reg = 40` — highest of the three dimensions. Regulatory carries the highest weight because PPWR and EPR exposure creates direct financial risk for both supplier and buyer — not just a compliance checkbox.
 
-- PPWR (A-E): Linear mapping from grade to points: Grade A: 100 pts | Grade B: 75 pts | Grade C: 50 pts | Grade D: 25 pts | Grade E: 0 pts.
-- EPR (Scandi Focus): Calculation must validate against country-specific rates for DK, SE, NO, FI, IE.
-- Risk Flagging: High-risk materials (e.g., multi-laminates in high-EPR fee countries) must trigger a "High Cost Risk" flag.
+#### 14.3.1 PPWR Recyclability Grades
 
-14.4 Commercial Dimension
+PPWR grades measure packaging recyclability performance in practice and at scale across EU recycling infrastructure. They are not theoretical — they reflect real-world collection, sorting, and recycling outcomes.
 
-- Price Benchmarking: The lowest price in the tender for a specific line item sets the benchmark (100 pts).
-- Relative Scoring: Other prices are scored relative to the benchmark: Score_Comm,i = (Price_min,i / Price_current,i) × 100
+| Grade | Recyclability | Score | Description |
+|---|---|---|---|
+| A | ≥95% | 100 | Fully recyclable. Monomaterial. Compatible with existing EU recycling. Produces high-quality recyclate. |
+| B | ≥80% | 75 | High recyclability. Minor pre-treatment or separation steps may be needed. |
+| C | ≥70% | 50 | Recyclable with limitations. Some material loss or downcycling may occur. |
+| D | 50–70% | 25 | Technically recyclable but not currently recycled at scale or in practice. |
+| E | <50% | 0 | Non-recyclable or largely composite. Packaging unlikely to be recycled effectively. |
 
-14.5 Implemented TCO Formulas (Labels cockpit)
+**Important:** The score column reflects current scoring. A PPWR Risk Multiplier for time-bounded market access risk is specified in BACK-012 and planned for a future version.
 
-The Labels dashboard uses supplier-level TCO components and a derived price-score.
+#### 14.3.2 PPWR Grade Criteria
+
+Five criteria determine a packaging item's recyclability grade:
+
+- **Material composition** — monomaterials (PET, PP, PE, cardboard) score higher. Laminates and composites score lower.
+- **Design-for-recycling** — removable adhesives, caps, and sleeves improve grade. Metallic coatings and mixed-material layers reduce it.
+- **Sorting compatibility** — must be detectable by NIR scanners used in Material Recovery Facilities (MRFs). Carbon-black plastics and non-detectable materials reduce grade.
+- **Recyclate quality** — high grades produce clean, high-quality recyclate reusable in manufacturing. Contaminated or multi-layer materials reduce grade.
+- **Recyclable mass share** — the actual fraction of packaging mass recyclable under prevailing collection systems.
+
+#### 14.3.3 PPWR Market Access Deadlines — Direct Financial Risk
+
+PPWR grades are not static compliance flags. They carry time-bounded market access consequences that directly affect supplier TCO and long-term viability.
+
+| Year | Market Access Rule |
+|---|---|
+| Until 2029 | All grades A–E permitted |
+| From 2030 | Only grades A, B, and C permitted |
+| From 2035 | Must be "recyclable in practice and at scale" |
+| From 2038 | Likely only grades A and B accepted |
+
+**Consequence for scoring:** A supplier with Grade D today carries concrete phase-out risk by 2030. A supplier with Grade E carries immediate risk. The current scoring model (D=25, E=0) partially reflects this but does not model the time dimension or the cost of redesign/substitution. See BACK-012 for the planned PPWR Risk Multiplier.
+
+**Examples:**
+- Grade A: PET bottle with PP cap and removable label
+- Grade B: HDPE container with simple inks
+- Grade C: Paper carton with plastic window
+- Grade D/E: Laminated coffee pouch (plastic + aluminium layers)
+
+For labels specifically: multi-laminate label materials, metallised films, and non-detectable adhesives are high-risk for Grade D/E classification.
+
+#### 14.3.4 EPR Fee Calculation
+
+EPR calculation validates against country-specific rates for DK, SE, NO, FI, IE.
+
+High-risk materials (e.g. multi-laminates in high-EPR countries) trigger a "High Cost Risk" flag.
+
+EPR grade factors applied in TCO calculation: A=1.0, B=1.3, C=1.8, D=2.4, E=3.0 (fallback: 1.8)
+
+The grade factors model the reality that lower-grade packaging incurs higher EPR fees in most Scandi markets — making the "cheap" supplier visibly more expensive in TCO terms.
+
+### 14.4 Commercial Dimension
+
+The lowest price for a line item sets the benchmark at 100 points. Other prices are scored relative:
+
+```
+Score_Comm,i = (Price_min,i / Price_current,i) × 100
+```
+
+### 14.5 TCO Formulas (Labels Cockpit)
 
 Base quantities:
 
-- V = volume (labels), derived from supplier quantity (if V ≤ 0, treated as 0)
-- P = price per label
+- `V` = volume (labels) — if V ≤ 0, treated as 0
+- `P` = price per label
 
 TCO components:
 
-- Commercial: Commercial = V × P
-- Regulatory (EPR):
-  - If PPWR scenario is OFF: EPR = 0
-  - If PPWR scenario is ON: EPR = EPRBase(country, weight, V) × GradeFactor
-  - Grade factors: A=1.0, B=1.3, C=1.8, D=2.4, E=3.0 (fallback defaults to C-like 1.8)
-- Switching:
-  - If supplier is incumbent: Switching = 0
-  - Else: Switching = StartupCost + (MonthlySupportCost × 12)
-- MOQ risk: MOQ = Commercial × (MOQPenaltyPct / 100)
+```
+Commercial  = V × P
+EPR         = 0                                          (if PPWR scenario OFF)
+EPR         = EPRBase(country, weight, V) × GradeFactor  (if PPWR scenario ON)
+Switching   = 0                                          (if incumbent supplier)
+Switching   = StartupCost + (MonthlySupportCost × 12)   (if new supplier)
+MOQ         = Commercial × (MOQPenaltyPct / 100)
 
-Total: TCO_total = Commercial + EPR + Switching + MOQ
+TCO_total   = Commercial + EPR + Switching + MOQ
+```
 
-Price score (relative to best total): Let TCO_min be the minimum TCO_total among current suppliers (floor of 1 to avoid divide-by-zero).
+EPR grade factors: A=1.0, B=1.3, C=1.8, D=2.4, E=3.0 (fallback: 1.8)
 
+Price score (relative to best):
+
+```
 PriceScore = clamp(TCO_min / TCO_total × 100, 0, 100)
+```
 
-Final CTR score (weighted): Weights are session-driven (W_Comm, W_Tech, W_Reg) and sum to 100:
+Floor of 1 applied to `TCO_min` to prevent divide-by-zero.
 
+Final CTR score:
+
+```
 CTR = clamp(((PriceScore × W_Comm) + (TechScore × W_Tech) + (RegScore × W_Reg)) / 100, 0, 100)
+```
 
-Visual cue mapping: Opacity = max(0.25, CTR / 100)
+Visual opacity mapping:
 
-14.6 Explainability (CalculationBreakdown)
+```
+Opacity = max(0.25, CTR / 100)
+```
 
-Each supplier row contains a CalculationBreakdown string that answers:
+A strategically weak supplier fades visually — the cockpit sorts and deprioritises without hiding.
 
-- What penalty? (PPWR/EPR, Switching, MOQ)
-- What assumption? (e.g., zero-volume cases)
-- What weights were active? (Commercial/Technical/Regulatory % from the session)
+### 14.6 Explainability (CalculationBreakdown)
 
-The UI surfaces this via native SVG tooltips () on each supplier bar group.
+Each supplier row contains a `CalculationBreakdown` string answering:
 
-14.7 EPR Country Matrix & Fee Calculation
+- What penalty was applied? (PPWR/EPR, Switching, MOQ)
+- What assumption was made? (e.g. zero-volume handling)
+- What weights were active? (Commercial / Technical / Regulatory % from the session)
 
-Supported countries: DK, SE, NO, FI, IE. Core categories: Labels, Cardboard, Trays, Packaging Mixed, Flexibles.
+Surfaced via native SVG `<title>` tooltips on each supplier bar group.
 
-Calculation logic: EPR_cost = Weight_kg × Rate(category, country)
+### 14.7 EPR Country Matrix
 
-The EprFeeService provides rate lookups. If a rate is missing for a specific country/category combination, the system must trigger a ManualReviewFlag.
+Supported countries: DK, SE, NO, FI, IE.
 
-1. Classification Direction
+Core categories: Labels, Cardboard, Trays, Packaging Mixed, Flexibles.
 
-Supplier classification should remain explainable and may include states such as:
+```
+EPR_cost = Weight_kg × Rate(category, country)
+```
 
-- Recommended
-- Conditional
-- Manual Review
+`EprFeeService` provides rate lookups. Missing rate combinations trigger `ManualReviewFlag`.
 
-Classification should never hide the reasons behind the outcome.
+---
 
-1. Analytics Outputs
+## 15. Supplier Classification
 
-The system should support analytics such as:
+Classification states:
 
-- spend by supplier
-- spend by country
-- spend by site
-- spend by material
-- spend by size
+- `Recommended`
+- `Conditional`
+- `Manual Review`
+
+Classification must always expose the reason. No black-box outcomes.
+
+---
+
+## 16. Analytics Outputs
+
+The system supports:
+
+- spend by supplier, country, site, material, size
 - top spend items
 - outlier candidates
-- consolidation / standardization candidates
+- consolidation / standardisation candidates
 - import issue summary
 - manual review / flags summary
 
-1. Planned Data Surfaces / Future Screens
+---
 
-The following output surfaces should be supportable by reusable models:
+## 17. Planned Data Surfaces
+
+Future Blazor screens supported by reusable models:
 
 - Import summary
 - Supplier overview
 - Country breakdown
 - Site breakdown
 - Material breakdown
-- Item/detail table
-- Flags/issues table
+- Item / detail table
+- Flags / issues table
 
-1. Filtering Direction
+---
 
-A reusable filtering model should support future filtering by:
+## 18. Filtering
 
-- supplier
-- country
-- site
-- material
-- size
+A reusable filtering model supports filtering by:
+
+- supplier, country, site, material, size
 - flagged only
 - outliers only
 
-1. Export Direction
+---
 
-The solution should support export-ready outputs for:
+## 19. Export
+
+Export-ready outputs:
 
 - cleaned data
 - analytics summary
-- flags/issues report
+- flags / issues report
 
-CSV is sufficient as an initial practical direction. Export logic should be reusable and not tightly coupled to any UI shell.
+CSV is the initial format. Export logic is reusable and not coupled to any UI shell.
 
-1. Demo / Synthetic Data
+---
 
-If synthetic suppliers are required for demonstration:
+## 20. Demo / Synthetic Data
 
-- they may be named Fiktiv1, Fiktiv2, Fiktiv3
-- they must be clearly synthetic
-- they should be based on realistic transformations of actual imported data patterns
-- they should not be random filler disconnected from the real structure
+Synthetic suppliers for demonstration:
 
-1. Non-Functional Requirements
+- named `Fiktiv1`, `Fiktiv2`, `Fiktiv3`
+- clearly synthetic
+- based on realistic transformations of actual imported data patterns
+- not random filler
 
-The solution should be:
+---
 
-- understandable
-- testable
-- explainable
-- reusable
-- extensible for future packaging profiles
-- robust enough for inconsistent tender input
-- suitable for further UI evolution
+## 21. Non-Functional Requirements
 
-The architecture should prioritise:
+The solution must be understandable, testable, explainable, reusable, and extensible for future packaging profiles.
+
+Architecture priorities:
 
 - separation of concerns
 - reusable services
 - controlled data flow
-- limited UI coupling
+- no UI coupling in domain logic
 
-1. Testing Direction
+---
 
-Automated tests should continue to cover:
+## 22. Testing
 
-- domain model behavior
+Automated tests cover:
+
+- domain model behaviour
 - import and validation
-- cleaning and normalization
+- cleaning and normalisation
 - evaluation logic
 - analytics outputs
-- frontend-ready view-model creation
+- frontend-ready view model creation
 
-Testing should remain focused on business logic and reusable outputs rather than fragile UI-specific behavior.
+Tests focus on business logic and reusable outputs — not fragile UI behaviour.
 
-Golden cases that must always pass:
+### Golden cases — always verify
 
 1. Zero volume
 2. Missing data / grades
@@ -511,32 +572,34 @@ Golden cases that must always pass:
 4. PPWR toggles
 5. Ranking stability
 
-Reference: tests/PackagingTenderTool.Core.Tests/GoldenCaseTests.cs
+Reference: `tests/PackagingTenderTool.Core.Tests/GoldenCaseTests.cs`
 
-1. Open Decisions
+---
 
-The following remain open:
+## 23. Open Decisions
 
-- detailed price scoring formula
+The following remain open and should be resolved incrementally:
+
 - detailed technical scoring logic
 - detailed material scoring logic
 - classification thresholds
-- knockout / exclusion rules
-- plausibility checks for suspicious inputs
-- exact supplier master-data identity strategy
-- exact future Blazor navigation/layout composition
+- knockout / exclusion rules (planned for v2 — see BACKLOG.md BACK-008)
+- plausibility checks for suspicious supplier inputs
+- exact supplier master-data identity strategy (M3 integration)
+- exact Blazor navigation / layout composition
 
-1. Summary
+---
+
+## 24. Summary
 
 PackagingTenderTool version 1 is a Labels-focused tender evaluation solution built around:
 
 - one tender at a time
 - one packaging profile at a time
-- line-level evaluation
-- spend-weighted supplier aggregation
+- line-level evaluation with spend-weighted supplier aggregation
 - manual review instead of early exclusion
-- 30/30/40 scoring direction
-- import, validation, cleaning, and analytics
+- 30/30/40 scoring direction (Commercial / Technical / Regulatory)
+- import, validation, cleaning, and analytics pipeline
 - Blazor cockpit with real-time what-if sliders and full audit trail
 
-The specification should continue to support implementation decisions that strengthen business value, explainability, reuse, and frontend readiness.
+The specification supports implementation decisions that strengthen business value, explainability, reuse, and frontend readiness — not GUI cosmetics.
