@@ -18,4 +18,4 @@ jobs:
       - name: Build
         run: dotnet build PackagingTenderTool.sln --configuration Release --no-restore
       - name: Test
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test PackagingTenderTool.sln --no-build --configuration Release --verbosity normal
