@@ -77,6 +77,14 @@ Version 1 does not include:
 - knockout / exclusion rules
 - M3-based supplier identity
 
+### Currency Handling
+
+- one currency applies per tender
+- currency does not vary by line
+- default currency is configurable per tender
+- supported currencies include EUR and NOK as examples
+- currency conversion is out of scope for version 1
+
 ---
 
 ## 4. Frontend Direction
@@ -590,7 +598,24 @@ The following remain open and should be resolved incrementally:
 
 ---
 
-## 24. Summary
+## 24. Working Principles
+
+These principles govern all implementation decisions. They apply equally to code, architecture, and documentation.
+
+- start small and stable — prove it works before expanding it
+- architecture before interface — services and domain logic before UI
+- line-level logic before supplier-level summary visuals
+- manual review before automatic exclusion — protect the buyer from hidden risk
+- extensibility for future packaging profiles — Labels is profile 1, not the only profile
+- every scoring dimension has a clear business explanation — no black-box scores
+- reusable services before UI-specific implementation
+- frontend preparation must not pollute domain logic
+- regulatory scoring must be able to both increase and reduce score — it is not one-directional
+- the tool must be understandable not only technically but also commercially and operationally
+
+---
+
+## 25. Summary
 
 PackagingTenderTool version 1 is a Labels-focused tender evaluation solution built around:
 
