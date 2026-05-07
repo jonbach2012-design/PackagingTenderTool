@@ -6,7 +6,7 @@ PTD-E replaces Excel-based tender evaluation with a structured, audit-ready, and
 
 **Lowest price does not automatically win. Regulatory and technical factors can and should outweigh short-term savings.**
 
-.NET CI/CD
+![.NET CI/CD](https://github.com/jonbach2012-design/PackagingTenderDecisionEngine/actions/workflows/dotnet.yml/badge.svg)
 
 ---
 
