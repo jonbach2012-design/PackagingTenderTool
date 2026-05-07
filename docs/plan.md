@@ -1,4 +1,11 @@
 # PackagingTenderTool Plan
+<!-- STATUS: HISTORICAL BASELINE — do not update -->
+<!-- Content superseded by: docs/spec.md, docs/ARCHITECTURE.md, docs/BACKLOG.md -->
+<!-- Retained for context only. Last relevant as of early project phase. -->
+
+---
+
+
 
 ## 1. Objective
 
@@ -90,6 +97,9 @@ The following decisions are confirmed for version 1:
 
 ### 3.8 Regulatory direction
 Regulatory has the highest weight because PPWR and EPR related issues may create significant risk not only for the supplier, but also for the buying company.
+
+### 3.8 Currency handling
+
 
 Important focus areas include:
 - lower weight
