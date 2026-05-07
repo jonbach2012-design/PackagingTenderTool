@@ -77,6 +77,7 @@ These files no longer exist in the repo. Recorded here for audit trail and to pr
 | `ReadMe.md` (root) | 2026-05-07 | Casing conflict with `README.md` on case-insensitive filesystems. Content was a mixed English sprawl of architecture + business + roadmap — doing all jobs poorly. | `README.md` (business) + `docs/ARCHITECTURE.md` (technical) |
 | `DEVELOPER_LOG.md` (root) | 2026-05-07 | Moved to `docs/` — belongs with other developer documentation, not at repo root. Git history preserved via `git mv`. | `docs/DEVELOPER_LOG.md` |
 | `SL_LearningGoals.md` (root) | 2026-05-07 | Personal education content — wrong location at repo root. Git history preserved via `git mv`. | `docs/learning/SL_LearningGoals.md` |
+| `docs/report.md` | 2026-05-07 | Stale WinForms session report. 42-test count wrong (135 now). Content superseded by ARCHITECTURE.md, spec.md, and DEVELOPER_LOG.md. | Deleted |
 
 ---
 
