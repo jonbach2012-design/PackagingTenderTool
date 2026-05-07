@@ -7,15 +7,32 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      checks: write
+
     steps:
       - uses: actions/checkout@v5
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
       - name: Restore
         run: dotnet restore PackagingTenderTool.sln
+
       - name: Build
         run: dotnet build PackagingTenderTool.sln --configuration Release --no-restore
+
       - name: Test
-        run: dotnet test PackagingTenderTool.sln --no-build --configuration Release --verbosity normal
+        run: dotnet test PackagingTenderTool.sln --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: .NET Tests
+          path: "**/*.trx"
+          reporter: dotnet-trx
+          fail-on-error: true
