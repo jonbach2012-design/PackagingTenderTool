@@ -1,3 +1,9 @@
+> ⚠️ **HISTORICAL DOCUMENT — do not update.**
+> Content superseded by [`docs/spec.md`](spec.md), [`docs/ARCHITECTURE.md`](ARCHITECTURE.md), and [`docs/BACKLOG.md`](BACKLOG.md).
+> Retained for context only.
+
+---
+
 # PackagingTenderTool Plan
 <!-- STATUS: HISTORICAL BASELINE — do not update -->
 <!-- Content superseded by: docs/spec.md, docs/ARCHITECTURE.md, docs/BACKLOG.md -->
