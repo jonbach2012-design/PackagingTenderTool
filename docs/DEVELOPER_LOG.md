@@ -1,431 +1,531 @@
-# REFACTORING LOG — From AI Chaos to Deterministic System Design
+# Udviklingslog — PackagingTenderTool
 
-## Topic
-
-Transformation of an unstable AI-generated TCO dashboard into a deterministic, testable and architecture-aligned decision-support component.
-
-This document describes the debugging logic, architectural cleanup and future guardrails that must be followed by Cursor or any AI coding agent working on this project.
+<!-- AUDIENCE: Udvikler / Studerende | OWNER: docs/DEVELOPER_LOG.md -->
+<!-- Formål: Teknisk dokumentation, læringsrefleksion og eksamensunderstøttelse -->
 
 ---
 
-## 1. Problem Statement
+## Overblik
 
-During implementation of the visual TCO dashboard, the UI produced unstable rendering errors:
+Dette dokument beskriver den tekniske og arkitektoniske rejse fra et ustabilt AI-genereret TCO-dashboard til et deterministisk, testbart og forklarbart beslutningsstøttesystem.
 
-- diagonal text elements
-- missing bars
-- broken chart layout
-- inconsistent SVG output
-- UI behaviour that could not be trusted
+Dokumentet er struktureret i tre dele:
 
-A weak approach would have been to keep asking the AI to “fix the chart”.
+- **Del 1 — Kronologisk fortælling:** Hvad skete der, og hvad erkendte jeg undervejs
+- **Del 2 — Tematisk analyse:** Hvilke tiltag blev anvendt, og hvilken teori understøtter dem
+- **Del 3 — Personlig refleksion:** Hvad lærte jeg om AI-assisteret softwareudvikling
 
-That was rejected.
-
-The issue was not treated as a cosmetic UI bug. It was treated as a system design problem.
-
-### Critical observation
-
-The data model was not the primary issue.
-
-The root problem was located in the rendering architecture and formatting layer:
-
-1. misuse of manual `RenderTreeBuilder` sequence numbers
-2. culture mismatch between Danish decimal formatting and SVG/browser expectations
-3. too much calculation/rendering responsibility leaking into UI code
-
-In short:
-
-> The engine was not necessarily broken. The UI layer was contaminated.
-
+Målgruppen er mig selv som studerende, kommende eksaminator og fremtidige AI-agenter der arbejder på projektet.
 
 ---
 
-## 2. Isolation Before Repair
+# DEL 1 — Kronologisk fortælling
 
-The existing dashboard code was considered polluted by technical debt.
+## 1. Udgangspunktet — hvad gik galt
 
-Instead of continuing to patch the broken implementation, an isolated proof-of-concept was created:
+Implementeringen af det visuelle TCO-dashboard producerede ustabile renderingsfejl:
+
+- diagonale tekstelementer
+- manglende søjler
+- brudt chart-layout
+- inkonsistent SVG-output
+- UI-adfærd der ikke kunne stoles på
+
+Den umiddelbare reaktion ville have været at bede AI om "flere fixes". Den tilgang blev afvist.
+
+Problemet blev ikke behandlet som en kosmetisk UI-fejl. Det blev behandlet som et systemdesignproblem.
+
+### Den første erkendelse
+
+Datamodellen var ikke det primære problem.
+
+Rodproblemet lå i rendering-arkitekturen og formateringslaget:
+
+1. misbrug af manuelle `RenderTreeBuilder`-sekvensnumre
+2. kulturmismatch mellem dansk decimalformatering og SVG/browser-forventninger
+3. for meget beregnings- og renderingsansvar der var lækket ind i UI-koden
+
+Kort sagt:
+
+> Motoren var ikke nødvendigvis i stykker. UI-laget var forurenet.
+
+Dette var en vigtig erkendelse. Det er let at antage at et synligt UI-problem skyldes forkerte data eller forkert beregning. Men i dette tilfælde var beregningslogikken korrekt — det var præsentationslaget der var arkitektonisk forgiftet af teknisk gæld.
+
+---
+
+## 2. Teknisk gæld opstår hurtigt — også med AI
+
+Inden diagnosen var klar, var der allerede akkumuleret betydelig teknisk gæld.
+
+Det overraskende var ikke at der opstod fejl. Det overraskende var *hastigheden* hvormed teknisk gæld akkumulerede i AI-assisteret udvikling.
+
+En menneskelig udvikler bruger måske en time på at skrive 100 linjer problematisk kode. Med AI kan man producere 500 linjer på 10 minutter — inklusive arkitektoniske fejl der ikke er synlige ved første øjekast.
+
+AI genererer plausibel kode. Ikke nødvendigvis korrekt kode.
+
+I dette tilfælde havde AI introduceret:
+
+- `RenderTreeBuilder`-logik der krævede præcis sekvensstyring som AI ikke kendte konteksten for
+- inline decimal-formatering direkte i SVG-attributter uden hensyn til browserens kulturforventninger
+- beregningslogik spredt mellem services og UI-komponenter
+
+Ingen af disse fejl var åbenlyse. De så rigtige ud. De kompilerede. De virkede — indtil datamængden eller kulturindstillingen ændrede sig.
+
+---
+
+## 3. Isolation — beviset
+
+I stedet for at fortsætte med at patch den eksisterende kode blev der bygget en isoleret proof-of-concept:
 
 `/chart-test`
 
-The purpose was simple:
+Formålet var enkelt:
 
-> Prove whether clean DTO input could render a correct chart in a clean environment.
+> Bevis om rent DTO-input kan rendere et korrekt chart i et rent miljø.
 
-### Logic
+### Logikken
 
-If a clean DTO could render correctly in isolation, then the data and decision model were usable.
+Hvis et rent DTO kunne rendere korrekt i isolation, var data- og beslutningsmodellen brugbar.
 
-If the isolated chart failed, the issue was deeper in the calculation or data model.
+Hvis den isolerede test fejlede, lå problemet dybere — i beregningen eller datamodellen.
 
-### Result
+### Resultatet
 
-The `/chart-test` route rendered correctly.
+`/chart-test` renderede korrekt.
 
-This proved that the core model could support the visualisation, and that the main dashboard needed architectural sanitation rather than another cosmetic patch.
+Dette beviste at kernemodellen kunne understøtte visualiseringen, og at hoveddashboardet krævede arkitektonisk sanering — ikke endnu et kosmetisk patch.
 
+### Hvad isolation egentlig er
+
+Isolation er ikke spild af tid. Det er den hurtigste vej til den rigtige diagnose.
+
+Det er samme princip som en unit test: bevis én ting ad gangen. Eliminér støj. Gør bevisbyrden klar.
+
+Uden isolation ville fejlsøgningen have fortsat i det forurenede miljø — og sandsynligvis produceret flere patches der flyttede problemet frem for at løse det.
 
 ---
 
-## 3. Root Cause Analysis
+## 4. Rodårsagsanalyse — de to tekniske fejl
 
-Two main technical causes were identified.
+### 4.1 Sekvensinstabilitet i RenderTreeBuilder
 
-### 3.1 Sequence Instability
+Manuel C#-rendering introducerede ustabilt DOM-output.
 
-Manual C# rendering introduced unstable DOM output.
+Problemet opstod ved brug af `RenderTreeBuilder` med sekvensnumre. `RenderTreeBuilder` kræver at sekvensnumre er stabile, unikke og korrekt ordnede på tværs af alle rendering-cyklusser. Hvis de ikke er det, mister Blazor overblikket over DOM-strukturen og producerer uforudsigelige visuelle resultater.
 
-The problem was caused by fragile use of `RenderTreeBuilder` and sequence numbers, which made the UI difficult to reason about and easy for AI-generated patches to corrupt.
+**Problemet med AI og RenderTreeBuilder:**
+En AI-agent kender ikke den eksisterende sekvensnummerstruktur. Hver gang AI genererer ny rendering-kode, risikerer den at introducere konflikter. Det er ikke fordi AI er dum — det er fordi AI ikke har adgang til den implicitte tilstand som sekvenslogikken afhænger af.
 
-### Decision
-
-Manual rendering was removed.
-
-The chart was refactored to use clean Razor markup:
+**Beslutning:** Manuel rendering blev fjernet. Dashboardet blev refaktoreret til ren Razor markup:
 
 ```razor
 @foreach (var item in Model.Items)
 {
-    ...
+    <div class="bar" style="width: @FmtSvg(item.Width)px">...</div>
 }
 ```
 
-### Reason
-
-Razor markup is easier to inspect, test, maintain and constrain.
-
-Cursor must not reintroduce manual `RenderTreeBuilder` logic for this dashboard unless there is a documented architectural reason.
-
+Razor markup er deklarativ. Den er lettere at inspicere, teste og begrænse. Og vigtigst: den er svær for en AI-agent at ødelægge ved en fejl, fordi strukturen er synlig og tydelig.
 
 ---
 
-### 3.2 Culture Mismatch
+### 4.2 Kulturmismatch — dansk komma vs. SVG-punktum
 
-SVG attributes require invariant decimal formatting.
+SVG-attributter kræver invariant decimalformatering.
 
-Danish culture formatting can produce commas:
+Dansk kulturindstilling kan producere:
 
 ```text
 12,5
 ```
 
-SVG/browser rendering expects dots:
+SVG/browser-rendering forventer:
 
 ```text
 12.5
 ```
 
-This created invalid or unpredictable SVG output.
+Dette skabte ugyldigt eller uforudsigeligt SVG-output — og det var præcis årsagen til de manglende søjler og den brudte chart-layout.
 
-### Decision
-
-All SVG numeric attributes must be formatted through a dedicated invariant formatter:
+**Beslutning:** Al SVG-numerisk formatering blev isoleret bag en dedikeret invariant hjælpefunktion:
 
 ```csharp
 FmtSvg(value)
 ```
 
-### Rule
+**Reglen fremadrettet:**
 
-Cursor must not write raw decimal/double values directly into SVG attributes.
-
-Allowed:
-
+Tilladt:
 ```razor
 width="@FmtSvg(bar.Width)"
 x="@FmtSvg(bar.X)"
 ```
 
-Not allowed:
-
+Ikke tilladt:
 ```razor
 width="@bar.Width"
 x="@bar.X"
 ```
 
+`FmtSvg()` gør reglen eksplicit og håndhævet. Det er ikke en konvention man skal huske — det er en struktur der tvinger korrekt adfærd.
 
 ---
 
-## 4. Architectural Refactoring
+## 5. Refaktorering — hvad der blev bygget om
 
-The dashboard was refactored around explicit DTO boundaries.
+Dashboardet blev refaktoreret omkring eksplicitte DTO-grænser.
 
-The UI should render already-prepared view data.
+Arkitekturprincippet:
 
-The UI should not own business logic, scoring logic, TCO calculations or supplier evaluation logic.
-
-### Current architecture principle
-
-```text
+```
 Session/Input
    ↓
 TcoEngineService
    ↓
-DTO with calculation breakdown
+DTO med calculation breakdown
    ↓
 Razor dashboard
 ```
 
-The dashboard must be a consumer of decision output — not the place where the decision is calculated.
+UI skal rendere allerede forberedt view-data. UI skal ikke eje forretningslogik, scoringslogik, TCO-beregninger eller leverandørevaluering.
+
+Dashboardet er en *forbruger* af beslutningsoutput — ikke det sted hvor beslutningen beregnes.
 
 ---
 
-## 5. Decision Engine Logic
+## 6. Resultatet — hvad systemet er nu
 
-The goal was not simply to draw bars.
+Det manuelle ustabile rendering blev erstattet med deterministisk Razor markup.
 
-The goal was to make the dashboard support better tender decisions.
+Kulturfølsom SVG-formatering blev isoleret bag invariant formatering.
 
-The visual layer must communicate:
+DTO-grænser blev styrket.
 
-- commercial impact
-- technical fit
-- regulatory cost/risk
-- supplier decision score
-- why a supplier is strong or weak
+Beslutningslogik blev flyttet tilbage til engine/service-laget.
 
-### Strategic visual logic
+Resultatet er ikke længere blot et visuelt dashboard.
 
-Supplier strategic fit is linked to visual emphasis.
+Det er en struktureret TCO-beslutningsstøttekomponent.
 
-Example:
+### Den strategiske visuelle logik
 
-> A supplier can be commercially attractive but strategically weak.
+Målet var ikke at tegne søjler. Målet var at støtte bedre indkøbsbeslutninger.
 
-In that case, the supplier should not dominate the dashboard visually just because the price is low.
-
-The visual model should help expose that risk.
-
-### Example principle
+En leverandør kan være kommercielt attraktiv men strategisk svag. I det tilfælde bør leverandøren ikke dominere dashboardet visuelt blot fordi prisen er lav.
 
 ```text
-Low price + weak strategic score = visually reduced confidence
+Lav pris + svag strategisk score = visuelt reduceret confidence (opacity)
 ```
 
-This makes the dashboard a decision-support tool, not just a chart.
-
-
+Dette gør dashboardet til et beslutningsstøtteværktøj — ikke blot et chart.
 
 ---
 
-## 6. Cursor Development Rules
+# DEL 2 — Tematisk analyse
 
-Cursor must follow these rules when modifying the dashboard, TCO logic or DTO contracts.
+## 7. Ingeniørbeslutninger og fravalg
 
-### 6.1 Do not patch blindly
+Dette afsnit dokumenterer de vigtigste beslutninger — ikke blot hvad der blev valgt, men hvad der blev fravalgt og hvorfor.
 
-Before changing code, identify which layer owns the problem:
+---
 
-| Problem type | Correct owner |
+### 7.1 Isolation frem for lapning
+
+**Fravalgt:** At blive ved med at bede AI om fixes direkte i den eksisterende kode.
+
+**Valgt:** Isoleret proof-of-concept (`/chart-test`) i et rent miljø.
+
+**Hvorfor:** Hvis man lapper et system man ikke forstår, flytter man problemet — man løser det ikke. Isolation tvinger et præcist spørgsmål: er motoren i stykker, eller er UI-laget forurenet? Svaret kunne kun bevises gennem isolation.
+
+---
+
+### 7.2 Razor markup frem for RenderTreeBuilder
+
+**Fravalgt:** At fortsætte med `RenderTreeBuilder` og forsøge at rette sekvensfejlene.
+
+**Valgt:** Refaktorering til ren Razor `@foreach`-markup.
+
+**Hvorfor:** `RenderTreeBuilder` kræver præcis manuel styring der er næsten umulig at styre for AI-agenter uden fuld kontekst. Razor markup er deklarativ, synlig og svær at ødelægge ved fejl.
+
+---
+
+### 7.3 Dedikeret formateringshjælper frem for inline formatering
+
+**Fravalgt:** Inline formatering med `.ToString()` eller direkte interpolation i SVG-attributter.
+
+**Valgt:** Dedikeret `FmtSvg()`-hjælper der tvinger `InvariantCulture`.
+
+**Hvorfor:** Inline formatering er usynlig fejlrisiko. Næste udvikler — eller næste AI-session — vil ikke vide at der er en kulturafhængighed. `FmtSvg()` gør reglen eksplicit og håndhævet af strukturen, ikke af hukommelsen.
+
+---
+
+### 7.4 DTO-grænser frem for direkte servicekaldt fra UI
+
+**Fravalgt:** At lade Razor-komponenter kalde services direkte og transformere data i rendering-loops.
+
+**Valgt:** Stabile DTO-grænser (`LabelTenderDashboardDto`, `TcoDecisionOutput`, `CalculationBreakdown`) som eneste kontraktflade mellem motor og UI.
+
+**Hvorfor:** Når UI-kode indeholder beregningslogik, er systemet umuligt at teste uden en browser. DTO-grænser er en firewall mod AI-drift: en AI-agent kan ændre en Razor-komponent uden at ødelægge beregningslogikken, fordi de er adskilt af en stabil kontrakt.
+
+Det er sådan man undgår at få lort i ventilatoren.
+
+---
+
+## 8. Teoretiske forbindelser
+
+Dette afsnit kobler de praktiske beslutninger til etablerede softwareingeniørprincipper. Formålet er at vise at valgene ikke var tilfældige — de afspejler veldokumenterede principper fra softwarearkitektur og systemudvikling.
+
+---
+
+### 8.1 Separation of Concerns (SoC)
+
+**Hvad det betyder i teorien:**
+Et system skal opdeles så hver del kun har ansvar for ét klart defineret område. Beregning, præsentation og datahåndtering må ikke blandes.
+
+**Hvad det betød i praksis:**
+`TcoEngineService` ejer al TCO-matematik. Razor-komponenter renderer kun færdigberegnet output. `FmtSvg` ejer browserformatering. Ingen af disse ved noget om de andres interne logik.
+
+**Hvorfor det er vigtigt:**
+Når ansvarsområder er adskilt, kan fejl lokaliseres præcist. I dette projekt beviste isolation (`/chart-test`) at motoren var rask — problemet lå i UI-laget. Det var kun muligt at bevise fordi lagene var adskilt. Uden SoC ville debugging have været et gæt.
+
+**Konsekvensen af brud:**
+Når beregningslogik lækker ind i UI, opstår der fejl der ikke kan reproduceres uden en browser, ikke kan testes i isolation og ikke kan lokaliseres præcist. Det er præcis det der skete — og det er præcis derfor refaktoreringen var nødvendig.
+
+---
+
+### 8.2 Single Responsibility Principle (SRP)
+
+**Hvad det betyder i teorien:**
+En klasse eller komponent skal have ét og kun ét ansvar. Hvis den skal ændres, skal der kun være én årsag til at ændre den.
+
+**Hvad det betød i praksis:**
+`FmtSvg()` har ét ansvar: kultur-sikker SVG-formatering. `TcoEngineService` har ét ansvar: beregning og aggregering. `CalculationBreakdown` har ét ansvar: forklare hvorfor en score er som den er.
+
+**Hvorfor det er vigtigt:**
+SRP reducerer risikoen for at en ændring ét sted ødelægger noget et andet sted. I AI-assisteret udvikling er dette kritisk — en AI-agent der ændrer én fil bør ikke kunne ødelægge systemet andre steder. SRP er en arkitektonisk firewall mod ukontrolleret AI-drift.
+
+**Konsekvensen af brud:**
+Når én klasse har for mange ansvar, kan den ikke ændres sikkert. En AI-agent der "fikser" én ting i en klasse med mange ansvar risikerer at ødelægge noget andet i samme klasse — uden at vide det.
+
+---
+
+### 8.3 Kontraktbaseret design og DTO-stabilitet
+
+**Hvad det betyder i teorien:**
+Systemer kommunikerer via stabile kontrakter. En kontrakt definerer hvad der leveres — ikke hvordan. Ændringer i kontrakten er breaking changes der kræver eksplicit håndtering.
+
+**Hvad det betød i praksis:**
+DTOs (`LabelTenderDashboardDto`, `TcoDecisionOutput`) er kontrakten mellem motor og UI. De må ikke ændres stille og roligt. Enhver DTO-ændring kræver impact-analyse på alle forbrugere — hvilke UI-sider bruger den, hvilke services skaber den, hvilke tests afhænger af den.
+
+**Hvorfor det er vigtigt:**
+AI-agenter ændrer gerne DTOs for at løse et lokalt problem uden at forstå den globale konsekvens. En stabil kontrakt beskytter systemets integritet på tværs af sessioner og agenter. Det er ikke bureaukrati — det er den mekanisme der forhindrer stille regression.
+
+---
+
+### 8.4 Isoleret testning og Proof of Concept
+
+**Hvad det betyder i teorien:**
+En test skal bevise én ting. En PoC skal besvare ét præcist spørgsmål. Isolation eliminerer støj og gør bevisbyrden klar.
+
+**Hvad det betød i praksis:**
+`/chart-test` besvarede ét spørgsmål: kan et rent DTO rendere korrekt i et rent miljø? Svaret var ja. Det beviste at problemet ikke lå i datamodellen — det lå i den forurenede UI-implementering.
+
+**Hvorfor det er vigtigt:**
+Uden en isoleret PoC ville man have fortsat med at patch det forkerte sted. Isolation er den hurtigste vej til den rigtige diagnose. Det er samme princip som en unit test — og det er derfor TDD er en naturlig forlængelse af denne tilgang.
+
+---
+
+### 8.5 Algoritmisk kompleksitet — O(n) frem for O(n²)
+
+**Hvad det betyder i teorien:**
+Når et system matcher data på tværs af lister, er det afgørende hvordan opslaget struktureres. Et nested loop der scanner en liste for hvert element er O(n²) — det skalerer katastrofalt med datamængden. Et dictionary-baseret opslag er O(n) — det skalerer lineært.
+
+**Hvad det betød i praksis:**
+Dashboard-forberedelsen bruger dictionary-baserede opslag til at matche leverandørdata, linjeevalueringer og scorebreakdowns. Det forhindrer at en tender med 200 linjer og 10 leverandører resulterer i 2.000 operationer i stedet for 210.
+
+**Hvorfor det er vigtigt:**
+Performance er en del af arkitekturen — ikke et eftertanke. Et dashboard der er korrekt men langsomt er ubrugeligt i produktion. En AI-agent der "løser" et rendering-problem ved at tilføje et nested loop har introduceret et arkitektonisk problem der ikke er synligt ved lav datamængde — men som kollapser ved reel brug.
+
+---
+
+## 9. Regler for fremtidige AI-agenter
+
+Disse regler gælder for Cursor og enhver anden AI-agent der arbejder på dashboardet, TCO-logikken eller DTO-kontrakterne.
+
+### Identificér laget før du ændrer
+
+| Problemtype | Korrekt ejer |
 |---|---|
-| Wrong calculation | Service / engine |
-| Wrong data shape | DTO / mapping |
-| Wrong visual rendering | Razor component |
-| Wrong browser formatting | Formatting helper |
-| Wrong supplier interpretation | Scoring model |
-| Slow rendering / repeated lookup | Data association / performance |
+| Forkert beregning | Service / engine |
+| Forkert dataform | DTO / mapping |
+| Forkert visuel rendering | Razor-komponent |
+| Forkert browserformatering | Formateringshjælper |
+| Forkert leverandørtolkning | Scoringsmodel |
+| Langsom rendering | Data-association / performance |
 
-Do not solve engine problems in the UI.
+Løs ikke engine-problemer i UI. Løs ikke UI-problemer ved at ændre domænelogik.
 
-Do not solve UI problems by changing domain logic.
+### Bevar laguafhængighed
 
----
-
-### 6.2 Preserve separation of concerns
-
-The following must remain separated:
-
-| Layer | Responsibility |
+| Lag | Ansvar |
 |---|---|
-| Domain / Engine | TCO, scoring, supplier evaluation |
-| DTO | Stable contract between engine and UI |
-| Razor UI | Render prepared data |
-| Formatting helpers | Browser-safe output formatting |
-| Tests / PoC | Prove deterministic behaviour |
+| Domain / Engine | TCO, scoring, leverandørevaluering |
+| DTO | Stabil kontrakt mellem engine og UI |
+| Razor UI | Renderer forberedt data |
+| Formateringshjælper | Browser-sikker outputformatering |
+| Tests / PoC | Beviser deterministisk adfærd |
 
-Cursor must not move calculations into Razor loops.
+### Før du ændrer noget, svar på disse spørgsmål
 
+1. Hvilket lag ejer problemet?
+2. Er DTO-kontrakten påvirket?
+3. Er rendering deterministisk?
+4. Er formatering browser-sikker?
+5. Er forklarbarhed bevaret?
+6. Er performance stadig acceptabel?
+7. Er ændringen testbar i isolation?
 
----
+Hvis svaret er uklart — stop og inspicer før du redigerer.
 
-### 6.3 Respect DTO Contract Stability
+Ingen tilfældige "prøv dette fix". Ingen UI-magi. Ingen skjulte beregninger i markup.
 
-DTO changes are breaking changes.
-
-Before changing any DTO used by the dashboard, Cursor must check:
-
-- which UI pages consume it
-- which services create it
-- which tests depend on it
-- whether existing mapping still works
-- whether calculation breakdown is preserved
-
-Any DTO change must include impact analysis.
-
-No silent DTO mutation. Det er sådan man får lort i ventilatoren.
+> Robust beslutningsstøttearkitektur først.
+> Flot dashboard bagefter.
+> AI-improvisation aldrig.
 
 ---
 
-### 6.4 Maintain Explainability
+## 10. Definition of Done — Systemsanering
 
-Calculation output must remain explainable.
-
-DTOs must preserve breakdown fields such as:
-
-```csharp
-CalculationBreakdown
-ScoreBreakdown
-CommercialScore
-TechnicalScore
-RegulatoryScore
-TcoImpact
-```
-
-The user must be able to understand why a supplier receives a given score.
-
-A dashboard that only shows a final number is not enough.
-
-
+| Princip | Status | Verifikation |
+|---|---|---|
+| Separation of Concerns | ✅ | UI-sider kalder services — ingen forretningsmatematik i Razor rendering-loops |
+| Single Responsibility | ✅ | `TcoEngineService.GetResults()` ejer spend/TCO/scoringslogik |
+| Testbarhed | ✅ | `/chart-test` er isoleret PoC for deterministisk rendering |
+| Domænemodellering | ✅ | DTOs definerer stabile grænser mellem engine og UI |
+| Deterministisk logik | ✅ | `FmtSvg` tvinger invariant formatering for SVG-attributter |
+| Forklarbarhed | ✅ | Beregningsoutput inkluderer breakdown-felter |
+| Idempotens | ✅ | Samme input producerer samme resultat uden UI-sideeffekter |
+| Observerbarhed | ✅ | SVG-tooltips forklarer score-drivere via native `<title>` |
+| Performance | ✅ | O(n) opslag implementeret for auditerede mapping-stier |
+| Kontrakt-stabilitet | ✅ | DTO-ændringer kræver UI impact-review |
 
 ---
 
-### 6.5 Keep Deterministic Rendering
+## 11. Diagrammer
 
-Same input must produce same output.
-
-No hidden UI side effects.
-
-No random ordering.
-
-No culture-dependent formatting.
-
-No calculation drift inside rendering loops.
-
-Required:
-
-```text
-same session + same supplier data + same settings = same dashboard result
-```
-
----
-
-### 6.6 Performance Is Part of Architecture
-
-Performance is not an afterthought.
-
-Core dashboard lookups must avoid repeated nested scans where possible.
-
-Prefer O(n) association using dictionaries/lookups when matching:
-
-- suppliers
-- line evaluations
-- score breakdowns
-- calculation outputs
-- dashboard items
-
-Avoid accidental O(n²) logic in dashboard preparation.
-
-If a change touches mapping or aggregation, Cursor must review lookup complexity.
-
-
-
----
-
-## 7. Definition of Done — System Sanitization
-
-| Principle | Status | Verification |
-|---|---:|---|
-| Separation of Concerns | ✅ | UI pages call services; no business math in Razor rendering loops |
-| Single Responsibility | ✅ | `TcoEngineService.GetResults(session, suppliers)` owns spend/TCO/scoring logic |
-| Testability | ✅ | `/chart-test` remains isolated PoC for deterministic rendering |
-| Domain Modelling | ✅ | DTOs define stable boundaries between engine and UI |
-| Deterministic Logic | ✅ | `FmtSvg` forces invariant formatting for SVG attributes |
-| Explainability | ✅ | Calculation output includes breakdown fields |
-| Idempotence | ✅ | Same inputs produce same result without UI side effects |
-| Observability | ✅ | SVG tooltips explain score drivers via native `<title>` |
-| Performance | ✅ | O(n) lookups implemented for audited mapping paths |
-| Contract Stability | ✅ | DTO changes require UI impact review |
-
----
-
-## 8. Final Status
-
-The dashboard architecture has been audited, cleaned and performance-optimised.
-
-Manual unstable rendering was replaced with deterministic Razor markup.
-
-Culture-sensitive SVG formatting was isolated behind invariant formatting.
-
-DTO boundaries were strengthened.
-
-Decision logic was moved back into the engine/service layer.
-
-The result is no longer just a visual dashboard.
-
-It is a structured TCO decision-support component.
-
-
----
-
-## 9. Mermaid — Refactoring Flow
+### Refaktoreringsflow
 
 ```mermaid
 flowchart TD
-    A[START: Visual chaos and broken chart rendering] --> B{Critical system analysis}
-    B --> C[Isolation: Build clean PoC in /chart-test]
-    C --> D{Does clean DTO render correctly?}
-    D -- Yes --> E[Root cause confirmed in UI architecture]
-    D -- No --> X[Investigate engine and DTO model]
-    E --> F[Identify culture mismatch and sequence instability]
-    F --> G[Refactor to Razor markup and DTO-driven rendering]
-    G --> H[Apply InvariantCulture via FmtSvg]
-    H --> I[Audit DTO contracts and service boundaries]
-    I --> J[Optimise mapping and lookup performance]
-    J --> K[RESULT: Deterministic, explainable and scalable dashboard]
+    A[START: Visuelt kaos og brudt chart-rendering] --> B{Kritisk systemanalyse}
+    B --> C[Isolation: Byg ren PoC i /chart-test]
+    C --> D{Kan rent DTO rendere korrekt?}
+    D -- Ja --> E[Rodårsag bekræftet i UI-arkitektur]
+    D -- Nej --> X[Undersøg engine og DTO-model]
+    E --> F[Identificér kulturmismatch og sekvensinstabilitet]
+    F --> G[Refaktorér til Razor markup og DTO-drevet rendering]
+    G --> H[Anvend InvariantCulture via FmtSvg]
+    H --> I[Audit DTO-kontrakter og servicegrænser]
+    I --> J[Optimér mapping og opslags-performance]
+    J --> K[RESULTAT: Deterministisk, forklarbart og skalerbart dashboard]
 ```
 
----
-
-## 10. Mermaid — Current Architecture
+### Nuværende arkitektur
 
 ```mermaid
 flowchart LR
-    S[Session and Tender Inputs] --> E[TcoEngineService]
-    E --> O[TCO and Score Output]
-    O --> D[Dashboard DTO with Breakdown]
+    S[Session og Tender Input] --> E[TcoEngineService]
+    E --> O[TCO og Score Output]
+    O --> D[Dashboard DTO med Breakdown]
     D --> R[Razor Dashboard]
-    R --> U[User Decision Support]
+    R --> U[Brugerens Beslutningsstøtte]
 ```
 
 ---
 
-## 11. Cursor Instruction
+# DEL 3 — Personlig refleksion
 
-When working on this area, Cursor must behave as an architecture assistant, not a patch generator.
+## 12. Hvad overraskede mig mest?
 
-Before changing code, Cursor must answer:
+Det mest overraskende var hvor hurtigt teknisk gæld akkumulerer i AI-assisteret udvikling — og at det sker *på trods af* at AI er med.
 
-1. Which layer owns the problem?
-2. Is the DTO contract affected?
-3. Is rendering deterministic?
-4. Is formatting browser-safe?
-5. Is explainability preserved?
-6. Is performance still acceptable?
-7. Is the change testable in isolation?
+Den intuitive forventning er at AI hjælper med at undgå fejl. Den faktiske erfaring er den modsatte: AI gør det muligt at producere fejl hurtigere og i større skala.
 
-If the answer is unclear, Cursor must stop and inspect before editing.
+En menneskelig udvikler bruger måske en time på at skrive 100 linjer teknisk gæld. Med AI kan man producere 500 linjer på 10 minutter — inklusive arkitektoniske fejl der ser rigtige ud, kompilerer og umiddelbart virker.
 
-No random “try this fix”.
+Det konkrete eksempel fra dette projekt: `RenderTreeBuilder`-problemet og kulturmismatch-fejlen opstod ikke fordi AI var dum. De opstod fordi AI ikke kendte systemets kontekst, arkitekturens regler eller de implicitte antagelser i den eksisterende kode.
 
-No UI magic.
+**AI genererer plausibel kode — ikke nødvendigvis korrekt kode.**
 
-No hidden calculations in markup.
+Hastighed uden styring er ikke en fordel. Det er en accelerator for kaos.
 
-No reintroducing `RenderTreeBuilder` unless explicitly justified.
+---
 
-The goal is simple:
+## 13. Hvad ville jeg gøre anderledes?
 
-> Robust decision-support architecture first.  
-> Pretty dashboard second.  
-> AI improvisation never.
+Jeg ville starte med strukturen frem for koden. Konkret:
+
+### Spec-Driven Development (SDD) fra dag 1
+
+Ingen kode før specifikationen er på plads. `spec.md` skal eksistere og være godkendt før en eneste linje domænelogik skrives. AI-agenten skal arbejde ud fra specifikationen — ikke opfinde sin egen fortolkning af hvad systemet skal gøre.
+
+### `.cursorrules` som første fil i projektet
+
+Ikke som en efterrationalisering når kaos er opstået — men som det første dokument der definerer spillereglerne. Arkitekturgrænser, navnekonventioner, forbudte mønstre og feedbackstruktur skal være på plads før AI-agenten skriver sin første linje.
+
+### Separation of Concerns som arkitektonisk udgangspunkt
+
+Definér lagene eksplicit fra starten: hvad ejer motoren, hvad ejer DTOs, hvad ejer UI. Skriv det ned. Giv det til AI-agenten som kontekst. En AI der kender lagstrukturen vil respektere den — en AI der ikke kender den vil blande det hele sammen.
+
+### Test-Driven Development — stol aldrig blindt på AI-output
+
+En AI-agent siger aldrig "jeg er usikker". Den producerer altid et svar der lyder overbevisende. TDD er den eneste måde at verificere at svaret faktisk er korrekt. Skriv testen først. Lad AI implementere. Kør testen. Gentag. *Never trust an AI.*
+
+### Use case-modellering som fundament
+
+Før systemet designes, skal use cases, aktører og flows dokumenteres eksplicit. Det er det abstraktionsniveau der tvinger én til at tænke i *hvad* systemet skal gøre — ikke i *hvordan* det skal implementeres.
+
+Et godt eksempel på denne tilgang fra et andet projekt:
+
+> *"Dokumentet kombinerer visuelle modeller — use case- og domænemodeller — med specifikke FURPS+ krav for at illustrere hvordan fysiske enheder interagerer med komplekse backend-systemer. Formålet er at skabe en enkel brugeroplevelse, mens systemet håndterer dataopsamling, fejlretning og logistik i baggrunden."*
+
+Det er præcis den tilgang der manglede i starten af dette projekt. En use case tvinger én til at tænke i aktører, handlinger og systemgrænser — ikke i klasser og metoder. Det er det rigtige abstraktionsniveau at starte på.
+
+---
+
+## 14. Hvad dette fortæller om AI-assisteret softwareudvikling
+
+Tre centrale erkendelser fra dette forløb:
+
+### AI kræver domæneviden hos udvikleren
+
+AI kan kode hvad den bliver bedt om. Men hvis udvikleren ikke ved hvad der skal kodes — og hvorfor — vil AI producere teknisk korrekt kode der løser det forkerte problem.
+
+I dette projekt: AI kunne sagtens generere SVG-rendering. Men uden forståelse for at SVG kræver `InvariantCulture`, eller at `RenderTreeBuilder` kræver stabile sekvensnumre, producerede AI kode der så rigtig ud men var arkitektonisk forkert.
+
+Man skal vide noget om domænet. Ellers koder AI hvad den *mener* er korrekt — ikke hvad der *er* korrekt.
+
+### AI kræver systematisk styring — ikke tillid
+
+"Never trust an AI" er ikke en negativ holdning til teknologien. Det er en professionel tilgang til kvalitetssikring.
+
+AI-output skal verificeres — gennem tests, code review og arkitektoniske guardrails. `.cursorrules` i dette projekt er et eksempel på systematisk styring: AI-agenten får eksplicitte regler for hvad der er tilladt og forbudt, ikke blot en åben invitation til at kode frit.
+
+Grundigt forarbejde er ikke spild af tid. Det er forudsætningen for at AI-assisteret udvikling kan fungere uden at producere kaos.
+
+### Kvalitetssikring af input er afgørende
+
+Det gælder ikke kun for kode. Det gælder for alle data AI arbejder med.
+
+Uden korrekte, validerede og veldefinerede input — hvad enten det er en specifikation, et Excel-ark eller en arkitekturgrænse — vil AI interpolere og gætte. Og AI gætter overbevisende. Det er præcis det der gør ukontrolleret AI-output farligt.
+
+I PackagingTenderTool er Excel-importrobusthed et konkret eksempel: uensartede kolonnenavne, kulturafhængige talformater og manglende data får systemet til at fejle — ikke fordi motoren er forkert, men fordi inputdata ikke er kvalitetssikret tilstrækkeligt.
+
+---
+
+> AI er et værktøj der forstærker det du bringer til bordet.
+>
+> Bringer du struktur, forstærker AI struktur.
+>
+> Bringer du kaos, forstærker AI kaos.
