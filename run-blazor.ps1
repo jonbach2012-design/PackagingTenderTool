@@ -22,4 +22,5 @@ Write-Host "Starting Packaging Tender Decision Engine (PTD-E)..." -ForegroundCol
 Write-Host "Open your browser at: https://localhost:7144" -ForegroundColor Cyan
 Write-Host ""
 
+Start-Process "https://localhost:7144"
 dotnet run --project .\src\PackagingTenderTool.Blazor\PackagingTenderTool.Blazor.csproj
