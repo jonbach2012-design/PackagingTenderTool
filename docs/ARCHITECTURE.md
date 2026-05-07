@@ -1,7 +1,5 @@
 # Architecture — PackagingTenderTool
 
- <!-- AUDIENCE: Developer / AI agent | OWNER: docs/ARCHITECTURE.md --> <!-- Source of truth for system orientation. Detail lives in docs/spec.md. --> 
-
 ## What This Is
 
 PackagingTenderTool is a **decision engine**, not a reporting tool. It takes raw supplier tender data, applies configurable scoring logic across commercial, technical, and regulatory dimensions, and produces ranked, explainable, audit-ready output.

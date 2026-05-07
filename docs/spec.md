@@ -1,7 +1,5 @@
 PackagingTenderTool Specification
 
-
-
 1. Purpose
 
 PackagingTenderTool is intended to support structured evaluation of packaging tenders in a way that is more reusable, transparent, and explainable than a spreadsheet-only process.
@@ -19,29 +17,34 @@ Version 1 focuses on one packaging profile at a time, with Labels as the first s
 
 For at sikre fuld gennemsigtighed i beslutningsprocessen følger systemet et lineært dataflow, hvor brugerens strategiske vægtning (Weights) og de faktuelle leverandørdata (TCO) smeltes sammen i beregningsmotoren.
 
-graph TD subgraph Input_Layer [Data Input] A[Supplier Excel/JSON] --> B[Raw Supplier Data] C[User Sliders] --> D[Session Weights %] end
+```mermaid
+graph TD
+    subgraph Input_Layer [Data Input]
+        A[Supplier Excel/JSON] --> B[Raw Supplier Data]
+        C[User Sliders] --> D[Session Weights %]
+    end
 
+    subgraph Processing_Layer [TCO Engine Service]
+        B --> E{Calculation Engine}
+        D --> E
+        E --> F[TCO Math: Spend + Penalties]
+        E --> G[Scoring Strategy: Relative to Best]
+        E --> H[Explainability: Breakdown Generator]
+    end
+
+    subgraph Output_Layer [Blazor Dashboard]
+        F --> I[SVG Bar: Financials]
+        G --> J[SVG Opacity: Strategic Match]
+        H --> K[Interactive Tooltips: Why?]
+    end
+
+    I & J & K --> L((Decision Maker))
+
+    style E fill:#f9f,stroke:#333,stroke-width:2px
+    style L fill:#91a363,stroke:#333,stroke-width:2px
 ```
-subgraph Processing_Layer [TCO Engine Service]
-    B --> E{Calculation Engine}
-    D --> E
-    E --> F[TCO Math: Spend + Penalties]
-    E --> G[Scoring Strategy: Relative to Best]
-    E --> H[Explainability: Breakdown Generator]
-end
 
-subgraph Output_Layer [Blazor Dashboard]
-    F --> I[SVG Bar: Financials]
-    G --> J[SVG Opacity: Strategic Match]
-    H --> K[Interactive Tooltips: Why?]
-end
 
-I & J & K --> L((Decision Maker))
-
-style E fill:#f9f,stroke:#333,stroke-width:2px
-style L fill:#91a363,stroke:#333,stroke-width:2px
-
-```
 
 Dette flow sikrer, at hver visuel ændring i dashboardet kan spores direkte tilbage til enten en ændring i input-data eller en justering af den strategiske prioritering.
 
