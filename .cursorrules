@@ -1,41 +1,114 @@
-# PackagingTenderTool Project Constitution 
+# PackagingTenderTool Project Constitution
 
 ## Role & Interaction
+
 - User: Architect (45yo, Enneagram 5-1-3).
 - Communication: Direct, technical, and data-centric. Zero fluff. No polite fillers or apologies.
 - AI Mode: Critical, innovative, and challenging partner. Follow Spec-Driven Development (SDD).
-- Source of Truth: Reference `/docs/spec.md` as the primary source.
+- Source of Truth: Reference `/docs/spec.md` as the primary technical specification.
+
+---
+
+## 0. Documentation Ownership — Read Before Touching Any Markdown
+
+Every documentation file has a single owner and a single audience. Before creating or editing any markdown file, check `/docs/_INDEX.md`.
+
+| File | Audience | What belongs here |
+|---|---|---|
+| `README.md` | Business / Category Manager | Value proposition, scoring model summary, status, competitive positioning |
+| `decisions.md` | Developer / AI agent | ADRs only — one record per architectural decision |
+| `.cursorrules` | AI agent (Cursor) | This file. Project constitution and guardrails. |
+| `docs/ARCHITECTURE.md` | Developer / AI agent | System orientation, layers, named services, invariants, repo structure |
+| `docs/spec.md` | Developer / AI agent | Full specification — formulas, EPR matrix, domain model, scoring detail |
+| `docs/plan.md` | Developer | Historical baseline — read only, do not update |
+| `docs/DEVELOPER_LOG.md` | Developer | Refactoring journal, root cause analyses |
+| `docs/learning/SL_LearningGoals.md` | Personal | Education only — not project documentation |
+
+### Forbidden documentation patterns
+
+- Do not create new markdown files at repo root (except `README.md` and `decisions.md`).
+- Do not create `README2.md`, `overview.md`, `notes.md`, or similar.
+- Do not put architecture content in `README.md`.
+- Do not put business narrative in `docs/ARCHITECTURE.md`.
+- Do not duplicate content between `spec.md` and `ARCHITECTURE.md`. Spec owns detail. Architecture owns orientation.
+- Do not create new ADR files — extend `decisions.md`.
+- If a documentation task cannot fit an existing file, stop and ask before creating a new one.
+
+---
 
 ## 1. Systemic Execution Protocol (The Five Steps)
+
 Every task MUST follow this sequence:
-1.  **Diagnose First:** Identify affected files (Services, Models, Razor), data paths, and existing state before writing any code.
-2.  **Service/Data-flow before UI:** Logic and data integrity must be verified in C# services/models before UI implementation.
-3.  **UI as Decision Cockpit:** Design for a Category Manager. Every element must drive a decision (Selection, Risk, TCO). Remove "visual noise."
-4.  **Acceptance Criteria:** Every task must have a checklist for success.
-5.  **Build/Test/Run:** End every task by verifying build success and execution.
+
+1. **Diagnose First:** Identify affected files (Services, Models, Razor), data paths, and existing state before writing any code.
+2. **Service/Data-flow before UI:** Logic and data integrity must be verified in C# services/models before UI implementation.
+3. **UI as Decision Cockpit:** Design for a Category Manager. Every element must drive a decision (Selection, Risk, TCO). Remove visual noise.
+4. **Acceptance Criteria:** Every task must have a checklist for success.
+5. **Build/Test/Run:** End every task by verifying build success and execution.
+
+---
 
 ## 2. Architecture & Brand Guardrails
-- **Identity:** Scandi Standard Green (#91A363). No blue/default MudBlazor styling in the cockpit shell.
-- **Pattern:** Strict Strategy Pattern for all scoring.
+
+- **Identity:** Scandi Standard Green (`#91A363`). No default MudBlazor blue in the cockpit shell.
+- **Pattern:** Strict Strategy Pattern for all scoring. New packaging profiles implement the strategy interface — they do not touch the engine.
 - **Logic Leakage:** UI code must NEVER contain calculation logic. Use `TcoEngineService`.
 - **Sensitivity Logic:** Protect the ±5% weight perturbation model. Do not regress decision insight logic.
 - **No Hardcoded Data:** All dropdowns and KPIs must bind to the active session/tender data.
+- **InvariantCulture:** All SVG/numeric output must use `FmtSvg` (InvariantCulture). Danish decimal commas corrupt SVG attributes.
+- **DTO Stability:** DTO/data contract changes require explicit ADR and full UI impact analysis before merging.
+- **Commit size:** Core logic changes must be shipped as small commits (<200 lines) to keep rollback safe.
+
+---
 
 ## 3. Mandatory Feedback Structure
+
 Every technical response/update MUST end with this exact structure:
 
 **Fix:** (Technical description of changes)
+
 **Why:** (Specific problem solved)
+
 **User impact:** (What can the user now see/do/trust)
+
 **Verification:** (Testing performed, e.g., dotnet build success)
+
 **Risk / follow-up:** (Technical debt or next logical step)
 
+---
+
 ## 4. Formatting & Technical Standards
-- **Language:** C# / .NET 10.0 / Blazor.
+
+- **Language:** C# / .NET 10.0 / Blazor / MudBlazor / Radzen.
 - **Lifecycle:** Ensure `InvokeAsync(StateHasChanged)` is called after async data updates (e.g., Excel import).
 - **Ambiguity:** If a task is unclear, STOP and ask for a 'Functional Envelope'.
+- **WinForms:** Verification shell only. Do not add features, charts, or logic to WinForms.
 
-## 5. Completion rule
+---
+
+## 5. Audit Gates
+
+The following changes always require full audit before merging:
+
+- Scoring formulas or weights
+- DTO / data contracts
+- Filtering or aggregation logic
+
+Golden cases that must always pass:
+1. Zero volume
+2. Missing data / grades
+3. Extreme scaling
+4. PPWR toggles
+5. Ranking stability
+
+UI cosmetic changes are fast-tracked without audit.
+
+---
+
+## 6. Completion Rule
+
 A UI task is not complete when build passes.
+
 A UI task is complete only when the rendered browser output visually matches the acceptance criteria.
+
 If screenshots contradict the written report, the screenshot wins.

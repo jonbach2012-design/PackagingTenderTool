@@ -1,109 +1,121 @@
 # 📦 Packaging Tender Decision Engine (PTD-E)
 
-Emballageudbud afgøres stadig primært af én ting: enhedsprisen. Det er forkert – og det er dyrt.
+> Packaging tenders are still decided primarily on unit price. That is wrong — and expensive.
 
-PTD-E er en beslutningsmotor, der erstatter Excel-baseret udbudsevaluering med en struktureret, audit-klar og deterministisk proces. Den er bygget til de krav, emballagekategorien stiller i dag: præcis TCO, PPWR-compliance og robust håndtering af ufuldstændige data.
+PTD-E replaces Excel-based tender evaluation with a structured, audit-ready, and deterministic decision engine. It is built for the demands packaging category managers face today: precise TCO, PPWR compliance, and robust handling of incomplete supplier data.
 
-**Laveste pris vinder ikke automatisk. Regulatoriske og tekniske faktorer kan og bør overstige kortsigtede prisbesparelser.**
-
----
-
-## Problemet det løser
-En typisk emballageudbudsevaluering i Excel:
-- Sammenligner enhedspriser – ikke reel totalomkostning.
-- Overser EPR-afgifter og PPWR-strafomkostninger, der materialiserer sig 12-24 måneder efter kontraktindgåelse.
-- Er afhængig af individuel ekspertviden, der ikke kan auditeres eller gentages.
-- Giver ingen sporbarhed fra beslutning til datagrundlag.
+**Lowest price does not automatically win. Regulatory and technical factors can and should outweigh short-term savings.**
 
 ---
 
-## Forretningsværdi
+## The Problem It Solves
 
-**Total Cost of Ownership – ikke enhedspris**
-Systemet indregner automatisk EPR-afgifter, CO₂-straffe og logistiktillæg baseret på faktiske spend-data. Det gør den "billige" leverandør synlig for, hvad den reelt koster.
+A typical packaging tender evaluation in Excel:
 
-**What-if simulering i realtid**
-Interaktive vægtnings-sliders lader brugeren øjeblikkeligt se, hvordan leverandørrankingen ændrer sig, hvis genanvendelighed prioriteres over pris – eller omvendt. 
-
-**Deterministisk håndtering af dårlig data**
-Ufuldstændige tilbud "glider ikke igennem". Manglende data udløser automatisk maksimal straftakst. Indkøberen beskyttes mod skjulte compliance-risici.
+- Compares unit prices — not real total cost of ownership.
+- Misses EPR fees and PPWR penalties that materialise 12–24 months after contract.
+- Depends on individual expertise that cannot be audited or repeated.
+- Provides no traceability from decision back to data.
 
 ---
 
-## Evalueringsmodel
+## Business Value
 
-Tre dimensioner med konfigurerbare vægte pr. udbud:
+**Total Cost of Ownership — not unit price** The engine automatically includes EPR fees, CO₂ penalties, and logistics surcharges based on actual spend data. It makes the "cheap" supplier visible for what it actually costs.
 
-| Dimension  | Standardvægt | Indhold |
-|:-----------|:-------------|:-----------------------------------|
-| Commercial | 30%          | Pris, spend-vægtet TCO |
-| Technical  | 30%          | Specifikationsmatch, linjeevaluering |
-| Regulatory | 40%          | EPR-afgifter, PPWR-score |
+**What-if simulation in real time** Interactive weight sliders let the user instantly see how supplier rankings shift if sustainability is prioritised over price — or vice versa.
 
----
+**Deterministic handling of bad data** Incomplete bids do not slip through. Missing data triggers automatic maximum penalty. The buyer is protected from hidden compliance risk.
 
-
-## Arkitektur & Dataflow
-
-```mermaid
-graph TD
-    subgraph Input
-        A[Leverandør Excel/JSON] --> B[Raw Data]
-        C[Bruger: Vægt-sliders] --> D[Session Weights]
-    end
-    subgraph Engine
-        B --> E{TcoEngineService}
-        D --> E
-        E --> F[TCO: Spend + Penalties]
-        E --> G[Scoring: Relativ til bedste]
-        E --> H[Breakdown: Forklaringsmodel]
-    end
-    F & G & H --> L((Beslutningstageren))
-
-
-
-## Teknisk Fundament
-
-| Teknologi | Rolle |
-|:---|:---|
-| **.NET 10.0** | Performance og C# 13 |
-| **Blazor/Radzen** | Real-time What-if via SignalR |
-| **NSubstitute** | Test af logik uden Excel-afhængighed |
-| **GitHub Actions** | Automatiseret CI/CD (Windows Runner) |
-| **Solution** | PackagingTenderTool.sln |
-
-
-## Roadmap: Fremtidig Værdiskabelse
-
-* **Fase 1:** Validering mod reel tender i produktionskategori.
-* **Fase 2:** **Dynamic Indexation Library**. Integration til PIX, ICIS og Platts for hedging af råvarerisici.
-* **Fase 3:** **Supplier Risk Library** & **Design for Circularity Index**.
-
-
-### Pålidelighed: Golden Cases
-
-74 deterministiske testscenarier verificerer, at motoren håndterer virkelighedens ufuldkomne data korrekt:
-* **Zero Volume & Extreme Scaling**
-* **Missing Data / Grades**
-* **PPWR Toggles & Ranking Stability**
-
-## Architectural Decision Records (ADR)
-
-* **ADR 001 – SoC:** Al matematik isoleret i `TcoEngineService`. UI viser kun data.
-* **ADR 002 – Deterministisk SVG:** `InvariantCulture` (FmtSvg) eliminerer fejl fra decimalkommaer.
-* **ADR 003 – Blazor Frontend:** Migreret fra WinForms for real-time interaktivitet.
-* **ADR 004 – Config Isolation:** Afgiftsdata er isoleret i `/config`.
-* **ADR 005 – 80/20 Auditstrategi:** Fuld audit obligatorisk ved ændringer i formler.
-
-
-## AI Governance (.cursorrules)
-
-Projektet er født med arkitektoniske guardrails for AI-assisteret udvikling. ADR'erne fungerer som "Source of Truth" for alle fremtidige ændringer.
+**Full traceability** Every score can be traced to the line-level data, the applied rules, and the active configuration version. No black boxes.
 
 ---
 
-## Installation
+## Scoring Model
 
-1. `dotnet restore`
-2. `dotnet test` (Verificér 74 tests)
-3. `dotnet run --project src/PackagingTenderTool.Blazor`
+Evaluation runs across three dimensions:
+
+
+| Dimension  | Default Weight | What it captures                          |
+| ---------- | -------------- | ----------------------------------------- |
+| Commercial | 30%            | Price, TCO, MOQ risk, switching cost      |
+| Technical  | 30%            | Specification match, material fit         |
+| Regulatory | 40%            | PPWR grade, EPR country fees, circularity |
+
+
+Weights are configurable per tender and adjustable in real time via the cockpit sliders.
+
+Regulatory carries the highest default weight because PPWR and EPR exposure creates financial risk for both supplier and buyer — not just a compliance checkbox.
+
+---
+
+## How Evaluation Works
+
+1. Supplier data is imported from a structured Excel template.
+2. Each line item is validated, cleaned, and normalised.
+3. Scoring runs at line level across all three dimensions.
+4. Line scores are aggregated to supplier level, weighted by spend.
+5. Suppliers are classified: **Recommended**, **Conditional**, or **Manual Review**.
+6. The cockpit surfaces rankings, TCO breakdown, and explainability tooltips.
+
+Incomplete or inconsistent data triggers **Manual Review** — it does not automatically exclude a supplier. The buyer decides.
+
+---
+
+## Scenario Analysis — What-If
+
+The engine supports scenario-based evaluation to answer forward-looking questions:
+
+- What happens to rankings if rPET replaces virgin PET at 50%?
+- What is the total cost impact if PPWR thresholds tighten next year?
+- Which supplier is most exposed to EPR fee increases in Denmark and Sweden?
+
+Each scenario recalculates scores and rankings in real time. Decisions become proactive, not reactive.
+
+---
+
+## Regulatory Coverage
+
+EPR fee calculation covers: **DK, SE, NO, FI, IE**
+
+PPWR grading: A (best) → E (worst), mapped to scoring impact.
+
+High-risk materials (e.g. multi-laminates in high-EPR countries) trigger automatic **High Cost Risk** flags.
+
+---
+
+## Competitive Position
+
+
+| Capability                  | Traditional e-Sourcing | Analytics Tools | PTD-E |
+| --------------------------- | ---------------------- | --------------- | ----- |
+| Tender process              | ✔                      | ✖               | ✔     |
+| Line-level evaluation       | ✖                      | ✖               | ✔     |
+| Packaging-specific logic    | ✖                      | ✖               | ✔     |
+| Regulatory (PPWR / EPR)     | Limited                | Partial         | ✔     |
+| Real-time scenario analysis | ✖                      | Limited         | ✔     |
+| Dynamic price modelling     | ✖                      | ✖               | ✔     |
+| Decision traceability       | Basic                  | ✖               | ✔     |
+
+
+---
+
+## Current Status
+
+- ✅ Labels packaging profile — fully implemented
+- ✅ Line-level evaluation with spend-weighted aggregation
+- ✅ Configurable scoring (30/30/40 default, slider-adjustable)
+- ✅ EPR fee matrix (DK, SE, NO, FI, IE)
+- ✅ PPWR grading and risk flagging
+- ✅ Blazor cockpit with real-time what-if sliders
+- ✅ Full audit trail — every score explained
+- 🔲 ERP / BI integration
+- 🔲 Additional packaging profiles (trays, cardboard)
+
+---
+
+## For Technical Documentation
+
+See `docs/ARCHITECTURE.md` for system architecture, service design, and development rules.
+
+See `docs/spec.md` for the full specification including scoring formulas, EPR matrix, and domain model.
