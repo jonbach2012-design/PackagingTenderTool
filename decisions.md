@@ -1,44 +1,64 @@
 # Decision Log
 
-## ADR 001 - SRP & Decoupling
+<!-- All architectural decisions live here. One file, in order.
+     Do not create separate ADR files. -->
 
-- Decision: Moved TCO math to `TcoEngineService.cs`.
-- Reason: Separation of concerns. Makes logic testable without UI and protects against rendering side-effects.
+## ADR-001 — SRP & Decoupling
 
-## ADR 003 - Migration to Blazor
+- **Status**: Done
+- **Context**: Calculation logic was leaking into UI components, making it untestable and fragile.
+- **Decision**: Moved all TCO math to `TcoEngineService.cs`. UI code must never contain calculation logic.
+- **Consequence**: Logic is testable without UI. Rendering side-effects are isolated. Enforced by `.cursorrules`.
 
-- Context: Need for interactive SVG and real-time What-if analysis.
-- Decision: Blazor is the primary UI direction for the tender cockpit experience.
-- Consequence: Enhanced UX (live sliders + SVG updates) and deterministic web rendering (stable DOM + tooltips).
+---
 
-## ADR 002 - Deterministic SVG
+## ADR-002 — Deterministic SVG Output
 
-- Decision: Forced `InvariantCulture` (`.`) via `FmtSvg` logic.
-- Reason: Prevents "Empty Bar" syndrome caused by Danish comma-decimals in SVG attributes.
+- **Status**: Done
+- **Context**: SVG attributes were corrupted by Danish decimal comma format, causing empty bars and diagonal text in the dashboard.
+- **Decision**: Forced `InvariantCulture` (`.`) for all SVG/numeric output via `FmtSvg` helper.
+- **Consequence**: Prevents "Empty Bar" syndrome. All SVG output is culture-independent and deterministic.
 
-## ADR 004 - Configuration Isolation
+---
 
-- Context: Clean architecture and safer configuration handling.
-- Decision: Move `epr-settings.json` into `/config`.
-- Consequence: Improved security posture (clear config boundary) and better project structure.
+## ADR-003 — Migration to Blazor
 
-## ADR 005 - 80/20 Audit Strategy
+- **Status**: Done
+- **Context**: WinForms could not support interactive SVG, real-time sliders, or browser-based stakeholder access. What-if analysis required live DOM updates.
+- **Decision**: Blazor is the primary UI direction for the tender cockpit. WinForms retained as a minimal verification shell only — no new development targets it.
+- **Consequence**: Enhanced UX (live weight sliders, SVG updates, tooltips). Deterministic web rendering. Stakeholder access without local install.
 
-- Decision: The hard “8-principles audit” is mandatory for TCO logic, calculation services, and data contracts (the 20% core). UI tweaks and cosmetic changes (the 80%) are fast-tracked without full audit.
-- Reason: Optimizes development time without compromising system integrity and decision validity.
+---
 
-### Audit Triggers (Mandatory)
+## ADR-004 — Configuration Isolation
 
-- Audit required when changing: **formulas**, **weighting**, **DTO/data contracts**, **filtering/aggregation**.
+- **Status**: Partially implemented — under review
+- **Context**: `epr-settings.json` at repo root creates ambiguity between runtime config and source code.
+- **Decision**: Move `epr-settings.json` into `/config` folder for clear config boundary.
+- **Consequence**: Improved security posture and cleaner project structure.
+- **Note**: File is currently still at repo root. Migration to `/config` is pending — see BACKLOG.md BACK-011.
 
-### Golden Cases (Always verify)
+---
 
-1. **Zero Volume**
-2. **Missing Data / Grades**
-3. **Extreme Scaling**
-4. **PPWR Toggles**
-5. **Ranking Stability**
+## ADR-005 — 80/20 Audit Strategy
 
-### Reversibility (Rollback discipline)
+- **Status**: Active
+- **Context**: Full audit on every change was slowing development without proportional benefit.
+- **Decision**: Mandatory audit applies only to the 20% core — formulas, weights, DTO/data contracts, filtering/aggregation. UI cosmetic changes are fast-tracked.
+- **Consequence**: Development speed preserved without compromising calculation integrity or frontend contracts.
 
-- Core-logic changes must be shipped as **small commits (<200 lines)** to keep rollback safe and fast.
+### Audit triggers — mandatory
+
+Audit required when changing: formulas, weighting, DTO/data contracts, filtering/aggregation.
+
+### Golden cases — always verify
+
+1. Zero volume
+2. Missing data / grades
+3. Extreme scaling
+4. PPWR toggles
+5. Ranking stability
+
+### Rollback discipline
+
+Core-logic changes must be shipped as small commits (<200 lines) to keep rollback safe and fast.
