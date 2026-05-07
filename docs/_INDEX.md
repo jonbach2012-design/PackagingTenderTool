@@ -47,7 +47,7 @@ Before creating a new documentation file:
 | `docs/BACKLOG.md` | Developer / Architect | Prioritised improvement backlog. Scored by value, priority, effort. Single source of truth for what is planned, in progress, and done. | English | ✅ Active — created 2026-05-07 |
 | `docs/spec.md` | Developer / AI agent | Full system specification. Scoring formulas, EPR matrix, domain model, strategy pattern, TCO calculation, normalization rules. Canonical technical reference. | English | ✅ Active — updated 2026-05-07 (Blazor marked current, WinForms retired) |
 | `docs/DEVELOPER_LOG.md` | Developer | Refactoring journal and engineering decisions. Root cause analyses, architecture sanitation records, lessons learned. Narrative format — not a reference doc. | English / Danish | ✅ Active — moved from root 2026-05-07 |
-| `docs/plan.md` | Developer | Historical baseline plan from early project phase. Records original scope, direction decisions, and implementation strategy. Read-only — do not update. | English | 📦 Historical — do not update |
+| `docs/plan_HISTORICAL.md` | Developer | Historical baseline plan from early project phase. Records original scope, direction decisions, and implementation strategy. Read-only — do not update. | English | 📦 Historical — do not update |
 | `docs/report.md` | Developer | Status report snapshot. Captures implemented state at a point in time. | English / Danish | 📦 Historical — review for archiving |
 
 ---
