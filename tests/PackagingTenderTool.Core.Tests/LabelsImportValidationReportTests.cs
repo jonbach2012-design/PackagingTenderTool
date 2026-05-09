@@ -26,7 +26,7 @@ public sealed class LabelsImportValidationReportTests
         Assert.Equal(2, issue.RowNumber);
         Assert.Equal("No. of colors", issue.ColumnName);
         Assert.Equal(ImportValidationSeverity.Warning, issue.Severity);
-        Assert.Contains("converted to 6", issue.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("is a range", issue.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("issue-warning", issue.SeverityClass);
     }
 

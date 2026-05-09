@@ -1,3 +1,5 @@
+using PackagingTenderTool.Core.Import;
+
 namespace PackagingTenderTool.Core.Models;
 
 public sealed class ManualReviewFlag
@@ -14,6 +16,8 @@ public sealed class ManualReviewFlag
 
     /// <summary>Optional hint shown in import validation UI (e.g. how to fix the cell).</summary>
     public string? SuggestedAction { get; set; }
+
+    public ImportValidationIssueType? IntendedIssueType { get; init; }
 }
 
 public enum ManualReviewSeverity

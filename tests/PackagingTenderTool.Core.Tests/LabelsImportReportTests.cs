@@ -54,7 +54,7 @@ public sealed class LabelsImportReportTests
         Assert.Equal(4, colorsIssue!.RowNumber);
         Assert.Equal("No. of colors", colorsIssue.ColumnName);
         Assert.Equal(ImportValidationIssueType.ManualReviewRequired, colorsIssue.IssueType);
-        Assert.Contains("converted to 6", colorsIssue.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("is a range", colorsIssue.Message, StringComparison.OrdinalIgnoreCase);
         var firstLine = result.Tender.LabelLineItems.First(i => i.ItemNo == "540119");
         Assert.Equal(6, firstLine.NumberOfColors);
         Assert.Equal("5 to 6", firstLine.OriginalColorsValue);

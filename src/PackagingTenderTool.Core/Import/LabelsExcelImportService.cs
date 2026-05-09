@@ -487,10 +487,8 @@ public sealed class LabelsExcelImportService
                 continue;
             }
 
-            var issueType = flag.Reason.Contains("converted to", StringComparison.OrdinalIgnoreCase)
-                            || flag.Reason.Contains("Please confirm", StringComparison.OrdinalIgnoreCase)
-                ? ImportValidationIssueType.ManualReviewRequired
-                : ImportValidationIssueType.InvalidCellValue;
+            var issueType = flag.IntendedIssueType 
+                            ?? ImportValidationIssueType.InvalidCellValue;
 
             issues.Add(new ImportValidationIssue
             {
@@ -718,12 +716,13 @@ public sealed class LabelsExcelImportService
             var upper = Math.Max(lo, hi);
             lineItem.OriginalColorsValue = sourceValue;
             var msg =
-                $"Row {excelRowNumber}, {col}: Value '{sourceValue}' was converted to {upper}. Please confirm.";
+                $"No. of colors: '{sourceValue}' is a range — stored as {upper} \n   for scoring. Verify the actual color count before approving.";
             lineItem.SourceManualReviewFlags.Add(new ManualReviewFlag
             {
                 FieldName = fieldName,
                 SourceValue = sourceValue,
                 Reason = msg,
+                IntendedIssueType = ImportValidationIssueType.ManualReviewRequired,
                 Severity = ManualReviewSeverity.Warning,
                 SuggestedAction = "Confirm the effective colour count in manual review before relying on scores."
             });
