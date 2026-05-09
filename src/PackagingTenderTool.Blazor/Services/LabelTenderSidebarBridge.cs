@@ -15,6 +15,9 @@ public sealed class LabelTenderSidebarBridge
     /// <summary>Last uploaded Excel file name (sidebar display).</summary>
     public string LastImportedFileName { get; set; } = string.Empty;
 
+    /// <summary>Main label-tender tab from query (<c>dashboard</c>, <c>settings</c>, …).</summary>
+    public string ActiveTab { get; set; } = "dashboard";
+
     /// <summary>Latest structured import validation (blocking failures, row corrections, warnings).</summary>
     public ImportValidationReport? LastImportValidationReport { get; set; }
 

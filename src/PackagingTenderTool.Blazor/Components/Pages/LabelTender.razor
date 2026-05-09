@@ -2,6 +2,7 @@
 @implements IDisposable
 
 @using System.Globalization
+@using System.Linq
 @using System.Collections.Concurrent
 @using PackagingTenderTool.Core.Models
 @using PackagingTenderTool.Core.Services.LabelTenderScoring
@@ -60,9 +61,110 @@
 else
 {
     <MudStack Spacing="6" Class="cockpit-main-stack cockpit-page-main">
-                <div>
-                    <MudText Typo="Typo.h4" Class="cockpit-page-title mb-1">Packaging Tender Decision Cockpit</MudText>
+                <div class="cockpit-topbar-info">
+                    @if (_importedLineItems.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="cockpit-muted">@SidebarBridge.LastImportedFileName · @_importedLineItems.Count linjer · @(_suppliersAll.Count) leverandører</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="cockpit-muted">Importer en Excel-fil for at komme i gang</MudText>
+                    }
                 </div>
+
+                @if (_activeTab == "settings")
+                {
+                    <MudText Typo="Typo.h6" Class="mb-4">Scoring konfiguration</MudText>
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="4">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Kommerciel</b></MudText>
+                                    <MudDivider Class="mb-3" />
+                                    <MudStack Spacing="2">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                            <MudText Typo="Typo.body2">Vægt</MudText>
+                                            <MudText Typo="Typo.body2"><b>@Session.Commercial%</b></MudText>
+                                        </MudStack>
+                                        <MudSlider T="int" Min="0" Max="100" Step="5"
+                                                   Value="@Session.Commercial"
+                                                   ValueChanged="@(v => { Session.SetCommercial(v); RefreshData(); StateHasChanged(); })"
+                                                   Color="Color.Success" />
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Valuta</MudText><MudText Typo="Typo.body2"><b>DKK</b></MudText></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Prisindeks</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">MOQ justering</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Teknisk</b></MudText>
+                                    <MudDivider Class="mb-3" />
+                                    <MudStack Spacing="2">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                            <MudText Typo="Typo.body2">Vægt</MudText>
+                                            <MudText Typo="Typo.body2"><b>@Session.Technical%</b></MudText>
+                                        </MudStack>
+                                        <MudSlider T="int" Min="0" Max="100" Step="5"
+                                                   Value="@Session.Technical"
+                                                   ValueChanged="@(v => { Session.SetTechnical(v); RefreshData(); StateHasChanged(); })"
+                                                   Color="Color.Success" />
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Profil</MudText><MudText Typo="Typo.body2"><b>Labels v1</b></MudText></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Leverandør risiko</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Cirkularitet index</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Regulatorisk</b></MudText>
+                                    <MudDivider Class="mb-3" />
+                                    <MudStack Spacing="2">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                            <MudText Typo="Typo.body2">Vægt</MudText>
+                                            <MudText Typo="Typo.body2"><b>@Session.Regulatory%</b></MudText>
+                                        </MudStack>
+                                        <MudSlider T="int" Min="0" Max="100" Step="5"
+                                                   Value="@Session.Regulatory"
+                                                   ValueChanged="@(v => { Session.SetRegulatory(v); RefreshData(); StateHasChanged(); })"
+                                                   Color="Color.Success" />
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">PPWR multiplier</MudText><MudText Typo="Typo.body2"><b>Aktiv</b></MudText></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">EPR fee model</MudText><MudText Typo="Typo.body2"><b>Standard</b></MudText></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">PPWR Risk index</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Tender konfiguration</b></MudText>
+                                    <MudDivider Class="mb-3" />
+                                    <MudGrid Spacing="2">
+                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Tender navn</MudText><MudText Typo="Typo.body2"><b>@(SidebarBridge.LastImportedFileName ?? "—")</b></MudText></MudStack></MudItem>
+                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Pakkeprodukt profil</MudText><MudText Typo="Typo.body2"><b>Labels v1</b></MudText></MudStack></MudItem>
+                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Scenario analyse</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack></MudItem>
+                                    </MudGrid>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                }
+                else if (_importedLineItems.Count == 0)
+                {
+                    <div class="cockpit-empty-state">
+                        <MudIcon Icon="@Icons.Material.Outlined.UploadFile" 
+                                 Style="font-size:72px;" />
+                        <MudText Typo="Typo.h5">Ingen data importeret endnu</MudText>
+                        <MudText Typo="Typo.body1">Brug <strong>Vælg Excel-fil</strong> i venstre side for at importere en tender</MudText>
+                    </div>
+                }
+                else
+                {
 
                 <MudGrid Spacing="4" Class="decision-kpi-grid">
                     <MudItem xs="12" sm="6" lg="3">
@@ -270,6 +372,41 @@ else
                 </MudTabPanel>
 
                 <MudTabPanel Text="Evidence table">
+                    @if (SidebarBridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
+                    {
+                        <MudPaper Elevation="0" Class="mb-4 pa-3" Style="border: 1px solid var(--mud-palette-error); border-radius: 8px;">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Error" Class="mb-2">
+                                Import fejl (@SidebarBridge.LastImportValidationReport.Issues.Count(i => i.Severity == ImportValidationSeverity.Error))
+                            </MudText>
+                            <MudSimpleTable Dense="true" Striped="true" Bordered="true">
+                                <thead>
+                                    <tr>
+                                        <th>Række</th>
+                                        <th>Kolonne</th>
+                                        <th>Råværdi</th>
+                                        <th>Problem</th>
+                                        <th>Alvorlighed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var issue in SidebarBridge.LastImportValidationReport.Issues
+                                        .Where(i => i.Severity == ImportValidationSeverity.Error)
+                                        .OrderBy(i => i.RowNumber))
+                                    {
+                                        <tr>
+                                            <td>@issue.RowNumber</td>
+                                            <td>@issue.ColumnName</td>
+                                            <td><code>@issue.RawValue</code></td>
+                                            <td>@issue.Message</td>
+                                            <td style="color: @(issue.Severity == ImportValidationSeverity.Error ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")">
+                                                @issue.Severity
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+                    }
                     <MudPaper Elevation="0" Outlined="true" Class="cockpit-slicer-bar pa-4 mt-4">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="cockpit-slicer-stack">
                             <MudTextField @bind-Value="_tableSearch"
@@ -688,6 +825,7 @@ else
                     </MudPaper>
                 </MudTabPanel>
             </MudTabs>
+                }
     </MudStack>
 }
 
@@ -711,6 +849,8 @@ else
     private SupplierPillarAnalysisRow? _tableSelectedRow;
 
     private int _activePanelIndex = 0;
+
+    private string _activeTab = "dashboard";
 
     private string _filterCountry = string.Empty;
     private string _filterSite = string.Empty;
@@ -772,10 +912,7 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Nav.Uri.Contains("#audit", StringComparison.OrdinalIgnoreCase))
-            _activePanelIndex = 3;
-        else
-            SyncTabFromUri();
+        SyncTabFromUri();
     }
 
     private void OnNavLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -821,17 +958,28 @@ else
             _ => "dashboard"
         };
 
+        _activeTab = tab;
         Nav.NavigateTo($"/labeltender?tab={tab}", replace: true);
     }
 
     private void SyncTabFromUri()
     {
         var uri = Nav.Uri;
+        if (uri.Contains("#audit", StringComparison.OrdinalIgnoreCase))
+        {
+            _activeTab = "audit";
+            _activePanelIndex = 3;
+            SyncSidebarBridge();
+            return;
+        }
+
         var qIdx = uri.IndexOf('?', StringComparison.Ordinal);
         var query = qIdx >= 0 ? uri[qIdx..] : string.Empty;
         if (!query.Contains("tab=", StringComparison.OrdinalIgnoreCase))
         {
+            _activeTab = "dashboard";
             _activePanelIndex = 0;
+            SyncSidebarBridge();
             return;
         }
 
@@ -842,20 +990,29 @@ else
                 continue;
 
             var raw = Uri.UnescapeDataString(kv[1]);
-            _activePanelIndex = raw.ToLowerInvariant() switch
+            var t = raw.ToLowerInvariant();
+            _activeTab = t switch
+            {
+                "dashboard" or "matrix" or "evidence" or "audit" or "settings" => t,
+                _ => "dashboard"
+            };
+            _activePanelIndex = t switch
             {
                 "dashboard" => 0,
                 "matrix" => 1,
                 "evidence" => 2,
                 "audit" => 3,
-                _ => _activePanelIndex
+                "settings" => 0,
+                _ => 0
             };
+            SyncSidebarBridge();
             return;
         }
     }
 
     private void SyncSidebarBridge()
     {
+        SidebarBridge.ActiveTab = _activeTab;
         SidebarBridge.ImportStatus = _importStatus;
         SidebarBridge.FilterCountry = _filterCountry;
         SidebarBridge.FilterSite = _filterSite;

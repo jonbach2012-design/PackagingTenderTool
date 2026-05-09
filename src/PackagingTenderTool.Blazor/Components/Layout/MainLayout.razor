@@ -24,7 +24,8 @@
                    Elevation="0"
                    Width="@(_labelTenderRoute ? "340px" : "300px")"
                    ClipMode="DrawerClipMode.Always"
-                   Class="@(_labelTenderRoute ? "pt-drawer pt-drawer-cockpit pt-drawer--label-shell" : "pt-drawer pt-drawer-cockpit")">
+                   Class="@(_labelTenderRoute ? "pt-drawer pt-drawer-cockpit pt-drawer--label-shell" : "pt-drawer pt-drawer-cockpit")"
+                   Style="@(_labelTenderRoute ? "background-color: #1b3a2a !important;" : "")">
             @if (_labelTenderRoute)
             {
                 <LabelTenderShellSidebar />

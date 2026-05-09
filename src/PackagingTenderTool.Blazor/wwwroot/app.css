@@ -198,7 +198,7 @@
 }
 
 .pt-drawer-cockpit.mud-drawer {
-    background-color: #ffffff !important;
+    background-color: #91A363 !important;
     overflow: hidden !important;
 }
 
@@ -797,6 +797,12 @@
 .cockpit-main-stack {
     max-width: 1280px;
     margin: 0 auto;
+    min-height: calc(100vh - 80px);
+}
+
+.cockpit-main-stack:has(.cockpit-empty-state) {
+    display: flex;
+    flex-direction: column;
 }
 
 .decision-kpi-grid {
@@ -887,6 +893,7 @@
 /* Label tender shell sidebar (layout drawer) */
 .lt-shell-sidebar {
     padding-bottom: 1rem;
+    background-color: #91A363;
 }
 
 .lt-shell-section-title {
@@ -899,28 +906,36 @@
 
 .lt-nav-btn {
     justify-content: flex-start !important;
-    text-transform: none !important;
-    letter-spacing: normal !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-    padding: 10px 12px !important;
+    color: var(--mud-palette-text-secondary) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
 }
 
 .lt-nav-btn--active {
-    background: rgba(145, 163, 99, 0.14) !important;
-    color: #2d3436 !important;
+    background-color: #E1F5EE !important;
+    color: #0F6E56 !important;
+    font-weight: 500 !important;
 }
 
 .pt-drawer--label-shell {
     border-right: 1px solid rgba(255, 255, 255, 0.07);
-    --lt-shell-bg: #1b3a2a;
+    --lt-shell-bg: #91A363;
+    --mud-palette-drawer-background: #91A363;
     --lt-shell-hover: #244c38;
     --lt-shell-accent: #7fa15a;
 }
 
 /* Label-tender route: Scandi forest control column (scoped to .pt-drawer--label-shell only) */
 .pt-drawer--label-shell.mud-drawer {
-    background-color: var(--lt-shell-bg) !important;
+    background: #91A363 !important;
+    background-color: #91A363 !important;
+}
+
+.pt-drawer--label-shell aside {
+    background: #91A363 !important;
+    background-color: #91A363 !important;
 }
 
 .pt-drawer--label-shell .mud-drawer-content {
@@ -1730,4 +1745,72 @@ html, body {
     font-size: 13px;
     color: #444;
     cursor: pointer;
+}
+
+.cockpit-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    opacity: 1;
+    color: var(--mud-palette-text-disabled);
+}
+
+.cockpit-topbar-info {
+    padding: 4px 0 8px 0;
+}
+
+.cockpit-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.cockpit-settings-card {
+    padding: 16px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid rgba(45, 52, 54, 0.1);
+    box-shadow: 0 1px 3px rgba(45, 52, 54, 0.08);
+}
+
+.cockpit-settings-card.mt-4 {
+    margin-top: 1.5rem;
+}
+
+.cockpit-settings-card-title {
+    display: flex;
+    align-items: center;
+    font-weight: 600 !important;
+    font-size: 0.875rem;
+    margin-bottom: 12px !important;
+    color: #2d3436;
+}
+
+.cockpit-settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(45, 52, 54, 0.08);
+    font-size: 13px;
+}
+
+.cockpit-settings-row:last-child {
+    border-bottom: none;
+}
+
+.cockpit-future-badge {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #5c6b76;
+    background: #eceff1;
+    padding: 2px 8px;
+    border-radius: 4px;
 }
