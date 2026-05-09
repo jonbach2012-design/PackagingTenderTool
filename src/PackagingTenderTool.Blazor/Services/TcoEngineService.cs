@@ -54,8 +54,12 @@ public sealed class TcoEngineService : ITcoEngineService
                     siteSet.Add(NormalizeTenderDimension(site));
             }
 
-            materialSet.Add(NormalizeTenderDimension(s.Material));
-            adhesiveSet.Add(NormalizeTenderDimension(s.Adhesive));
+            var mat = NormalizeTenderDimension(s.Material);
+            if (!string.IsNullOrEmpty(mat) && !mat.Equals(UnknownToken, StringComparison.OrdinalIgnoreCase))
+                materialSet.Add(mat);
+            var adh = NormalizeTenderDimension(s.Adhesive);
+            if (!string.IsNullOrEmpty(adh) && !adh.Equals(UnknownToken, StringComparison.OrdinalIgnoreCase))
+                adhesiveSet.Add(adh);
         }
 
         var sitesForSelection = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -621,13 +625,15 @@ public sealed class TcoEngineService : ITcoEngineService
 
     private static IEnumerable<string> EnumerateCountryTokens(SupplierModel s)
     {
-        yield return NormalizeCountryField(s.Country);
-
+        var country = NormalizeCountryField(s.Country);
+        if (!string.IsNullOrEmpty(country) && !country.Equals(UnknownToken, StringComparison.OrdinalIgnoreCase))
+            yield return country;
         var sites = s.Sites ?? Array.Empty<string>();
         foreach (var site in sites)
         {
             var code = GetCountryCodeFromSiteToken(site);
-            yield return string.IsNullOrEmpty(code) ? UnknownToken : code.ToUpperInvariant();
+            if (!string.IsNullOrEmpty(code))
+                yield return code.ToUpperInvariant();
         }
     }
 
@@ -648,19 +654,14 @@ public sealed class TcoEngineService : ITcoEngineService
     {
         if (string.IsNullOrWhiteSpace(site))
             return string.Empty;
-
         var s = site.Trim();
+        var derived = DeriveCountryFromSiteName(s);
+        if (!string.IsNullOrEmpty(derived))
+            return derived;
         var dash = s.IndexOf('-');
-        var prefix = dash > 0
-            ? s[..dash]
-            : s.Length >= 2
-                ? s[..2]
-                : s;
-
-        if (!string.IsNullOrEmpty(prefix))
-            return prefix.ToUpperInvariant();
-
-        return DeriveCountryFromSiteName(s);
+        if (dash > 0)
+            return s[..dash].ToUpperInvariant();
+        return string.Empty;
     }
 
     private static string DeriveCountryFromSiteName(string site)
