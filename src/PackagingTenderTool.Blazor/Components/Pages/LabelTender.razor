@@ -1292,11 +1292,9 @@ else
                 return;
             }
 
-            // If an import has occurred, keep the imported supplier view; otherwise use demo suppliers.
-            if (_suppliersAll.Count == 0 || _importedLineItems.Count == 0)
-            {
-                _suppliersAll = LabelTenderDemoSupplierData.Create().ToList();
-            }
+            // No import yet — return early and show empty state.
+            if (_importedLineItems.Count == 0)
+                return;
 
             ReconcileSessionWithTenderSuppliers();
 
