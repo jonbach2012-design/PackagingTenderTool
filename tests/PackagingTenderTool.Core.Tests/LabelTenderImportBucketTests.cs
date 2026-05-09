@@ -126,6 +126,22 @@ public sealed class LabelTenderImportBucketTests
         Assert.NotEmpty(result.Tender.LabelLineItems);
     }
 
+    [Fact]
+    public void Bucket_DSH_real_tender_file_imports_successfully()
+    {
+        var path = ResolveImportVerificationFixture("Tender material DSH.xlsx");
+        var importer = new LabelsExcelImportService();
+
+        LabelsTenderImportResult result;
+        using (var stream = File.OpenRead(path))
+        {
+            result = importer.ImportTenderWithReport(stream, "Fixture DSH");
+        }
+
+        Assert.NotEmpty(result.Tender.LabelLineItems);
+        Assert.True(result.ImportCommitted);
+    }
+
     private static string ResolveImportVerificationFixture(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

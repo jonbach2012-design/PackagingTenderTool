@@ -18,7 +18,7 @@ public sealed class LabelTenderSidebarBridge
     /// <summary>Latest structured import validation (blocking failures, row corrections, warnings).</summary>
     public ImportValidationReport? LastImportValidationReport { get; set; }
 
-    public Func<InputFileChangeEventArgs, Task>? ImportExcelAsync { get; set; }
+    public Func<string, byte[], Task>? ImportExcelAsync { get; set; }
 
     public string FilterCountry { get; set; } = string.Empty;
 

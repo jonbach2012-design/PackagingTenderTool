@@ -874,23 +874,20 @@ else
 
     private void OnTableSelectedRowChanged(SupplierPillarAnalysisRow? v) => _tableSelectedRow = v;
 
-    private async Task OnExcelSelected(InputFileChangeEventArgs e)
+    private async Task OnExcelSelected(string fileName, byte[] fileBytes)
     {
         var snapshot = CaptureImportSnapshot();
         _isImporting = true;
         _importStatus = "Importing…";
-        SidebarBridge.LastImportedFileName = e.File.Name;
+        SidebarBridge.LastImportedFileName = fileName;
         SidebarBridge.LastImportValidationReport = null;
         PushImportUiToBridge();
 
         try
         {
-            LabelTenderExcelImportGuard.EnsureXlsxExtension(e.File.Name);
+            LabelTenderExcelImportGuard.EnsureXlsxExtension(fileName);
 
-            await using var fileStream = e.File.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
-            await using var ms = new MemoryStream();
-            await fileStream.CopyToAsync(ms);
-            ms.Position = 0;
+            using var ms = new MemoryStream(fileBytes);
 
             LabelsTenderImportResult result;
             try

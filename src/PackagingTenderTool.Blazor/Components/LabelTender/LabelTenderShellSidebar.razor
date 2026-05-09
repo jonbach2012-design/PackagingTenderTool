@@ -192,8 +192,17 @@
     {
         if (Bridge.ImportExcelAsync is null)
             return;
-
-        await Bridge.ImportExcelAsync(e);
+        var file = e.File;
+        var buffer = new byte[(int)file.Size];
+        await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+        var bytesRead = 0;
+        while (bytesRead < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(bytesRead));
+            if (read == 0) break;
+            bytesRead += read;
+        }
+        await Bridge.ImportExcelAsync(file.Name, buffer[..bytesRead]);
     }
 
     private void OnCountry(string v) => Bridge.OnCountryChanged?.Invoke(v ?? string.Empty);
