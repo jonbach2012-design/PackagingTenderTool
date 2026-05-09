@@ -1691,3 +1691,43 @@ html, body {
     background: #fafafa;
     border-top: 1px solid var(--lt-border);
 }
+
+.cockpit-filter-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    margin-bottom: 8px;
+}
+
+.cockpit-filter-bar .cockpit-filter-select {
+    min-width: 140px;
+    max-width: 180px;
+    flex: 1;
+}
+
+.cockpit-filter-bar .mud-switch {
+    margin-left: auto;
+}
+
+.cockpit-filter-native {
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    min-width: 130px;
+    background: white;
+    color: #333;
+}
+
+.cockpit-filter-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #444;
+    cursor: pointer;
+}

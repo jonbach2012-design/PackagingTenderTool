@@ -144,6 +144,54 @@ else
                     </MudAlert>
                 }
 
+                @if (_importedLineItems.Count > 0)
+                {
+                    <div class="cockpit-filter-bar mb-2" @key="_filterCountries.Length">
+                        <select class="cockpit-filter-native" 
+                                value="@_filterCountry"
+                                @onchange="@(e => { _filterCountry = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle lande</option>
+                            @foreach (var c in _filterCountries)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                        <select class="cockpit-filter-native"
+                                value="@_filterSite"
+                                @onchange="@(e => { _filterSite = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle sites</option>
+                            @foreach (var s in _filterSitesForCountry)
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                        <select class="cockpit-filter-native"
+                                value="@_filterMaterial"
+                                @onchange="@(e => { _filterMaterial = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle materialer</option>
+                            @foreach (var m in _filterMaterials)
+                            {
+                                <option value="@m">@m</option>
+                            }
+                        </select>
+                        <select class="cockpit-filter-native"
+                                value="@_filterAdhesive"
+                                @onchange="@(e => { _filterAdhesive = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle adhesives</option>
+                            @foreach (var a in _filterAdhesives)
+                            {
+                                <option value="@a">@a</option>
+                            }
+                        </select>
+                        <label class="cockpit-filter-switch">
+                            <input type="checkbox" 
+                                   checked="@_synergyToggle"
+                                   @onchange="@(e => { _synergyToggle = (bool)(e.Value ?? false); RefreshData(); StateHasChanged(); })" />
+                            Supplier synergy
+                        </label>
+                    </div>
+                }
+
                 <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
                 <MudTabPanel Text="Dashboard">
                     <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
@@ -966,6 +1014,7 @@ else
             }
 
             RefreshData();
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
@@ -1139,7 +1188,8 @@ else
                 var qty = g.Sum(x => x.Quantity ?? 0m);
                 var unit = g.Where(x => x.PricePerThousand is > 0).Select(x => x.PricePerThousand!.Value / 1000m).DefaultIfEmpty(0m).Average();
                 var sites = g.Select(x => x.Site).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-                var country = sites.Length > 0 ? (GetCountryFromSite(sites[0]) is { Length: > 0 } c ? c : DeriveCountryFromSiteName(sites[0])) : "DK";
+                var derived = sites.Length > 0 ? DeriveCountryFromSiteName(sites[0]) : string.Empty;
+                var country = string.IsNullOrWhiteSpace(derived) ? "Unknown" : derived;
                 if (string.IsNullOrWhiteSpace(country))
                     country = "DK";
                 var weight = g.Select(x =>
@@ -1181,6 +1231,8 @@ else
 
         var s = site.Trim();
         // DSH-style known site names -> ISO-ish codes used in this app.
+        if (s.Contains("Stokke", StringComparison.OrdinalIgnoreCase))
+            return "NO";
         if (s.Contains("Jæren", StringComparison.OrdinalIgnoreCase))
             return "NO";
         if (s.Contains("Jaeren", StringComparison.OrdinalIgnoreCase))
