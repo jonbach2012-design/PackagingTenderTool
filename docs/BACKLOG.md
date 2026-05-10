@@ -5,6 +5,15 @@
      Before starting any new feature or improvement, check here first.
      Before adding a new idea, add it here — not in chat, not in a comment, not in your head. -->
 
+<!-- Priority order for next sessions:
+1. BACK-019 (visualization — POC blocker)
+2. BACK-012a (registry — enables everything else)
+3. BACK-017 (audit shield — compliance)
+4. BACK-016 (multi-country benchmark)
+5. BACK-012b (PPWR calculation)
+6. BACK-018 (constraint builder)
+-->
+
 ## How to use this
 
 - **Status**: `idea` → `ready` → `in progress` → `done`
@@ -16,6 +25,44 @@
 ## Active Backlog
 
 ### 🟢 Score 10 — Do next
+
+#### [BACK-019] POC Visualization & Navigation Design
+- **Status**: `ready`
+- **Category**: Frontend / UX
+- **Score**: 10
+- **Depends on**: nothing — can start immediately
+- **Description**: POC approval requires three things: easy navigation, correct data, and overview with deep dive capability.
+
+  Design and implement a coherent visualization layer across all views:
+
+  **OVERVIEW LAYER** (what decision to make):
+  - Dashboard: 4 KPI cards (Recommended, Lowest price, Best TCO, Risk exposure) + Spend overview chart. Already exists — refine only.
+  - Regulatory Benchmark tab: heatmap grid suppliers × countries (BACK-016 output)
+  - Single recommended supplier highlighted with clear rationale text
+
+  **NAVIGATION LAYER** (how to move between views):
+  - Sidebar: Import → Dashboard → Price Matrix → Evidence → Audit Board → Settings. Clean, no clutter. Already improved.
+  - Breadcrumb or context bar: always shows current tender name, line count, supplier count
+  - "Why this recommendation?" — clickable explanation on dashboard that links to Audit Board
+
+  **DEEP DIVE LAYER** (prove the numbers):
+  - Evidence Table: import issues (errors only), full line-item grid with search/filter. Already exists.
+  - Audit Board: supplier-by-supplier score breakdown. Commercial / Technical / Regulatory pillars visible. CalculationBreakdown text per supplier.
+  - Price Matrix: supplier × item number grid. Price per 1,000, quantity, spend. Pivot-style.
+
+  **INTERACTION PRINCIPLES**:
+  - Every number must be traceable — click spend → see line items
+  - No orphaned data — every view links to source or explanation
+  - Filters persist across tab navigation
+  - Mobile-readable (wide screen primary, but no horizontal scroll traps)
+
+  **IMMEDIATE ACTIONS** (before POC presentation):
+  1. Remove duplicate KPI boxes from Evidence Table (already identified)
+  2. Add "Why recommended?" explanation card on Dashboard
+  3. Ensure Audit Board shows pillar scores visually (bar or gauge)
+  4. Price Matrix must show real imported data, not placeholder
+
+- **Value**: Unblocks POC — stakeholders see a coherent story from KPI to evidence.
 
 #### [BACK-001] Test results visible on GitHub
 - **Status**: `done` — 2026-05-07
@@ -94,6 +141,26 @@
   - [ ] Existing golden cases still pass
   - [ ] No changes to TcoEngineService interface — only scoring strategy implementation
 
+#### [BACK-017] Versioned TCO Models — Audit Shield
+- **Status**: `ready`
+- **Category**: Compliance / Architecture
+- **Score**: 9
+- **Depends on**: BACK-012a, BACK-012b
+- **Description**: Every time a tender is "locked" by a user, serialize and store the complete decision state as JSON: TcoResult, RegulatoryProfile, ScoringWeights, SupplierSelection, timestamp, user.
+
+  This creates an immutable audit trail for EU/PPWR compliance and internal governance. Auditors and regulators can reconstruct exactly why a supplier was chosen at a given point in time.
+
+- **Technical**:
+  - `TcoArchiveEntry` record with fields: Id (Guid), LockedAt (DateTime), LockedBy (string), SchemaVersion (int), TcoResultJson (string), RegulatoryProfileJson (string), ScoringWeightsJson (string), TenderName (string).
+  - Phase 1: JSON file per tender stored locally in `/data/archive/`
+  - Phase 2: Azure Blob Storage (aligns with BACK-002)
+  - Phase 3: Structured SQL table when scale requires it
+  - SchemaVersion is mandatory — enables migration of old archives when TcoResult structure changes.
+  - "Lock tender" button in UI triggers archival. Locked tenders are read-only. Audit view shows full decision trail.
+
+- **Safe-get requirement**: Deserialisation must handle missing fields gracefully using `JsonSerializerOptions` with default values — never crash on old schemas.
+
+- **Value**: Legal defensibility of procurement decisions under PPWR/EU audit.
 
 ---
 
@@ -163,6 +230,27 @@
 - **Score**: 7
 - **Depends on**: BACK-012a
 - **Description**: Make CSV/XLSX exports dynamic based on CostComponentRegistry. Removes hardcoded column lists in `MainForm.cs`, `ExportService.cs` and `TenderDashboardCsvExporter.cs`. Ensures BI headers are stable and consistent across all export formats.
+
+#### [BACK-018] Constraint-Based Scenario Builder
+- **Status**: `idea`
+- **Category**: Architecture / Scoring
+- **Score**: 7
+- **Depends on**: BACK-016
+- **Description**: Allow users to define procurement constraints before scoring. System calculates optimal solution within constraints AND shows "cost of constraints" — the price of supply security.
+
+  Example output: "Applying 60% max volume share costs DKK 400,000/year vs. single-supplier optimum."
+
+- **Technical**:
+  - Phase 1: Three practical constraints Scandi actually uses:
+    - MaxVolumeSharePerSupplier (decimal, default 1.0 = no limit)
+    - MinSuppliersPerRegion (int, default 1)
+    - RequireLocalSupplier (bool, default false)
+  - Phase 2: Simple UI — 2–3 sliders/toggles in Settings view
+  - Phase 3: Generic constraint engine only if Phase 1/2 prove insufficient
+
+- **Critical**: Handle conflicting constraints explicitly — show user "These constraints cannot be satisfied simultaneously" rather than silent failure or wrong result.
+
+- **Value**: "Price of security" argument for COO-level decisions. Quantifies supply risk in DKK — not just strategy.
 
 ---
 
