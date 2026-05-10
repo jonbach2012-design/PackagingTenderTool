@@ -166,79 +166,6 @@ else
                 else
                 {
 
-                <MudGrid Spacing="4" Class="decision-kpi-grid">
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Elevation="6" Class="decision-kpi-card pt-kpi-card--recommended pa-5">
-                            <MudText Typo="Typo.overline" Class="cockpit-muted">Recommended</MudText>
-                            <MudText Typo="Typo.h4" Class="decision-kpi-name decision-kpi-name--hero mt-1">
-                                @(_decisionInsight?.RecommendedSupplierName ?? "—")
-                            </MudText>
-                            @if (!string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId) && _decisionInsight!.IsSensitiveDecision)
-                            {
-                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap align-center">
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Class="ma-0">Sensitive decision</MudChip>
-                                </MudStack>
-                            }
-                            <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="2" Class="mt-2">
-                                <MudText Typo="Typo.h4" Class="decision-kpi-metric ma-0">
-                                    @(string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId)
-                                        ? "–"
-                                        : _decisionInsight!.RecommendedWeightedScore.ToString("0.0", Da))
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted">weighted CTR</MudText>
-                            </MudStack>
-                            <div class="decision-pillar-bar mt-3" title="Weighted contribution to CTR">
-                                <div class="decision-pillar-bar__comm" style="width: @($"{(_decisionInsight?.WeightedShareCommercial ?? 0m):0.#}%")"></div>
-                                <div class="decision-pillar-bar__tech" style="width: @($"{(_decisionInsight?.WeightedShareTechnical ?? 0m):0.#}%")"></div>
-                                <div class="decision-pillar-bar__reg" style="width: @($"{(_decisionInsight?.WeightedShareRegulatory ?? 0m):0.#}%")"></div>
-                            </div>
-                            <MudStack Row="true" Spacing="2" Class="mt-2 flex-wrap">
-                                <MudText Typo="Typo.caption" Class="cockpit-muted">Comm @((_decisionInsight?.WeightedShareCommercial ?? 0m).ToString("0"))%</MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted">Tech @((_decisionInsight?.WeightedShareTechnical ?? 0m).ToString("0"))%</MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted">Reg @((_decisionInsight?.WeightedShareRegulatory ?? 0m).ToString("0"))%</MudText>
-                            </MudStack>
-                            <MudText Typo="Typo.body2" Class="decision-kpi-narrative mt-3">
-                                @(_decisionInsight?.Narrative ?? "Import suppliers or widen selection to generate insight.")
-                            </MudText>
-                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">
-                                Value driver: @(_decisionInsight?.PrimaryValueDriver ?? "—")
-                            </MudText>
-                        </MudPaper>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
-                            <MudText Typo="Typo.overline" Class="cockpit-muted">Lowest commercial anchor</MudText>
-                            <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.LowestPriceSupplierName ?? "—")</MudText>
-                            <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
-                                @((_decisionInsight?.LowestCommercialSpend ?? 0m).ToString("N0", Da)) kr
-                            </MudText>
-                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Total commercial spend (volume × price)</MudText>
-                        </MudPaper>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
-                            <MudText Typo="Typo.overline" Class="cockpit-muted">Best TCO</MudText>
-                            <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.BestTcoSupplierName ?? "—")</MudText>
-                            <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
-                                @((_decisionInsight?.BestTcoTotal ?? 0m).ToString("N0", Da)) kr
-                            </MudText>
-                            <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Lowest full TCO (incl. EPR, switching, MOQ)</MudText>
-                        </MudPaper>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Elevation="6" Class="decision-kpi-card decision-kpi-card--risk pa-5">
-                            <MudText Typo="Typo.overline" Class="cockpit-muted">Risk exposure</MudText>
-                            <MudText Typo="Typo.h3" Class="decision-kpi-metric mt-2">@RiskReviewRowCount</MudText>
-                            <MudText Typo="Typo.body2" Class="cockpit-muted mt-2">
-                                Evidence rows flagged for review (compliance, outliers, or weak CTR).
-                            </MudText>
-                        </MudPaper>
-                    </MudItem>
-                </MudGrid>
-
                 @if (!string.IsNullOrWhiteSpace(_weightWarning))
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mb-2">
@@ -296,6 +223,79 @@ else
 
                 <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
                 <MudTabPanel Text="Dashboard">
+                    <MudGrid Spacing="4" Class="decision-kpi-grid">
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Elevation="6" Class="decision-kpi-card pt-kpi-card--recommended pa-5">
+                                <MudText Typo="Typo.overline" Class="cockpit-muted">Recommended</MudText>
+                                <MudText Typo="Typo.h4" Class="decision-kpi-name decision-kpi-name--hero mt-1">
+                                    @(_decisionInsight?.RecommendedSupplierName ?? "—")
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId) && _decisionInsight!.IsSensitiveDecision)
+                                {
+                                    <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap align-center">
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Class="ma-0">Sensitive decision</MudChip>
+                                    </MudStack>
+                                }
+                                <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="2" Class="mt-2">
+                                    <MudText Typo="Typo.h4" Class="decision-kpi-metric ma-0">
+                                        @(string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId)
+                                            ? "–"
+                                            : _decisionInsight!.RecommendedWeightedScore.ToString("0.0", Da))
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">weighted CTR</MudText>
+                                </MudStack>
+                                <div class="decision-pillar-bar mt-3" title="Weighted contribution to CTR">
+                                    <div class="decision-pillar-bar__comm" style="width: @($"{(_decisionInsight?.WeightedShareCommercial ?? 0m):0.#}%")"></div>
+                                    <div class="decision-pillar-bar__tech" style="width: @($"{(_decisionInsight?.WeightedShareTechnical ?? 0m):0.#}%")"></div>
+                                    <div class="decision-pillar-bar__reg" style="width: @($"{(_decisionInsight?.WeightedShareRegulatory ?? 0m):0.#}%")"></div>
+                                </div>
+                                <MudStack Row="true" Spacing="2" Class="mt-2 flex-wrap">
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Comm @((_decisionInsight?.WeightedShareCommercial ?? 0m).ToString("0"))%</MudText>
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Tech @((_decisionInsight?.WeightedShareTechnical ?? 0m).ToString("0"))%</MudText>
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Reg @((_decisionInsight?.WeightedShareRegulatory ?? 0m).ToString("0"))%</MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Class="decision-kpi-narrative mt-3">
+                                    @(_decisionInsight?.Narrative ?? "Import suppliers or widen selection to generate insight.")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">
+                                    Value driver: @(_decisionInsight?.PrimaryValueDriver ?? "—")
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
+                                <MudText Typo="Typo.overline" Class="cockpit-muted">Lowest commercial anchor</MudText>
+                                <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.LowestPriceSupplierName ?? "—")</MudText>
+                                <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
+                                    @((_decisionInsight?.LowestCommercialSpend ?? 0m).ToString("N0", Da)) kr
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Total commercial spend (volume × price)</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
+                                <MudText Typo="Typo.overline" Class="cockpit-muted">Best TCO</MudText>
+                                <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.BestTcoSupplierName ?? "—")</MudText>
+                                <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
+                                    @((_decisionInsight?.BestTcoTotal ?? 0m).ToString("N0", Da)) kr
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Lowest full TCO (incl. EPR, switching, MOQ)</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudPaper Elevation="6" Class="decision-kpi-card decision-kpi-card--risk pa-5">
+                                <MudText Typo="Typo.overline" Class="cockpit-muted">Risk exposure</MudText>
+                                <MudText Typo="Typo.h3" Class="decision-kpi-metric mt-2">@RiskReviewRowCount</MudText>
+                                <MudText Typo="Typo.body2" Class="cockpit-muted mt-2">
+                                    Evidence rows flagged for review (compliance, outliers, or weak CTR).
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+
                     <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>

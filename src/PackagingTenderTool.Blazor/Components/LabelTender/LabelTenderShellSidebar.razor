@@ -1,5 +1,7 @@
 @using Microsoft.AspNetCore.Components.Forms
+@using System.Linq
 @using MudBlazor
+@using PackagingTenderTool.Core.Import
 @using PackagingTenderTool.Blazor.Services
 @inject LabelTenderSidebarBridge Bridge
 @inject NavigationManager Nav
@@ -40,15 +42,13 @@
             {
                 <MudText Typo="Typo.caption" Class="cockpit-import-status">@Bridge.ImportStatus</MudText>
             }
-            @if (Bridge.LastImportValidationReport != null && Bridge.ActiveTab != "settings")
+            @if (Bridge.ActiveTab != "settings" &&
+                 Bridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
             {
-                @if (Bridge.LastImportValidationReport.Issues.Count > 0)
-                {
-                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Class="mt-1"
-                             OnClick="@(() => Nav.NavigateTo("/labeltender?tab=evidence"))">
-                        @Bridge.LastImportValidationReport.Issues.Count issues — se Evidence table
-                    </MudChip>
-                }
+                <MudChip T="string" Color="Color.Error" Size="Size.Small" Class="mt-1"
+                         OnClick="@(() => Nav.NavigateTo("/labeltender?tab=evidence"))">
+                    @Bridge.LastImportValidationReport!.Issues.Count(i => i.Severity == ImportValidationSeverity.Error) fejl — se Evidence table
+                </MudChip>
             }
         </section>
 
