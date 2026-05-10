@@ -55,6 +55,7 @@
   - No orphaned data — every view links to source or explanation
   - Filters persist across tab navigation
   - Mobile-readable (wide screen primary, but no horizontal scroll traps)
+  - Replace native SVG `<title>` tooltips with designed hover-cards showing CalculationBreakdown in a readable MudTooltip format. Native browser tooltips removed for POC presentation.
 
   **IMMEDIATE ACTIONS** (before POC presentation):
   1. Remove duplicate KPI boxes from Evidence Table (already identified)

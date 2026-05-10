@@ -303,52 +303,73 @@ else
                         <div class="cockpit-spend-wrap">
                             @{
                                 var results = _tcoResults;
-                                var svgH = (results.Count * 50) + 40;
                             }
+                            @if (results.Count == 0)
+                            {
+                                <svg width="900"
+                                     height="200"
+                                     viewBox="0 0 900 200"
+                                     class="cockpit-spend-svg">
+                                    <svg:text x="450" y="100" text-anchor="middle" fill="rgba(45,52,54,0.65)">No suppliers selected</svg:text>
+                                </svg>
+                            }
+                            else
+                            {
+                                var lineCountBySupplier = _importedLineItems
+                                    .GroupBy(i => i.SupplierName?.Trim() ?? string.Empty,
+                                             StringComparer.OrdinalIgnoreCase)
+                                    .ToDictionary(g => g.Key, g => g.Count(),
+                                                  StringComparer.OrdinalIgnoreCase);
 
-                            <svg width="720"
-                                 height="@svgH"
-                                 viewBox="0 0 720 @svgH"
-                                 class="cockpit-spend-svg">
-                                @if (results.Count == 0)
+                                @for (var idx = 0; idx < results.Count; idx++)
                                 {
-                                    <svg:text x="360" y="160" text-anchor="middle" fill="rgba(45,52,54,0.65)">No suppliers selected</svg:text>
+                                    var r = results[idx];
+                                    var yPos = 10.0;
+                                    var x0 = 150.0;
+                                    var barH = 30.0;
+                                    var trackW = 600.0;
+                                    var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
+
+                                    <MudTooltip Placement="Placement.Bottom">
+                                        <TooltipContent>
+                                            <MudText Typo="Typo.body2" Style="max-width:420px;white-space:pre-wrap;">@r.CalculationBreakdown</MudText>
+                                        </TooltipContent>
+                                        <ChildContent>
+                                            <svg width="900"
+                                                 height="50"
+                                                 viewBox="0 0 900 50"
+                                                 class="cockpit-spend-svg"
+                                                 style="display:block;">
+                                                <g opacity="@FmtSvg(alpha)">
+                                                    <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
+
+                                                    <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
+                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.RegulatoryWidth)" height="@FmtSvg(barH)" fill="#FFB300" rx="4" />
+                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.SwitchingWidth)" height="@FmtSvg(barH)" fill="#D3D3D3" rx="4" />
+                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
+
+                                                    <!-- Score badge -->
+                                                    <circle cx="@FmtSvg(12)" cy="@FmtSvg(yPos + 15)" r="@FmtSvg(10)" fill="rgba(45,52,54,0.10)" />
+                                                    <svg:text x="@FmtSvg(12)" y="@FmtSvg(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
+                                                        @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
+                                                    </svg:text>
+
+                                                    <svg:text x="@FmtSvg(28)" y="@FmtSvg(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
+
+                                                    <svg:text x="750" y="@FmtSvg(yPos + 20)" text-anchor="end"
+                                                              font-size="12" font-family="monospace">
+                                                        @r.Total.ToString("N0", Da) kr.
+                                                    </svg:text>
+                                                    <svg:text x="850" y="@FmtSvg(yPos + 20)"
+                                                              font-size="11" fill="#111" font-weight="700" font-family="monospace">
+                                                        @(lineCountBySupplier.TryGetValue(r.SupplierName, out var lc) ? $"{lc} linjer" : string.Empty)
+                                                    </svg:text>
+                                                </g>
+                                            </svg>
+                                        </ChildContent>
+                                    </MudTooltip>
                                 }
-                                else
-                                {
-                                    @for (var idx = 0; idx < results.Count; idx++)
-                                    {
-                                        var r = results[idx];
-                                        var yPos = (idx * 50) + 10;
-                                        var x0 = 150.0;
-                                        var barH = 30.0;
-                                        var trackW = 600.0;
-                                        var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
-
-                                        <g opacity="@FmtSvg(alpha)">
-                                            <title>@r.CalculationBreakdown</title>
-                                            <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
-
-                                            <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
-                                            <rect x="@FmtSvg(x0 + r.CommercialWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.RegulatoryWidth)" height="@FmtSvg(barH)" fill="#FFB300" rx="4" />
-                                            <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.SwitchingWidth)" height="@FmtSvg(barH)" fill="#D3D3D3" rx="4" />
-                                            <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
-
-                                            <!-- Score badge -->
-                                            <circle cx="@FmtSvg(12)" cy="@FmtSvg(yPos + 15)" r="@FmtSvg(10)" fill="rgba(45,52,54,0.10)" />
-                                            <svg:text x="@FmtSvg(12)" y="@FmtSvg(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
-                                                @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
-                                            </svg:text>
-
-                                            <svg:text x="@FmtSvg(28)" y="@FmtSvg(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
-
-                                            <svg:text x="@FmtSvg(x0 + r.TotalWidth + 10)" y="@FmtSvg(yPos + 20)" font-size="12" font-family="monospace">
-                                                @r.Total.ToString("N0", Da) kr.
-                                            </svg:text>
-                                        </g>
-                                    }
-                                }
-                            </svg>
+                            }
                         </div>
 
                         <div style="margin-top: 12px; display:flex; flex-wrap:wrap; gap: 14px; align-items:center;">
