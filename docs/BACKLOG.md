@@ -25,15 +25,28 @@
 - **What**: Add TRX test logger + GitHub test reporter action. Inline test failure details in Actions.
 - **Result**: 135 tests passing, visible by name and suite in GitHub Actions summary.
 
+#### [BACK-012a] Cost Component Registry (NEW - blocks BACK-012b)
+- **Status**: `ready`
+- **Category**: Architecture / Scoring
+- **Score**: 10
+- **Description**: Build a metadata-driven CostComponentRegistry in `PackagingTenderTool.Core`. Define `CostComponentDefinition` record with: Key, DisplayName, Order, Group, IncludeInTotal, VisibleInDashboard, VisibleInExport, GetValue (`Func<TcoResult, decimal>`). Register existing 5 components: Commercial, Technical, Switching, Regulatory, Total. Update `TcoDashboardViewModel.GetDynamicCostProperties()` to use registry.
+- **Proof of concept**: add one `TestComponent` and verify with 5 tests:
+  1. Component visible in dashboard
+  2. Component included correctly in total
+  3. Component appears in export
+  4. Order is stable
+  5. BI header is stable
+
 ---
 
 ### 🟠 Score 9 — High value, implement carefully
 
-#### [BACK-012] PPWR Risk Multiplier — time-bounded market access scoring
+#### [BACK-012b] PPWR Risk Multiplier — time-bounded market access scoring
 - **Status**: `ready`
 - **Category**: Architecture / Scoring
 - **Value**: 5 | **Priority**: 5 | **Effort**: 1-2 days
 - **Score**: 9
+- **Depends on**: BACK-012a
 - **What**: Enhance regulatory scoring with a PPWR Risk Multiplier that reflects time-bounded market access consequences — not just a static A-E point mapping.
 - **Why**: The current model (D=25pts, E=0pts) is a static snapshot. Grade D suppliers face market access restrictions from 2030. Grade E are effectively unviable beyond 2029. A category manager making a 3-year contract decision needs this risk made visible.
 - **Business logic**:
@@ -47,6 +60,7 @@
   - Option B: Time-decay multiplier — penalty increases as 2030 deadline approaches (dynamic, powerful)
   - Option C: Hard flag only — no score impact, visible warning in cockpit (conservative)
 - **Spec reference**: docs/spec.md section 14.3.3
+- **Note**: Requires BACK-012a registry
 - **Acceptance criteria**:
   - [ ] ADR written and approved before any code
   - [ ] Grade D triggers Market Access Risk 2030 flag in dashboard
@@ -118,6 +132,13 @@
   - [ ] No calculation logic in Razor — all through TcoEngineService
   - [ ] Works with existing session/tender data — no hardcoded demo data
 
+#### [BACK-015] Export alignment via Cost Component Registry
+- **Status**: `idea`
+- **Category**: Architecture
+- **Score**: 7
+- **Depends on**: BACK-012a
+- **Description**: Make CSV/XLSX exports dynamic based on CostComponentRegistry. Removes hardcoded column lists in `MainForm.cs`, `ExportService.cs` and `TenderDashboardCsvExporter.cs`. Ensures BI headers are stable and consistent across all export formats.
+
 ---
 
 ### ⚪ Score 6 — Backlog
@@ -141,6 +162,7 @@
 - **Score**: 6
 - **What**: Export-ready API contract for M3 or Power BI. Interface only — no full integration.
 - **Why**: Defines the boundary now so integration is additive later, not a redesign.
+- **Implementation note**: Blocked by BACK-015 — wait for export alignment before BI stub
 - **Acceptance criteria**:
   - [ ] DTO contract defined and documented
   - [ ] CSV export working and tested
