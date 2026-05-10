@@ -37,6 +37,23 @@
   4. Order is stable
   5. BI header is stable
 
+#### [BACK-016] Multi-country regulatory benchmark engine
+- **Status**: `ready`
+- **Category**: Architecture / Scoring
+- **Score**: 10
+- **Depends on**: BACK-012a, BACK-012b
+- **Description**: After Excel import, automatically run all suppliers through 7 regulatory profiles (DK, SE, NO, FI, IE, NL, LT) using CountryRegulatoryRegistry. Add "Regulatory Benchmark" tab to dashboard showing heatmap grid: suppliers as rows, countries as columns, TCO cost as values. Green = lowest exposure, Red = highest.
+- **Technical**:
+  - RegulatoryProfile record (CountryCode, EprFeeRate, PlasticTaxRate, PpwrMultiplier, RecyclabilityThreshold).
+  - TcoEngine.GetResultsAllCountries() returns Dictionary<string, List<TcoResult>>.
+  - Triggered automatically on import — no extra user action required.
+- **Data governance**:
+  - Regulatory rates (EPR, plastic tax, PPWR multipliers) are maintained by country specialists at Scandi Standard via a central SharePoint folder (one file per country).
+  - Rates are validated before activation.
+  - System reads from validated rate files only — unvalidated rates are never applied to scoring.
+  - Integration with SharePoint RAG project already exists as data source.
+- **Value proposition**: Single tender file → instant regulatory cost comparison across all 7 Scandi Standard operating countries. Identifies cheapest supplier per country and highest regulatory risk exposure across portfolio.
+
 ---
 
 ### 🟠 Score 9 — High value, implement carefully
