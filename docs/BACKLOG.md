@@ -30,6 +30,14 @@
 - **Category**: Architecture / Scoring
 - **Score**: 10
 - **Description**: Build a metadata-driven CostComponentRegistry in `PackagingTenderTool.Core`. Define `CostComponentDefinition` record with: Key, DisplayName, Order, Group, IncludeInTotal, VisibleInDashboard, VisibleInExport, GetValue (`Func<TcoResult, decimal>`). Register existing 5 components: Commercial, Technical, Switching, Regulatory, Total. Update `TcoDashboardViewModel.GetDynamicCostProperties()` to use registry.
+- **Implementation notes**:
+  - **Safe-get requirement (mandatory, not optional)**:
+    - All GetValue delegates in registry must use safe null-coalescing:
+      - `GetValue: r => prop.GetValue(r) is decimal d ? d : 0m`
+    - RegulatoryProfile must implement a Neutral static instance with all rates = 0m as fallback when a country profile is not yet validated
+    - Registry must validate at startup that all registered properties exist on TcoResult — fail fast with clear error, not silent null
+    - decimal? fields must be handled explicitly:
+      - `GetValue: r => prop.GetValue(r) as decimal? ?? 0m`
 - **Proof of concept**: add one `TestComponent` and verify with 5 tests:
   1. Component visible in dashboard
   2. Component included correctly in total
