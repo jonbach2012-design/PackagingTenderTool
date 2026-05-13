@@ -6,15 +6,15 @@
 @inject PackagingProfileSession Profile
 @inject NavigationManager Nav
 
-<MudThemeProvider Theme="@AppTheme.Scandi" />
+<MudThemeProvider Theme="@AppTheme.Scandi" IsDarkMode="false" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0" Dense="true" Class="pt-app-bar pt-app-bar-cockpit">
+    <MudAppBar Elevation="0" Dense="true" Class="pt-app-bar pt-app-bar-cockpit" Style="padding: 8px 16px;">
         <img src="/images/scandi-standard-logo.png" 
              alt="Scandi Standard" 
-             style="height: 48px; width: auto;" />
+             style="height: 36px; width: auto;" />
     </MudAppBar>
 
     @if (Profile.SelectedProfile is not null)
@@ -25,7 +25,7 @@
                    Width="@(_labelTenderRoute ? "340px" : "300px")"
                    ClipMode="DrawerClipMode.Always"
                    Class="@(_labelTenderRoute ? "pt-drawer pt-drawer-cockpit pt-drawer--label-shell" : "pt-drawer pt-drawer-cockpit")"
-                   Style="@(_labelTenderRoute ? "background-color: #1b3a2a !important;" : "")">
+                   Style="@(_labelTenderRoute ? "background-color: #485230 !important; background: #485230 !important;" : "")">
             @if (_labelTenderRoute)
             {
                 <LabelTenderShellSidebar />

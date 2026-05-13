@@ -9,7 +9,7 @@ public static class AppTheme
     {
         PaletteLight = new PaletteLight()
         {
-            Primary = "#91A363",          // Din grønne accent (Sustainability & Action)
+            Primary = "#485230",          // Din grønne accent (Sustainability & Action)
             Secondary = "#57606f",        // Muted slate (secondary UI)
             AppbarBackground = "#FFFFFF",
             AppbarText = "#2D3436",
@@ -17,10 +17,10 @@ public static class AppTheme
             Surface = "#FFFFFF",
             TextPrimary = "#2D3436",      // Mørk slate (ikke sort)
             TextSecondary = "#5c6b76",
-            ActionDefault = "#91A363",
-            DrawerBackground = "#F5F5F5",
-            DrawerText = "#2D3436",
-            DrawerIcon = "#2D3436"
+            ActionDefault = "#485230",
+            DrawerBackground = "#485230",
+            DrawerText = "#ffffff",
+            DrawerIcon = "rgba(255,255,255,0.75)"
         },
         Typography = new Typography()
         {

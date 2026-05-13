@@ -1,6 +1,6 @@
 :root {
-    --scandi-brand: #91A363;
-    --scandi-brand-dark: #1b3a2a;
+    --scandi-brand: #434A2C;
+    --scandi-brand-dark: #434A2C;
     --status-error: #D32F2F;
     --status-warning: #F57C00;
     --surface-white: #FFFFFF;
@@ -123,7 +123,7 @@
 
 /* Full-screen profile landing */
 .profile-landing {
-    min-height: calc(100dvh - 48px);
+    min-height: calc(100vh - 64px);
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -198,7 +198,7 @@
 }
 
 .pt-drawer-cockpit.mud-drawer {
-    background-color: #91A363 !important;
+    background-color: #434A2C !important;
     overflow: hidden !important;
 }
 
@@ -893,7 +893,7 @@
 /* Label tender shell sidebar (layout drawer) */
 .lt-shell-sidebar {
     padding-bottom: 1rem;
-    background-color: #91A363;
+    background-color: #434A2C;
 }
 
 .lt-shell-section-title {
@@ -921,21 +921,21 @@
 
 .pt-drawer--label-shell {
     border-right: 1px solid rgba(255, 255, 255, 0.07);
-    --lt-shell-bg: #91A363;
-    --mud-palette-drawer-background: #91A363;
+    --lt-shell-bg: #434A2C;
+    --mud-palette-drawer-background: #434A2C;
     --lt-shell-hover: #244c38;
     --lt-shell-accent: #7fa15a;
 }
 
 /* Label-tender route: Scandi forest control column (scoped to .pt-drawer--label-shell only) */
 .pt-drawer--label-shell.mud-drawer {
-    background: #91A363 !important;
-    background-color: #91A363 !important;
+    background: #434A2C !important;
+    background-color: #434A2C !important;
 }
 
 .pt-drawer--label-shell aside {
-    background: #91A363 !important;
-    background-color: #91A363 !important;
+    background: #434A2C !important;
+    background-color: #434A2C !important;
 }
 
 .pt-drawer--label-shell .mud-drawer-content {
@@ -1542,7 +1542,7 @@
 
 /* Label tender — Scandi clean (accent #91A363, slate text, calm gray field) */
 :root {
-    --lt-accent: #91a363;
+    --lt-accent: #434A2C;
     --lt-page-bg: #f5f5f5;
     --lt-border: #e0e0e0;
     --lt-slate: #2d3436;
@@ -1554,7 +1554,7 @@
     --cp-8: 8px;
     --cp-16: 16px;
     --cp-24: 24px;
-    --cp-green: #91a363;
+    --cp-green: #485230;
     --cp-amber: #ffb300;
     --cp-slate: #2d3436;
     --cp-slate-65: rgba(45, 52, 54, 0.65);
