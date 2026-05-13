@@ -33,6 +33,8 @@ public sealed class LabelLineItem
 
     public string? Material { get; set; }
 
+    public string? Adhesive { get; set; }
+
     public string? ReelDiameterOrPcsPerRoll { get; set; }
 
     public int? NumberOfColors { get; set; }

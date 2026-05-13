@@ -35,6 +35,7 @@ builder.Services.AddSingleton<LabelTenderScoringService>();
 builder.Services.AddSingleton<IEprFeeService, EprFeeService>();
 builder.Services.AddSingleton<IRegulatoryService, RegulatoryService>();
 builder.Services.AddSingleton<LabelsExcelImportService>();
+builder.Services.AddSingleton<PivotLabelsExcelImportService>();
 
 var app = builder.Build();
 

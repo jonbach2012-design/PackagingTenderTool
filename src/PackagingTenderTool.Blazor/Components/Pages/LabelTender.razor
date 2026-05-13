@@ -17,6 +17,7 @@
 @inject PackagingProfileSession Session
 @inject NavigationManager Nav
 @inject LabelsExcelImportService Importer
+@inject PivotLabelsExcelImportService PivotImporter
 @inject PackagingTenderTool.Blazor.Services.ITcoEngineService TcoEngine
 @inject PackagingTenderTool.Blazor.Services.LabelTenderSidebarBridge SidebarBridge
 @inject ISnackbar Snackbar
@@ -204,12 +205,30 @@ else
                             }
                         </select>
                         <select class="cockpit-filter-native"
-                                value="@_filterAdhesive"
-                                @onchange="@(e => { _filterAdhesive = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle adhesives</option>
-                            @foreach (var a in _filterAdhesives)
+                                value="@_filterLabelSize"
+                                @onchange="@(e => { _filterLabelSize = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle label sizes</option>
+                            @foreach (var s in _filterLabelSizes)
                             {
-                                <option value="@a">@a</option>
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                        <select class="cockpit-filter-native"
+                                value="@_filterWinding"
+                                @onchange="@(e => { _filterWinding = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle winding</option>
+                            @foreach (var w in _filterWindings)
+                            {
+                                <option value="@w">@w</option>
+                            }
+                        </select>
+                        <select class="cockpit-filter-native"
+                                value="@_filterColors"
+                                @onchange="@(e => { _filterColors = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
+                            <option value="">Alle colors</option>
+                            @foreach (var c in _filterColorValues)
+                            {
+                                <option value="@c">@c</option>
                             }
                         </select>
                         <label class="cockpit-filter-switch">
@@ -878,9 +897,13 @@ else
     private string[] _filterCountries = [];
     private string[] _filterSitesForCountry = [];
     private string _filterMaterial = string.Empty;
-    private string _filterAdhesive = string.Empty;
     private string[] _filterMaterials = [];
-    private string[] _filterAdhesives = [];
+    private string _filterLabelSize = string.Empty;
+    private string[] _filterLabelSizes = [];
+    private string _filterWinding = string.Empty;
+    private string[] _filterWindings = [];
+    private string _filterColors = string.Empty;
+    private string[] _filterColorValues = [];
     private bool _synergyToggle;
 
     private readonly List<PackagingTenderTool.Blazor.Models.LabelTender.LabelTenderDashboardDto> _tcoResults = [];
@@ -924,7 +947,6 @@ else
         SidebarBridge.OnCountryChanged = OnCountryChanged;
         SidebarBridge.OnSiteChanged = OnSiteChanged;
         SidebarBridge.OnMaterialChanged = OnMaterialChanged;
-        SidebarBridge.OnAdhesiveChanged = OnAdhesiveChanged;
         SidebarBridge.OnSynergyChanged = OnSynergyChanged;
 
         await Task.Yield();
@@ -950,7 +972,6 @@ else
         SidebarBridge.OnCountryChanged = null;
         SidebarBridge.OnSiteChanged = null;
         SidebarBridge.OnMaterialChanged = null;
-        SidebarBridge.OnAdhesiveChanged = null;
         SidebarBridge.OnSynergyChanged = null;
     }
 
@@ -1038,13 +1059,13 @@ else
         SidebarBridge.FilterCountry = _filterCountry;
         SidebarBridge.FilterSite = _filterSite;
         SidebarBridge.FilterMaterial = _filterMaterial;
-        SidebarBridge.FilterAdhesive = _filterAdhesive;
+        SidebarBridge.FilterAdhesive = string.Empty;
         SidebarBridge.SynergyToggle = _synergyToggle;
         SidebarBridge.SitesSelectDisabled = false;
         SidebarBridge.FilterCountries = _filterCountries;
         SidebarBridge.FilterSitesForCountry = _filterSitesForCountry;
         SidebarBridge.FilterMaterials = _filterMaterials;
-        SidebarBridge.FilterAdhesives = _filterAdhesives;
+        SidebarBridge.FilterAdhesives = [];
         SidebarBridge.DrawerSuppliers = _suppliersAll
             .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
             .GroupBy(s => s.SupplierId!, StringComparer.OrdinalIgnoreCase)
@@ -1076,13 +1097,6 @@ else
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private void OnAdhesiveChanged(string v)
-    {
-        _filterAdhesive = v ?? string.Empty;
-        RefreshData();
-        _ = InvokeAsync(StateHasChanged);
-    }
-
     private void OnSynergyChanged(bool v)
     {
         _synergyToggle = v;
@@ -1099,6 +1113,22 @@ else
     }
 
     private void OnTableSelectedRowChanged(SupplierPillarAnalysisRow? v) => _tableSelectedRow = v;
+
+    private static bool IsPivotFormat(Stream stream)
+    {
+        try
+        {
+            stream.Position = 0;
+            using var wb = new ClosedXML.Excel.XLWorkbook(stream);
+            return wb.Worksheets.Any(ws =>
+                ws.Name.Equals("All labels DSH",
+                StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private async Task OnExcelSelected(string fileName, byte[] fileBytes)
     {
@@ -1118,7 +1148,11 @@ else
             LabelsTenderImportResult result;
             try
             {
-                result = Importer.ImportTenderWithReport(ms);
+                var isPivotFormat = IsPivotFormat(ms);
+                ms.Position = 0;
+                result = isPivotFormat
+                    ? PivotImporter.ImportTenderWithReport(ms, SidebarBridge.LastImportedFileName)
+                    : Importer.ImportTenderWithReport(ms);
             }
             catch (Exception ex)
             {
@@ -1467,6 +1501,37 @@ else
             .Count());
     }
 
+    private bool LineItemMatchesActiveDimensionFilters(LabelLineItem i)
+    {
+        if (!string.IsNullOrWhiteSpace(_filterMaterial) &&
+            !string.Equals(i.Material?.Trim(), _filterMaterial,
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(_filterLabelSize))
+        {
+            var label = i.LabelSize?.Trim();
+            if (!string.Equals(label, _filterLabelSize.Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_filterWinding))
+        {
+            var wind = i.WindingDirection?.Trim();
+            if (!string.Equals(wind, _filterWinding.Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_filterColors))
+        {
+            var colorToken = (i.OriginalColorsValue ?? i.NumberOfColors?.ToString())?.Trim();
+            if (!string.Equals(colorToken, _filterColors.Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>Aligns selected/active supplier ids with the current tender supplier list (import vs demo, stale ids).</summary>
     private void ReconcileSessionWithTenderSuppliers()
     {
@@ -1526,6 +1591,15 @@ else
             if (_importedLineItems.Count == 0)
                 return;
 
+            var anyDimensionFilterActive = !string.IsNullOrWhiteSpace(_filterLabelSize)
+                || !string.IsNullOrWhiteSpace(_filterWinding)
+                || !string.IsNullOrWhiteSpace(_filterColors)
+                || !string.IsNullOrWhiteSpace(_filterMaterial);
+            var itemsForSupplierBuild = anyDimensionFilterActive
+                ? _importedLineItems.Where(LineItemMatchesActiveDimensionFilters).ToList()
+                : _importedLineItems;
+            _suppliersAll = BuildSuppliersFromImportedLines(itemsForSupplierBuild);
+
             ReconcileSessionWithTenderSuppliers();
 
             var filterOpts = TcoEngine.GetTenderFilterOptions(_suppliersAll, _filterCountry);
@@ -1538,8 +1612,44 @@ else
 
             _filterCountries = filterOpts.Countries.ToArray();
             _filterSitesForCountry = filterOpts.Sites.ToArray();
-            _filterMaterials = filterOpts.Materials.ToArray();
-            _filterAdhesives = filterOpts.Adhesives.ToArray();
+            var itemsInScope = _importedLineItems
+                .Where(i =>
+                    (string.IsNullOrEmpty(_filterCountry) ||
+                     string.Equals(DeriveCountryFromSiteName(i.Site ?? string.Empty),
+                         _filterCountry, StringComparison.OrdinalIgnoreCase)) &&
+                    (string.IsNullOrEmpty(_filterSite) ||
+                     string.Equals(i.Site?.Trim(), _filterSite,
+                         StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            _filterMaterials = itemsInScope
+                .Select(i => i.Material?.Trim())
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Select(m => m!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _filterLabelSizes = itemsInScope
+                .Select(i => i.LabelSize?.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _filterWindings = itemsInScope
+                .Select(i => i.WindingDirection?.Trim())
+                .Where(w => !string.IsNullOrWhiteSpace(w))
+                .Select(w => w!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(w => w, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _filterColorValues = itemsInScope
+                .Select(i => i.OriginalColorsValue ?? i.NumberOfColors?.ToString())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
             if (!string.IsNullOrWhiteSpace(_filterSite) && !_filterSitesForCountry.Contains(_filterSite, StringComparer.OrdinalIgnoreCase))
                 _filterSite = string.Empty;
@@ -1547,8 +1657,14 @@ else
             if (!string.IsNullOrWhiteSpace(_filterMaterial) && !_filterMaterials.Contains(_filterMaterial, StringComparer.OrdinalIgnoreCase))
                 _filterMaterial = string.Empty;
 
-            if (!string.IsNullOrWhiteSpace(_filterAdhesive) && !_filterAdhesives.Contains(_filterAdhesive, StringComparer.OrdinalIgnoreCase))
-                _filterAdhesive = string.Empty;
+            if (!string.IsNullOrWhiteSpace(_filterLabelSize) && !_filterLabelSizes.Contains(_filterLabelSize, StringComparer.OrdinalIgnoreCase))
+                _filterLabelSize = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(_filterWinding) && !_filterWindings.Contains(_filterWinding, StringComparer.OrdinalIgnoreCase))
+                _filterWinding = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(_filterColors) && !_filterColorValues.Contains(_filterColors, StringComparer.OrdinalIgnoreCase))
+                _filterColors = string.Empty;
 
             var suppliersFiltered = _suppliersAll
                 .Where(s => TcoEngine.SupplierMatchesTenderFilters(
@@ -1556,7 +1672,7 @@ else
                     _filterCountry,
                     _filterSite,
                     _filterMaterial,
-                    _filterAdhesive))
+                    string.Empty))
                 .ToList();
 
             // Seed supplier settings defaults (archetype values come from demo SupplierModel).
