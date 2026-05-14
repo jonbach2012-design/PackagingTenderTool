@@ -742,10 +742,16 @@
 }
 
 .cockpit-main {
-    background: #f9f9f9;
+    background: #f4f4f2;
 }
 
-/* Label tender route: single main-column padding (avoid stacking with page-level px) */
+.pt-mud-main-below-appbar {
+    padding-top: 64px !important;
+    box-sizing: border-box;
+}
+
+/* Label tender route: single main-column padding (avoid stacking with page-level px).
+   Horizontal offset is set inline on MudMainContent (MainLayout) so it can track the filter drawer. */
 .cockpit-main--label-tender {
     box-sizing: border-box;
     width: 100%;
@@ -903,8 +909,8 @@
 
 /* Label tender shell sidebar (layout drawer) */
 .lt-shell-sidebar {
-    padding-bottom: 1rem;
-    background-color: #434A2C;
+    position: relative;
+    overflow: visible !important;
 }
 
 .lt-shell-section-title {
@@ -930,6 +936,94 @@
     font-weight: 500 !important;
 }
 
+.pt-label-drawer-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.pt-filter-panel-toggle {
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    background: #485230;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 200;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+}
+
+.pt-filter-panel {
+    box-sizing: border-box;
+    background: #485230;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+    height: calc(100vh - 64px);
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.88);
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+}
+
+.pt-filter-panel--hidden {
+    display: none !important;
+}
+
+.pt-filter-panel .lt-filter-panel-inner {
+    background: transparent;
+}
+
+.pt-filter-panel .lt-filter-panel-page-title,
+.pt-filter-panel .lt-filter-panel-page-title.cockpit-import-headline {
+    color: #ffffff !important;
+}
+
+.pt-filter-panel .lt-filter-subsection {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    margin: 0 8px 8px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.pt-filter-panel .lt-filter-subsection-title {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.pt-filter-panel .lt-filter-panel-cb .mud-typography {
+    color: #ffffff !important;
+    font-size: 13px !important;
+}
+
+.pt-filter-panel .pt-filter-group-box {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.pt-filter-panel .pt-filter-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 6px;
+}
+
+.lt-shell-supplier-checkbox .mud-typography {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
 .pt-drawer--label-shell {
     border-right: 1px solid rgba(255, 255, 255, 0.07);
     --lt-shell-bg: #434A2C;
@@ -942,6 +1036,7 @@
 .pt-drawer--label-shell.mud-drawer {
     background: #434A2C !important;
     background-color: #434A2C !important;
+    overflow: visible !important;
 }
 
 .pt-drawer--label-shell aside {
@@ -949,8 +1044,9 @@
     background-color: #434A2C !important;
 }
 
-.pt-drawer--label-shell .mud-drawer-content {
+.pt-drawer--label-shell.mud-drawer .mud-drawer-content {
     color: rgba(255, 255, 255, 0.92);
+    overflow: visible !important;
 }
 
 .pt-drawer--label-shell .lt-shell-sidebar .cockpit-muted,
@@ -1051,35 +1147,51 @@
     fill: rgba(248, 249, 250, 0.58) !important;
 }
 
-/* Native Excel picker — readable on dark sidebar (Chromium / Firefox) */
+/* Excel picker: styled “Select file” face + invisible native input (reliable copy vs ::file-selector-button) */
 .pt-drawer--label-shell .lt-shell-file-import {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.pt-drawer--label-shell .lt-shell-file-input-native {
+.pt-drawer--label-shell .lt-shell-file-picker {
+    position: relative;
+    display: block;
     width: 100%;
-    max-width: 100%;
-    padding: 8px 0;
-    font-size: 0.82rem;
-    color: rgba(248, 249, 250, 0.88) !important;
-    background: transparent !important;
+    cursor: pointer;
 }
 
-.pt-drawer--label-shell .lt-shell-file-input-native::file-selector-button {
-    margin-right: 12px;
+.pt-drawer--label-shell .lt-shell-file-picker-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
     padding: 6px 12px;
     border-radius: 8px;
     border: 1px solid #7fa15a;
     background-color: rgba(255, 255, 255, 0.08);
     color: #f8f9fa;
     font-weight: 600;
-    cursor: pointer;
+    font-size: 0.82rem;
 }
 
-.pt-drawer--label-shell .lt-shell-file-input-native::file-selector-button:hover {
+.pt-drawer--label-shell .lt-shell-file-picker:hover .lt-shell-file-picker-face {
     background-color: rgba(255, 255, 255, 0.14);
+}
+
+.pt-drawer--label-shell .lt-shell-file-input-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
 }
 
 .pt-drawer--label-shell .lt-shell-file-name {

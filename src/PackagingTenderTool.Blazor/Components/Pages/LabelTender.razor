@@ -164,141 +164,8 @@ else
                     </MudAlert>
                 }
 
-                @if (_importedLineItems.Count > 0)
-                {
-                    <div class="cockpit-filter-bar mb-2 mt-3" @key="_filterCountries.Length">
-                        <select class="cockpit-filter-native" 
-                                value="@_filterCountry"
-                                @onchange="@(e => { _filterCountry = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle lande</option>
-                            @foreach (var c in _filterCountries)
-                            {
-                                <option value="@c">@c</option>
-                            }
-                        </select>
-                        <select class="cockpit-filter-native"
-                                value="@_filterSite"
-                                @onchange="@(e => { _filterSite = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle sites</option>
-                            @foreach (var s in _filterSitesForCountry)
-                            {
-                                <option value="@s">@s</option>
-                            }
-                        </select>
-                        <select class="cockpit-filter-native"
-                                value="@_filterMaterial"
-                                @onchange="@(e => { _filterMaterial = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle materialer</option>
-                            @foreach (var m in _filterMaterials)
-                            {
-                                <option value="@m">@m</option>
-                            }
-                        </select>
-                        <select class="cockpit-filter-native"
-                                value="@_filterLabelSize"
-                                @onchange="@(e => { _filterLabelSize = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle label sizes</option>
-                            @foreach (var s in _filterLabelSizes)
-                            {
-                                <option value="@s">@s</option>
-                            }
-                        </select>
-                        <select class="cockpit-filter-native"
-                                value="@_filterWinding"
-                                @onchange="@(e => { _filterWinding = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle winding</option>
-                            @foreach (var w in _filterWindings)
-                            {
-                                <option value="@w">@w</option>
-                            }
-                        </select>
-                        <select class="cockpit-filter-native"
-                                value="@_filterColors"
-                                @onchange="@(e => { _filterColors = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
-                            <option value="">Alle colors</option>
-                            @foreach (var c in _filterColorValues)
-                            {
-                                <option value="@c">@c</option>
-                            }
-                        </select>
-                    </div>
-                }
-
                 <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
                 <MudTabPanel Text="Dashboard">
-                    <MudGrid Spacing="4" Class="decision-kpi-grid">
-                        <MudItem xs="12" sm="6" lg="3">
-                            <MudPaper Elevation="6" Class="decision-kpi-card pt-kpi-card--recommended pa-5">
-                                <MudText Typo="Typo.overline" Class="cockpit-muted">Recommended</MudText>
-                                <MudText Typo="Typo.h4" Class="decision-kpi-name decision-kpi-name--hero mt-1">
-                                    @(_decisionInsight?.RecommendedSupplierName ?? "—")
-                                </MudText>
-                                @if (!string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId) && _decisionInsight!.IsSensitiveDecision)
-                                {
-                                    <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap align-center">
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Class="ma-0">Sensitive decision</MudChip>
-                                    </MudStack>
-                                }
-                                <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="2" Class="mt-2">
-                                    <MudText Typo="Typo.h4" Class="decision-kpi-metric ma-0">
-                                        @(string.IsNullOrWhiteSpace(_decisionInsight?.RecommendedSupplierId)
-                                            ? "–"
-                                            : _decisionInsight!.RecommendedWeightedScore.ToString("0.0", Da))
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Class="cockpit-muted">weighted CTR</MudText>
-                                </MudStack>
-                                <div class="decision-pillar-bar mt-3" title="Weighted contribution to CTR">
-                                    <div class="decision-pillar-bar__comm" style="width: @($"{(_decisionInsight?.WeightedShareCommercial ?? 0m):0.#}%")"></div>
-                                    <div class="decision-pillar-bar__tech" style="width: @($"{(_decisionInsight?.WeightedShareTechnical ?? 0m):0.#}%")"></div>
-                                    <div class="decision-pillar-bar__reg" style="width: @($"{(_decisionInsight?.WeightedShareRegulatory ?? 0m):0.#}%")"></div>
-                                </div>
-                                <MudStack Row="true" Spacing="2" Class="mt-2 flex-wrap">
-                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Comm @((_decisionInsight?.WeightedShareCommercial ?? 0m).ToString("0"))%</MudText>
-                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Tech @((_decisionInsight?.WeightedShareTechnical ?? 0m).ToString("0"))%</MudText>
-                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Reg @((_decisionInsight?.WeightedShareRegulatory ?? 0m).ToString("0"))%</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Class="decision-kpi-narrative mt-3">
-                                    @(_decisionInsight?.Narrative ?? "Import suppliers or widen selection to generate insight.")
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">
-                                    Value driver: @(_decisionInsight?.PrimaryValueDriver ?? "—")
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-
-                        <MudItem xs="12" sm="6" lg="3">
-                            <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
-                                <MudText Typo="Typo.overline" Class="cockpit-muted">Lowest commercial anchor</MudText>
-                                <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.LowestPriceSupplierName ?? "—")</MudText>
-                                <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
-                                    @((_decisionInsight?.LowestCommercialSpend ?? 0m).ToString("N0", Da)) kr
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Total commercial spend (volume × price)</MudText>
-                            </MudPaper>
-                        </MudItem>
-
-                        <MudItem xs="12" sm="6" lg="3">
-                            <MudPaper Elevation="6" Class="decision-kpi-card pa-5">
-                                <MudText Typo="Typo.overline" Class="cockpit-muted">Best TCO</MudText>
-                                <MudText Typo="Typo.h6" Class="mt-2">@(_decisionInsight?.BestTcoSupplierName ?? "—")</MudText>
-                                <MudText Typo="Typo.h5" Class="decision-kpi-metric mt-2">
-                                    @((_decisionInsight?.BestTcoTotal ?? 0m).ToString("N0", Da)) kr
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="cockpit-muted mt-2">Lowest full TCO (incl. EPR, switching, MOQ)</MudText>
-                            </MudPaper>
-                        </MudItem>
-
-                        <MudItem xs="12" sm="6" lg="3">
-                            <MudPaper Elevation="6" Class="decision-kpi-card decision-kpi-card--risk pa-5">
-                                <MudText Typo="Typo.overline" Class="cockpit-muted">Risk exposure</MudText>
-                                <MudText Typo="Typo.h3" Class="decision-kpi-metric mt-2">@RiskReviewRowCount</MudText>
-                                <MudText Typo="Typo.body2" Class="cockpit-muted mt-2">
-                                    Evidence rows flagged for review (compliance, outliers, or weak CTR).
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-                    </MudGrid>
-
                     <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
@@ -938,6 +805,7 @@ else
 
         await Task.Yield();
         RefreshData();
+        SyncSidebarBridge();
     }
 
     protected override void OnParametersSet()
@@ -961,6 +829,10 @@ else
         SidebarBridge.OnMaterialChanged = null;
         SidebarBridge.OnSynergyChanged = null;
         SidebarBridge.OnPpwrEffectChanged = null;
+        SidebarBridge.OnSupplierSelectionChanged = null;
+        SidebarBridge.OnLabelSizeChanged = null;
+        SidebarBridge.OnWindingChanged = null;
+        SidebarBridge.OnColorsChanged = null;
     }
 
     private void OnSessionChanged()
@@ -1047,6 +919,9 @@ else
         SidebarBridge.FilterCountry = _filterCountry;
         SidebarBridge.FilterSite = _filterSite;
         SidebarBridge.FilterMaterial = _filterMaterial;
+        SidebarBridge.FilterLabelSize = _filterLabelSize;
+        SidebarBridge.FilterWinding = _filterWinding;
+        SidebarBridge.FilterColors = _filterColors;
         SidebarBridge.FilterAdhesive = string.Empty;
         SidebarBridge.SynergyToggle = _synergyToggle;
         SidebarBridge.PpwrEffectToggle = Session.ApplyPpwrEffectTest;
@@ -1055,13 +930,21 @@ else
         SidebarBridge.FilterCountries = _filterCountries;
         SidebarBridge.FilterSitesForCountry = _filterSitesForCountry;
         SidebarBridge.FilterMaterials = _filterMaterials;
+        SidebarBridge.FilterLabelSizes = _filterLabelSizes;
+        SidebarBridge.FilterWindings = _filterWindings;
+        SidebarBridge.FilterColorValues = _filterColorValues;
         SidebarBridge.FilterAdhesives = [];
+        SidebarBridge.SelectedSupplierIds = Session.SelectedSuppliers;
         SidebarBridge.DrawerSuppliers = _suppliersAll
             .Where(s => !string.IsNullOrWhiteSpace(s.SupplierId))
             .GroupBy(s => s.SupplierId!, StringComparer.OrdinalIgnoreCase)
             .Select(g => new LabelTenderSidebarBridge.DrawerSupplierRow(g.Key, g.First().SupplierName))
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        SidebarBridge.OnSupplierSelectionChanged = OnSupplierSelectionChanged;
+        SidebarBridge.OnLabelSizeChanged = OnLabelSizeChanged;
+        SidebarBridge.OnWindingChanged = OnWindingChanged;
+        SidebarBridge.OnColorsChanged = OnColorsChanged;
         SidebarBridge.NotifyChanged();
     }
 
@@ -1083,6 +966,34 @@ else
     private void OnMaterialChanged(string v)
     {
         _filterMaterial = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLabelSizeChanged(string v)
+    {
+        _filterLabelSize = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnWindingChanged(string v)
+    {
+        _filterWinding = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnColorsChanged(string v)
+    {
+        _filterColors = v ?? string.Empty;
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSupplierSelectionChanged(string id, bool selected)
+    {
+        Session.SetSupplierSelected(id, selected);
         RefreshData();
         _ = InvokeAsync(StateHasChanged);
     }

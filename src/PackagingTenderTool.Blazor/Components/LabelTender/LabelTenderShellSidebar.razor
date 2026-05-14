@@ -12,9 +12,6 @@
         <section class="lt-shell-section">
             <MudText Typo="Typo.overline" Class="cockpit-muted">Data intake</MudText>
             <MudText Typo="Typo.h5" Class="cockpit-import-headline">Excel import</MudText>
-            <MudText Typo="Typo.body2" Class="cockpit-muted">
-                Upload tender lines (.xlsx) — drives TCO, compliance, and recommendations.
-            </MudText>
             @if (Bridge.ImportInProgress)
             {
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-1">
@@ -24,17 +21,16 @@
             }
             else
             {
-                <div class="lt-shell-file-import">
-                    <InputFile OnChange="OnExcel"
-                               accept=".xlsx"
-                               class="lt-shell-file-input-native cockpit-import-input" />
+                <div class="lt-shell-file-import" style="width:100%;">
+                    <label class="lt-shell-file-picker">
+                        <span class="lt-shell-file-picker-face">Select file</span>
+                        <InputFile OnChange="OnExcel"
+                                   accept=".xlsx"
+                                   class="lt-shell-file-input-native lt-shell-file-input-overlay cockpit-import-input" />
+                    </label>
                     @if (!string.IsNullOrWhiteSpace(Bridge.LastImportedFileName))
                     {
                         <MudText Typo="Typo.caption" Class="lt-shell-file-name mt-1">@Bridge.LastImportedFileName</MudText>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.caption" Class="lt-shell-file-empty mt-1">No file selected</MudText>
                     }
                 </div>
             }
@@ -97,6 +93,7 @@
     </section>
 
     <MudDivider Class="my-1" />
+
     <section class="lt-shell-section px-3 pb-2">
         <MudText Typo="Typo.subtitle2" Class="lt-shell-section-title mb-2">Scenarios</MudText>
         <MudStack Spacing="1">
@@ -115,6 +112,18 @@
 
     <MudDivider Class="my-1" />
 
+    @if (Bridge.HasImportedData)
+    {
+        <button type="button"
+                style="position:absolute;right:-18px;top:33%;transform:translateY(-50%);z-index:1000;width:36px;height:36px;background:#485230;border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:3px 0 10px rgba(0,0,0,0.5);padding:0;margin:0;"
+                @onclick="OnFilterPanelToggleClick"
+                aria-label="@(Bridge.FilterPanelOpen ? "Hide filters" : "Show filters")">
+            <MudIcon Icon="@(Bridge.FilterPanelOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)"
+                     Size="Size.Medium"
+                     Style="color:white;" />
+        </button>
+    }
+
 </div>
 
 @code {
@@ -127,6 +136,12 @@
     private void OnBridgeChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void OnFilterPanelToggleClick()
+    {
+        Bridge.OnToggleFilterPanel?.Invoke();
+        StateHasChanged();
+    }
 
     private async Task OnExcel(InputFileChangeEventArgs e)
     {
@@ -144,16 +159,6 @@
         }
         await Bridge.ImportExcelAsync(file.Name, buffer[..bytesRead]);
     }
-
-    private void OnCountry(string v) => Bridge.OnCountryChanged?.Invoke(v ?? string.Empty);
-
-    private void OnSite(string v) => Bridge.OnSiteChanged?.Invoke(v ?? string.Empty);
-
-    private void OnMaterial(string v) => Bridge.OnMaterialChanged?.Invoke(v ?? string.Empty);
-
-    private void OnAdhesive(string v) => Bridge.OnAdhesiveChanged?.Invoke(v ?? string.Empty);
-
-    private void OnSynergy(bool v) => Bridge.OnSynergyChanged?.Invoke(v);
 
     private void GoTab(string tab) =>
         Nav.NavigateTo($"/labeltender?tab={tab}");

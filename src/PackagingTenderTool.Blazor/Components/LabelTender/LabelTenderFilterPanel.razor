@@ -1,0 +1,140 @@
+@using MudBlazor
+@using PackagingTenderTool.Blazor.Services
+@inject LabelTenderSidebarBridge Bridge
+@implements IDisposable
+
+@if (Bridge.HasImportedData)
+{
+    <div class="lt-filter-panel-inner">
+        <div style="display:flex; align-items:center; padding:12px 12px 8px;">
+            <MudText Typo="Typo.h5"
+                     Class="cockpit-import-headline lt-filter-panel-page-title"
+                     Style="color:white; margin:0;">
+                Label profile
+            </MudText>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:12px; padding:0 12px 12px;">
+            @foreach (var g in LeftColumnGroups())
+            {
+                @if (g.Options is { Count: > 0 })
+                {
+                    <div class="pt-filter-group-box">
+                        <div class="pt-filter-group-title">@g.Title</div>
+                        <MudStack Spacing="0">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                                <MudCheckBox T="bool"
+                                             Dense="true"
+                                             Color="Color.Default"
+                                             Class="lt-filter-panel-cb"
+                                             Value="@string.IsNullOrWhiteSpace(g.Current())"
+                                             ValueChanged="@(v => { if (v) g.Apply(string.Empty); })"
+                                             Label="@SelectAllNoneLabel(g.Current())" />
+                            </MudStack>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
+                                @foreach (var opt in g.Options)
+                                {
+                                    var captured = opt;
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1" @key="@($"{g.Title}-{captured}")">
+                                        <MudCheckBox T="bool"
+                                                     Dense="true"
+                                                     Color="Color.Default"
+                                                     Class="lt-filter-panel-cb"
+                                                     Value="@FilterMatches(g.Current(), captured)"
+                                                     ValueChanged="@(v => { if (v) g.Apply(captured); })"
+                                                     Label="@captured" />
+                                    </MudStack>
+                                }
+                            </div>
+                        </MudStack>
+                    </div>
+                }
+            }
+            @if (Bridge.DrawerSuppliers.Count > 0)
+            {
+                <div class="pt-filter-group-box">
+                    <div class="pt-filter-group-title">Leverandører</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
+                        @foreach (var supplier in Bridge.DrawerSuppliers)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1" @key="supplier.Id">
+                                <MudCheckBox T="bool"
+                                             Dense="true"
+                                             Color="Color.Default"
+                                             Class="lt-filter-panel-cb"
+                                             Value="@Bridge.SelectedSupplierIds.Contains(supplier.Id)"
+                                             ValueChanged="@(v => Bridge.OnSupplierSelectionChanged?.Invoke(supplier.Id, v))"
+                                             Label="@supplier.Name" />
+                            </MudStack>
+                        }
+                    </div>
+                </div>
+            }
+            @foreach (var g in RightColumnGroups())
+            {
+                @if (g.Options is { Count: > 0 })
+                {
+                    <div class="pt-filter-group-box">
+                        <div class="pt-filter-group-title">@g.Title</div>
+                        <MudStack Spacing="0">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                                <MudCheckBox T="bool"
+                                             Dense="true"
+                                             Color="Color.Default"
+                                             Class="lt-filter-panel-cb"
+                                             Value="@string.IsNullOrWhiteSpace(g.Current())"
+                                             ValueChanged="@(v => { if (v) g.Apply(string.Empty); })"
+                                             Label="@SelectAllNoneLabel(g.Current())" />
+                            </MudStack>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
+                                @foreach (var opt in g.Options)
+                                {
+                                    var captured = opt;
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1" @key="@($"{g.Title}-{captured}")">
+                                        <MudCheckBox T="bool"
+                                                     Dense="true"
+                                                     Color="Color.Default"
+                                                     Class="lt-filter-panel-cb"
+                                                     Value="@FilterMatches(g.Current(), captured)"
+                                                     ValueChanged="@(v => { if (v) g.Apply(captured); })"
+                                                     Label="@captured" />
+                                    </MudStack>
+                                }
+                            </div>
+                        </MudStack>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Bridge.Changed += OnBridgeChanged;
+
+    private void OnBridgeChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private static bool FilterMatches(string current, string value) =>
+        string.Equals((current ?? string.Empty).Trim(), value, StringComparison.OrdinalIgnoreCase);
+
+    private static string SelectAllNoneLabel(string? current) =>
+        string.IsNullOrWhiteSpace(current) ? "Deselect all" : "Select all";
+
+    private sealed record FilterGroupDef(string Title, IReadOnlyList<string> Options, Func<string> Current, Action<string> Apply);
+
+    private IEnumerable<FilterGroupDef> LeftColumnGroups()
+    {
+        yield return new FilterGroupDef("Lande", Bridge.FilterCountries, () => Bridge.FilterCountry, v => Bridge.OnCountryChanged?.Invoke(v));
+        yield return new FilterGroupDef("Sites", Bridge.FilterSitesForCountry, () => Bridge.FilterSite, v => Bridge.OnSiteChanged?.Invoke(v));
+    }
+
+    private IEnumerable<FilterGroupDef> RightColumnGroups()
+    {
+        yield return new FilterGroupDef("Materialer", Bridge.FilterMaterials, () => Bridge.FilterMaterial, v => Bridge.OnMaterialChanged?.Invoke(v));
+        yield return new FilterGroupDef("Label sizes", Bridge.FilterLabelSizes, () => Bridge.FilterLabelSize, v => Bridge.OnLabelSizeChanged?.Invoke(v));
+        yield return new FilterGroupDef("Winding", Bridge.FilterWindings, () => Bridge.FilterWinding, v => Bridge.OnWindingChanged?.Invoke(v));
+        yield return new FilterGroupDef("Colors", Bridge.FilterColorValues, () => Bridge.FilterColors, v => Bridge.OnColorsChanged?.Invoke(v));
+    }
+
+    public void Dispose() => Bridge.Changed -= OnBridgeChanged;
+}

@@ -2,9 +2,11 @@
 @implements IDisposable
 
 @using PackagingTenderTool.Blazor.Components.LabelTender
+@using PackagingTenderTool.Blazor.Services
 
 @inject PackagingProfileSession Profile
 @inject NavigationManager Nav
+@inject LabelTenderSidebarBridge Bridge
 
 <MudThemeProvider Theme="@AppTheme.Scandi" IsDarkMode="false" />
 <MudDialogProvider />
@@ -12,40 +14,55 @@
 
 <MudLayout>
     <MudAppBar Elevation="0" Dense="false" Class="pt-app-bar pt-app-bar-cockpit" Style="height: 64px;">
-        <img src="/images/scandi-standard-logo.png" 
-             alt="Scandi Standard" 
-             style="height: 56px; width: auto; display: block;" />
-        <MudText Typo="Typo.h6" 
-                 Style="font-weight: 600; color: #485230; margin-left: 24px;">
+        <img src="/images/scandi-standard-logo.jpg"
+             alt="Scandi Standard"
+             style="height: 52px; width: auto; display: block;" />
+        <MudSpacer />
+        <MudText Typo="Typo.h6" Style="font-weight: 600; color: #485230;">
             Packaging Tender Decision Support
         </MudText>
+        <MudSpacer />
     </MudAppBar>
 
     @if (Profile.SelectedProfile is not null)
     {
-        <MudDrawer Variant="DrawerVariant.Persistent"
-                   Open="true"
-                   Elevation="0"
-                   Width="@(_labelTenderRoute ? "340px" : "300px")"
-                   ClipMode="DrawerClipMode.Always"
-                   Class="@(_labelTenderRoute ? "pt-drawer pt-drawer-cockpit pt-drawer--label-shell" : "pt-drawer pt-drawer-cockpit")"
-                   Style="@(_labelTenderRoute ? "background-color: #485230 !important; background: #485230 !important;" : "")">
-            @if (_labelTenderRoute)
-            {
-                <LabelTenderShellSidebar />
-            }
-            else
-            {
+        @if (_labelTenderRoute)
+        {
+            <div style="display:flex; flex-direction:row; position:fixed; top:64px; left:0; height:calc(100vh - 64px); z-index:100;">
+                <div class="pt-label-drawer-wrap">
+                    <MudDrawer Variant="DrawerVariant.Persistent"
+                               Open="true"
+                               Elevation="0"
+                               Width="240px"
+                               Class="pt-drawer pt-drawer-cockpit pt-drawer--label-shell"
+                               Style="position:relative; flex-shrink:0; overflow:visible; background-color: #485230 !important; background: #485230 !important;">
+                        <LabelTenderShellSidebar />
+                    </MudDrawer>
+                </div>
+                <div class="pt-filter-panel @(Bridge.HasImportedData ? "" : "pt-filter-panel--hidden")"
+                     style="@FilterPanelInlineStyle">
+                    <LabelTenderFilterPanel />
+                </div>
+            </div>
+        }
+        else
+        {
+            <MudDrawer Variant="DrawerVariant.Persistent"
+                       Open="true"
+                       Elevation="0"
+                       Width="300px"
+                       ClipMode="DrawerClipMode.Always"
+                       Class="pt-drawer pt-drawer-cockpit">
                 <LabelTenderDrawerPanel />
                 <MudDivider Class="mx-2 my-1" />
                 <div class="pt-drawer-nav pa-2">
                     <NavMenu />
                 </div>
-            }
-        </MudDrawer>
+            </MudDrawer>
+        }
     }
 
-    <MudMainContent Class="@MainContentClass">
+    <MudMainContent Class="@MainContentClass" Style="@(MainContentStyle ?? string.Empty)">
         @Body
     </MudMainContent>
 </MudLayout>
@@ -54,21 +71,47 @@
 {
     private bool _labelTenderRoute;
 
+    private bool _filterPanelOpen = true;
+
     private string MainContentClass =>
         Profile.SelectedProfile is null
-            ? "pa-0"
+            ? "pa-0 pt-mud-main-below-appbar"
             : _labelTenderRoute
-                ? "cockpit-main cockpit-main--label-tender"
-                : "pa-4 cockpit-main";
+                ? "cockpit-main cockpit-main--label-tender pt-mud-main-below-appbar"
+                : "pa-4 cockpit-main pt-mud-main-below-appbar";
+
+    private string? MainContentStyle =>
+        Profile.SelectedProfile is not null && _labelTenderRoute
+            ? Bridge.HasImportedData && _filterPanelOpen
+                ? "margin-left: 720px; transition: margin-left 0.25s ease;"
+                : "margin-left: 240px; transition: margin-left 0.25s ease;"
+            : null;
+
+    private string FilterPanelInlineStyle =>
+        !Bridge.HasImportedData
+            ? string.Empty
+            : $"width:{(_filterPanelOpen ? "480px" : "0px")};min-width:{(_filterPanelOpen ? "480px" : "0px")};transition:width 0.25s ease;";
 
     protected override void OnInitialized()
     {
         Profile.Changed += OnProfileChanged;
         Nav.LocationChanged += OnLocationChanged;
+        Bridge.Changed += OnBridgeChanged;
+        Bridge.FilterPanelOpen = _filterPanelOpen;
+        Bridge.OnToggleFilterPanel = HandleToggleFilterPanel;
         RefreshRouteFlag();
     }
 
+    private void OnBridgeChanged() => _ = InvokeAsync(StateHasChanged);
+
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => RefreshRouteFlag();
+
+    private void HandleToggleFilterPanel()
+    {
+        _filterPanelOpen = !_filterPanelOpen;
+        Bridge.FilterPanelOpen = _filterPanelOpen;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private void RefreshRouteFlag()
     {
@@ -90,5 +133,7 @@
     {
         Profile.Changed -= OnProfileChanged;
         Nav.LocationChanged -= OnLocationChanged;
+        Bridge.Changed -= OnBridgeChanged;
+        Bridge.OnToggleFilterPanel = null;
     }
 }
