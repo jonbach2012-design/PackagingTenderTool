@@ -192,6 +192,17 @@
     box-shadow: none !important;
 }
 
+.pt-app-bar img {
+    height: 56px !important;
+    width: auto !important;
+}
+
+.pt-app-bar .mud-toolbar {
+    height: 64px !important;
+    min-height: 64px !important;
+    --mud-internal-toolbar-height: 64px !important;
+}
+
 .pt-app-bar.pt-app-bar-cockpit .mud-typography,
 .pt-app-bar.pt-app-bar-cockpit .pt-app-bar-title {
     color: #2d3436 !important;
