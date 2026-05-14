@@ -1,4 +1,4 @@
-namespace PackagingTenderTool.Blazor.Models;
+namespace PackagingTenderTool.Core.Models;
 
 public sealed record TcoResult(
     decimal Commercial,
@@ -9,4 +9,3 @@ public sealed record TcoResult(
 {
     public string TechnicalSummary { get; set; } = string.Empty;
 }
-

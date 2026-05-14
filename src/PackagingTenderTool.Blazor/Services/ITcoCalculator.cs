@@ -1,4 +1,5 @@
 using PackagingTenderTool.Blazor.Models;
+using PackagingTenderTool.Core.Models;
 
 namespace PackagingTenderTool.Blazor.Services;
 

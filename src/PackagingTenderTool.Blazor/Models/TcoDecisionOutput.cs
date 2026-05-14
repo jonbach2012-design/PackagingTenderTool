@@ -1,3 +1,5 @@
+using PackagingTenderTool.Core.Models;
+
 namespace PackagingTenderTool.Blazor.Models;
 
 public sealed record TcoDecisionOutput(
