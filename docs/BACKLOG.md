@@ -6,12 +6,11 @@
      Before adding a new idea, add it here — not in chat, not in a comment, not in your head. -->
 
 <!-- Priority order for next sessions:
-1. BACK-019 (visualization — POC blocker)
-2. BACK-012a (registry — enables everything else)
-3. BACK-017 (audit shield — compliance)
-4. BACK-016 (multi-country benchmark)
-5. BACK-012b (PPWR calculation)
-6. BACK-018 (constraint builder)
+1. BACK-019 visualization (POC blocker)
+2. BACK-016 multi-country benchmark
+3. BACK-017 audit shield
+4. BACK-018 constraint builder
+5. BACK-021 material PPWR grade mapping
 -->
 
 ## How to use this
@@ -65,39 +64,11 @@
 
 - **Value**: Unblocks POC — stakeholders see a coherent story from KPI to evidence.
 
-#### [BACK-001] Test results visible on GitHub
-- **Status**: `done` — 2026-05-07
-- **Category**: CI/CD
-- **Value**: 5 | **Priority**: 5 | **Effort**: 2h
-- **Score**: 10
-- **What**: Add TRX test logger + GitHub test reporter action. Inline test failure details in Actions.
-- **Result**: 135 tests passing, visible by name and suite in GitHub Actions summary.
-
-#### [BACK-012a] Cost Component Registry (NEW - blocks BACK-012b)
-- **Status**: `ready`
-- **Category**: Architecture / Scoring
-- **Score**: 10
-- **Description**: Build a metadata-driven CostComponentRegistry in `PackagingTenderTool.Core`. Define `CostComponentDefinition` record with: Key, DisplayName, Order, Group, IncludeInTotal, VisibleInDashboard, VisibleInExport, GetValue (`Func<TcoResult, decimal>`). Register existing 5 components: Commercial, Technical, Switching, Regulatory, Total. Update `TcoDashboardViewModel.GetDynamicCostProperties()` to use registry.
-- **Implementation notes**:
-  - **Safe-get requirement (mandatory, not optional)**:
-    - All GetValue delegates in registry must use safe null-coalescing:
-      - `GetValue: r => prop.GetValue(r) is decimal d ? d : 0m`
-    - RegulatoryProfile must implement a Neutral static instance with all rates = 0m as fallback when a country profile is not yet validated
-    - Registry must validate at startup that all registered properties exist on TcoResult — fail fast with clear error, not silent null
-    - decimal? fields must be handled explicitly:
-      - `GetValue: r => prop.GetValue(r) as decimal? ?? 0m`
-- **Proof of concept**: add one `TestComponent` and verify with 5 tests:
-  1. Component visible in dashboard
-  2. Component included correctly in total
-  3. Component appears in export
-  4. Order is stable
-  5. BI header is stable
-
 #### [BACK-016] Multi-country regulatory benchmark engine
 - **Status**: `ready`
 - **Category**: Architecture / Scoring
 - **Score**: 10
-- **Depends on**: BACK-012a, BACK-012b
+- **Depends on**: BACK-012a, BACK-012b — **delivered** (see Done — 2026-05-14)
 - **Description**: After Excel import, automatically run all suppliers through 7 regulatory profiles (DK, SE, NO, FI, IE, NL, LT) using CountryRegulatoryRegistry. Add "Regulatory Benchmark" tab to dashboard showing heatmap grid: suppliers as rows, countries as columns, TCO cost as values. Green = lowest exposure, Red = highest.
 - **Technical**:
   - RegulatoryProfile record (CountryCode, EprFeeRate, PlasticTaxRate, PpwrMultiplier, RecyclabilityThreshold).
@@ -114,39 +85,11 @@
 
 ### 🟠 Score 9 — High value, implement carefully
 
-#### [BACK-012b] PPWR Risk Multiplier — time-bounded market access scoring
-- **Status**: `ready`
-- **Category**: Architecture / Scoring
-- **Value**: 5 | **Priority**: 5 | **Effort**: 1-2 days
-- **Score**: 9
-- **Depends on**: BACK-012a
-- **What**: Enhance regulatory scoring with a PPWR Risk Multiplier that reflects time-bounded market access consequences — not just a static A-E point mapping.
-- **Why**: The current model (D=25pts, E=0pts) is a static snapshot. Grade D suppliers face market access restrictions from 2030. Grade E are effectively unviable beyond 2029. A category manager making a 3-year contract decision needs this risk made visible.
-- **Business logic**:
-  - Grade A (>=95% recyclable): no penalty — future-proof
-  - Grade B (>=80%): no penalty — compliant through 2038
-  - Grade C (>=70%): soft warning — compliant through 2035, review by 2033
-  - Grade D (50-70%): Market Access Risk 2030 flag — phase-out in 4 years
-  - Grade E (<50%): Market Access Risk NOW flag — non-viable beyond 2029
-- **Scoring approach** (ADR required before implementation):
-  - Option A: Static penalty added to regulatory score based on grade (simple, deterministic)
-  - Option B: Time-decay multiplier — penalty increases as 2030 deadline approaches (dynamic, powerful)
-  - Option C: Hard flag only — no score impact, visible warning in cockpit (conservative)
-- **Spec reference**: docs/spec.md section 14.3.3
-- **Note**: Requires BACK-012a registry
-- **Acceptance criteria**:
-  - [ ] ADR written and approved before any code
-  - [ ] Grade D triggers Market Access Risk 2030 flag in dashboard
-  - [ ] Grade E triggers Market Access Risk NOW flag in dashboard
-  - [ ] Score change visible in CalculationBreakdown — fully explainable
-  - [ ] Existing golden cases still pass
-  - [ ] No changes to TcoEngineService interface — only scoring strategy implementation
-
 #### [BACK-017] Versioned TCO Models — Audit Shield
 - **Status**: `ready`
 - **Category**: Compliance / Architecture
 - **Score**: 9
-- **Depends on**: BACK-012a, BACK-012b
+- **Depends on**: BACK-012a, BACK-012b — **delivered** (see Done — 2026-05-14)
 - **Description**: Every time a tender is "locked" by a user, serialize and store the complete decision state as JSON: TcoResult, RegulatoryProfile, ScoringWeights, SupplierSelection, timestamp, user.
 
   This creates an immutable audit trail for EU/PPWR compliance and internal governance. Auditors and regulators can reconstruct exactly why a supplier was chosen at a given point in time.
@@ -229,8 +172,15 @@
 - **Status**: `idea`
 - **Category**: Architecture
 - **Score**: 7
-- **Depends on**: BACK-012a
+- **Depends on**: BACK-012a — **delivered** (CostComponentRegistry in Core; see Done — 2026-05-14)
 - **Description**: Make CSV/XLSX exports dynamic based on CostComponentRegistry. Removes hardcoded column lists in `MainForm.cs`, `ExportService.cs` and `TenderDashboardCsvExporter.cs`. Ensures BI headers are stable and consistent across all export formats.
+
+#### [BACK-021] Material-to-PPWR-grade mapping
+- **Status**: `idea`
+- **Category**: Architecture / Data
+- **Score**: 7
+- **Depends on**: BACK-016 (SharePoint / country-rate integration and sustainability data path)
+- **Description**: Map material strings (PP top white, Thermo eco, etc.) to PPWR recyclability grades A–E. Data source: sustainability team via SharePoint or leverandør input. Required before PPWR effect moves from test to production.
 
 #### [BACK-018] Constraint-Based Scenario Builder
 - **Status**: `idea`
@@ -351,6 +301,35 @@
 ---
 
 ## Done
+
+### Backlog items (completed)
+
+#### [BACK-012a] Cost Component Registry (blocks BACK-012b — satisfied)
+- **Status**: `done` — 2026-05-14
+- **Category**: Architecture / Scoring
+- **Score**: 10 (at delivery)
+- **Note**: `TcoResult` moved to Core layer. `CostComponentRegistry` implemented with five cost components plus `ppwr_risk`; reflection in `TcoDashboardViewModel` replaced with explicit registry. Startup validation on `GetValue` delegates.
+
+#### [BACK-012b] PPWR Risk Multiplier — time-bounded market access scoring
+- **Status**: `done` — 2026-05-14
+- **Category**: Architecture / Scoring
+- **Score**: 9 (at delivery)
+- **Note**: PPWR Risk Multiplier **Option A** (static grade lookup). Grade **C = 5%**, **D = 15%**, **E = 25%** penalty on commercial spend; A/B = 0%. `MarketAccessRisk2030` / `MarketAccessRiskNow` flags implemented. `PpwrEffectTest` toggle in Scenarios section (with PPWR scenario coupling) for POC demonstration. **No real material-to-grade mapping yet** — grades default to A unless set in session. Real grades require sustainability team input or SharePoint integration (BACK-016 dependency). See `docs/decisions/ADR-ppwr-risk-multiplier.md`.
+
+#### [BACK-020] Pivot / multi-supplier label tender import
+- **Status**: `done` — 2026-05-14
+- **Category**: Import
+- **Note**: `PivotLabelsExcelImportService` handles multi-supplier pivot workbook format. Auto-detected by worksheet name **"All labels DSH"**; pipeline feeds `LabelsExcelImportService` for unified tender model.
+
+#### [BACK-001] Test results visible on GitHub
+- **Status**: `done` — 2026-05-07
+- **Category**: CI/CD
+- **Value**: 5 | **Priority**: 5 | **Effort**: 2h
+- **Score**: 10
+- **What**: Add TRX test logger + GitHub test reporter action. Inline test failure details in Actions.
+- **Result**: Tests passing, visible by name and suite in GitHub Actions summary.
+
+### Misc completions
 
 | Item | Completed | Notes |
 |---|---|---|
