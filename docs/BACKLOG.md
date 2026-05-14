@@ -152,6 +152,30 @@
   - [ ] Tests cover trays golden cases (same 5 as Labels)
   - [ ] spec.md updated with trays profile section
 
+#### [BACK-022] Generic profile architecture — reusable sidebar, filter panel, bridge
+- **Status**: `idea`
+- **Category**: Architecture
+- **Score**: 8
+- **Depends on**: BACK-019 (UI structure settled)
+- **Description**: Abstract LabelTenderSidebarBridge, LabelTenderShellSidebar,
+  and LabelTenderFilterPanel into generic base components that any packaging
+  profile can inherit or configure.
+
+  Current state: everything is hardcoded to Labels profile.
+  Target state: new profile (Trays, Cartons, Films) = new config, not new architecture.
+
+- **Technical**:
+  - IProfileSidebarBridge interface with common properties (HasImportedData,
+    DrawerSuppliers, FilterPanelOpen, OnToggleFilterPanel etc.)
+  - Generic FilterPanelBase.razor with configurable filter group definitions
+  - Profile-specific config passed as parameters, not hardcoded
+  - LabelTenderSidebarBridge implements IProfileSidebarBridge
+  - New profiles get a config class, not a full razor rewrite
+
+- **Value**: Profile nr. 2 (Trays) takes days not weeks.
+  UI consistency guaranteed across all profiles by default.
+  No copy-paste architecture debt.
+
 ---
 
 ### 🟡 Score 7 — Important, not urgent
