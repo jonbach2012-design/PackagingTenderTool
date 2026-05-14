@@ -97,6 +97,23 @@
     </section>
 
     <MudDivider Class="my-1" />
+    <section class="lt-shell-section px-3 pb-2">
+        <MudText Typo="Typo.subtitle2" Class="lt-shell-section-title mb-2">Scenarios</MudText>
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                <MudSwitch T="bool" Color="Color.Success" dense="true"
+                           Value="@Bridge.PpwrEffectToggle"
+                           ValueChanged="@(v => Bridge.OnPpwrEffectChanged?.Invoke(v))"/>
+                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.88);">PPWR effect (test)</MudText>
+            </MudStack>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                <MudSwitch T="bool" Disabled="true" dense="true" Value="false" />
+                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.45);">Supplier synergy (in future)</MudText>
+            </MudStack>
+        </MudStack>
+    </section>
+
+    <MudDivider Class="my-1" />
 
 </div>
 

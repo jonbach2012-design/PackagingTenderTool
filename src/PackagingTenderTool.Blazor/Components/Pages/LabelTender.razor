@@ -63,24 +63,6 @@
 else
 {
     <MudStack Spacing="6" Class="cockpit-main-stack cockpit-page-main">
-                <div class="cockpit-topbar-info">
-                    <MudText Typo="Typo.h6" Style="font-weight: 600; color: #485230;">
-                        Packaging Tender Decision Support
-                    </MudText>
-                    @if (_importedLineItems.Count > 0)
-                    {
-                        <MudText Typo="Typo.body2" Class="cockpit-topbar-text">
-                            @SidebarBridge.LastImportedFileName · @_importedLineItems.Count linjer · @(_suppliersAll.Count) leverandører
-                        </MudText>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Class="cockpit-topbar-text">
-                            Importer en Excel-fil for at komme i gang
-                        </MudText>
-                    }
-                </div>
-
                 @if (_activeTab == "settings")
                 {
                     <MudText Typo="Typo.h6" Class="mb-4">Scoring konfiguration</MudText>
@@ -168,8 +150,8 @@ else
                     <div class="cockpit-empty-state">
                         <MudIcon Icon="@Icons.Material.Outlined.UploadFile" 
                                  Style="font-size:72px;" />
-                        <MudText Typo="Typo.h5">Ingen data importeret endnu</MudText>
-                        <MudText Typo="Typo.body1">Brug <strong>Vælg Excel-fil</strong> i venstre side for at importere en tender</MudText>
+                        <MudText Typo="Typo.h5">No data imported yet</MudText>
+                        <MudText Typo="Typo.body1">Use <strong>Select file</strong> on the left to import a tender</MudText>
                     </div>
                 }
                 else
@@ -184,7 +166,7 @@ else
 
                 @if (_importedLineItems.Count > 0)
                 {
-                    <div class="cockpit-filter-bar mb-2" @key="_filterCountries.Length">
+                    <div class="cockpit-filter-bar mb-2 mt-3" @key="_filterCountries.Length">
                         <select class="cockpit-filter-native" 
                                 value="@_filterCountry"
                                 @onchange="@(e => { _filterCountry = e.Value?.ToString() ?? string.Empty; RefreshData(); StateHasChanged(); })">
@@ -239,12 +221,6 @@ else
                                 <option value="@c">@c</option>
                             }
                         </select>
-                        <label class="cockpit-filter-switch">
-                            <input type="checkbox" 
-                                   checked="@_synergyToggle"
-                                   @onchange="@(e => { _synergyToggle = (bool)(e.Value ?? false); RefreshData(); StateHasChanged(); })" />
-                            Supplier synergy
-                        </label>
                     </div>
                 }
 
@@ -914,6 +890,8 @@ else
     private string[] _filterColorValues = [];
     private bool _synergyToggle;
 
+    private bool _ppwrEffectToggle;
+
     private readonly List<PackagingTenderTool.Blazor.Models.LabelTender.LabelTenderDashboardDto> _tcoResults = [];
 
     private TenderDecisionInsight? _decisionInsight;
@@ -956,6 +934,7 @@ else
         SidebarBridge.OnSiteChanged = OnSiteChanged;
         SidebarBridge.OnMaterialChanged = OnMaterialChanged;
         SidebarBridge.OnSynergyChanged = OnSynergyChanged;
+        SidebarBridge.OnPpwrEffectChanged = OnPpwrEffectChanged;
 
         await Task.Yield();
         RefreshData();
@@ -981,6 +960,7 @@ else
         SidebarBridge.OnSiteChanged = null;
         SidebarBridge.OnMaterialChanged = null;
         SidebarBridge.OnSynergyChanged = null;
+        SidebarBridge.OnPpwrEffectChanged = null;
     }
 
     private void OnSessionChanged()
@@ -1069,6 +1049,8 @@ else
         SidebarBridge.FilterMaterial = _filterMaterial;
         SidebarBridge.FilterAdhesive = string.Empty;
         SidebarBridge.SynergyToggle = _synergyToggle;
+        SidebarBridge.PpwrEffectToggle = Session.ApplyPpwrEffectTest;
+        _ppwrEffectToggle = Session.ApplyPpwrEffectTest;
         SidebarBridge.SitesSelectDisabled = false;
         SidebarBridge.FilterCountries = _filterCountries;
         SidebarBridge.FilterSitesForCountry = _filterSitesForCountry;
@@ -1108,6 +1090,15 @@ else
     private void OnSynergyChanged(bool v)
     {
         _synergyToggle = v;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPpwrEffectChanged(bool v)
+    {
+        _ppwrEffectToggle = v;
+        Session.SetApplyPpwrEffectTest(v);
+        Session.SetApplyPpwr2030Scenario(v);
+        RefreshData();
         _ = InvokeAsync(StateHasChanged);
     }
 
@@ -1226,11 +1217,11 @@ else
             if (rowErr > 0 || warns > 0)
             {
                 _importStatus =
-                    $"Imported {_importedLineItems.Count} rows • Review: {rowErr} data issue(s), {warns} warning(s). See sidebar for the validation list.";
+                    $"Imported {_importedLineItems.Count} rows • {_suppliersAll.Count} suppliers • Review: {rowErr} data issue(s), {warns} warning(s). See sidebar for the validation list.";
             }
             else
             {
-                _importStatus = $"Imported {_importedLineItems.Count} rows • Flags: {_importFlags.Count}";
+                _importStatus = $"Imported {_importedLineItems.Count} rows • {_suppliersAll.Count} suppliers • Flags: {_importFlags.Count}";
             }
 
             RefreshData();

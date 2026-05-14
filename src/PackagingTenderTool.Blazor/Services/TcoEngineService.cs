@@ -183,7 +183,7 @@ public sealed class TcoEngineService : ITcoEngineService
             var commercial = volume * s.Price;
 
             var country = string.IsNullOrWhiteSpace(s.Country) ? "DK" : s.Country;
-            var grade = session.GetSupplierRecyclabilityGrade(supplierId);
+            var grade = EffectiveRecyclabilityGrade(session, supplierId);
 
             var epr = 0m;
             var missingWeightPenalty = 0m;
@@ -274,7 +274,7 @@ public sealed class TcoEngineService : ITcoEngineService
                 priceScore,
                 final,
                 session,
-                grade: string.IsNullOrWhiteSpace(supplierId) ? RecyclingGrade.C : session.GetSupplierRecyclabilityGrade(supplierId),
+                grade: EffectiveRecyclabilityGrade(session, supplierId),
                 volume: supplierVolume,
                 commercialPct,
                 technicalPct,
@@ -782,5 +782,15 @@ public sealed class TcoEngineService : ITcoEngineService
             return "Lower price index is outweighed by technical/regulatory performance under the active weight profile.";
 
         return "Weighted pillar mix favors the recommendation over the lowest commercial anchor — no single pillar dominates.";
+    }
+
+    private static RecyclingGrade EffectiveRecyclabilityGrade(PackagingProfileSession session, string supplierId)
+    {
+        if (session.ApplyPpwrEffectTest)
+            return RecyclingGrade.C;
+
+        return string.IsNullOrWhiteSpace(supplierId)
+            ? RecyclingGrade.C
+            : session.GetSupplierRecyclabilityGrade(supplierId);
     }
 }

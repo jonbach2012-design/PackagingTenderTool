@@ -23,6 +23,9 @@ public sealed class PackagingProfileSession
 
     public bool ApplyPpwr2030Scenario { get; private set; }
 
+    /// <summary>When true, label TCO treats every supplier as recyclability grade C for PPWR/EPR factor (test).</summary>
+    public bool ApplyPpwrEffectTest { get; private set; }
+
     public string IncumbentSupplierId { get; private set; } = "incumbent";
 
     public decimal GetStartupCost(string supplierId)
@@ -326,6 +329,12 @@ public sealed class PackagingProfileSession
     public void SetApplyPpwr2030Scenario(bool value)
     {
         ApplyPpwr2030Scenario = value;
+        Notify();
+    }
+
+    public void SetApplyPpwrEffectTest(bool value)
+    {
+        ApplyPpwrEffectTest = value;
         Notify();
     }
 

@@ -33,6 +33,8 @@ public sealed class LabelTenderSidebarBridge
 
     public bool SynergyToggle { get; set; }
 
+    public bool PpwrEffectToggle { get; set; }
+
     public bool SitesSelectDisabled { get; set; }
 
     public string[] FilterCountries { get; set; } = [];
@@ -57,6 +59,8 @@ public sealed class LabelTenderSidebarBridge
     public Action<string>? OnAdhesiveChanged { get; set; }
 
     public Action<bool>? OnSynergyChanged { get; set; }
+
+    public Action<bool>? OnPpwrEffectChanged { get; set; }
 
     public event Action? Changed;
 
