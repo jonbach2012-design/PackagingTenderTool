@@ -30,11 +30,11 @@
             Select Packaging Profile
         </MudText>
 
-        <MudGrid Class="label-tender-profile-grid label-tender-profile-grid--landing" Spacing="4">
+        <MudGrid Class="label-tender-profile-grid label-tender-profile-grid--landing" Spacing="4" Style="max-width: 800px; width: 100%;">
             @foreach (var name in _profiles)
             {
                 var isLabels = name == PackagingProfileSession.ProfileLabels;
-                <MudItem xs="12">
+                <MudItem xs="12" sm="4">
                     @if (isLabels)
                     {
                         <MudCard Elevation="0"
@@ -49,7 +49,7 @@
                     }
                     else
                     {
-                        <MudCard Elevation="0" Outlined="true" Class="label-tender-card label-tender-card--faded pa-6">
+                        <MudCard Elevation="0" Outlined="true" Class="label-tender-card label-tender-card--faded pa-6" Style="opacity: 0.4;">
                             <MudCardContent Class="pa-0 d-flex align-center justify-center" Style="min-height: 5rem;">
                                 <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">@name</MudText>
                             </MudCardContent>
@@ -64,13 +64,20 @@ else
 {
     <MudStack Spacing="6" Class="cockpit-main-stack cockpit-page-main">
                 <div class="cockpit-topbar-info">
+                    <MudText Typo="Typo.h6" Style="font-weight: 600; color: #485230;">
+                        Packaging Tender Decision Support
+                    </MudText>
                     @if (_importedLineItems.Count > 0)
                     {
-                        <MudText Typo="Typo.subtitle2" Class="cockpit-muted">@SidebarBridge.LastImportedFileName · @_importedLineItems.Count linjer · @(_suppliersAll.Count) leverandører</MudText>
+                        <MudText Typo="Typo.body2" Class="cockpit-topbar-text">
+                            @SidebarBridge.LastImportedFileName · @_importedLineItems.Count linjer · @(_suppliersAll.Count) leverandører
+                        </MudText>
                     }
                     else
                     {
-                        <MudText Typo="Typo.subtitle2" Class="cockpit-muted">Importer en Excel-fil for at komme i gang</MudText>
+                        <MudText Typo="Typo.body2" Class="cockpit-topbar-text">
+                            Importer en Excel-fil for at komme i gang
+                        </MudText>
                     }
                 </div>
 
