@@ -69,14 +69,14 @@ public sealed class CostComponentRegistry
                 VisibleInExport: true,
                 GetValue: r => r.Switching),
             new(
-                Key: "test_component",
-                DisplayName: "Test Component",
+                Key: "ppwr_risk",
+                DisplayName: "PPWR Risk",
                 Order: 5,
-                Group: "Technical",
+                Group: "Regulatory",
                 IncludeInTotal: true,
                 VisibleInDashboard: true,
                 VisibleInExport: true,
-                GetValue: _ => 0m),
+                GetValue: r => r.PpwrRiskPenalty),
             new(
                 Key: "total",
                 DisplayName: "Total",

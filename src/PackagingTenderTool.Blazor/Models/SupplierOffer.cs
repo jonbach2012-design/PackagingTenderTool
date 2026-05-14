@@ -6,5 +6,6 @@ public sealed record SupplierOffer(
     string MaterialClass,
     decimal TechnicalFit,
     decimal SwitchingCost,
-    decimal DataQualityScore);
+    decimal DataQualityScore,
+    string PpwrGrade = "A");
 

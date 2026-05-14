@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using PackagingTenderTool.Blazor.Models;
 using PackagingTenderTool.Core.Models;
+using PackagingTenderTool.Core.Services;
 
 namespace PackagingTenderTool.Blazor.Services;
 
@@ -32,13 +33,28 @@ public sealed class TcoCalculator : ITcoCalculator
         var switching = Math.Max(0m, offer.SwitchingCost);
         var regulatory = commercial * multiplier;
 
-        var total = commercial + technical + switching + regulatory;
+        var commercialR = decimal.Round(commercial, 2, MidpointRounding.AwayFromZero);
+        var technicalR = decimal.Round(technical, 2, MidpointRounding.AwayFromZero);
+        var switchingR = decimal.Round(switching, 2, MidpointRounding.AwayFromZero);
+        var regulatoryR = decimal.Round(regulatory, 2, MidpointRounding.AwayFromZero);
+
+        var ppwr = PpwrRiskEvaluator.Evaluate(commercialR, offer.PpwrGrade);
+        var total = commercialR + technicalR + switchingR + regulatoryR + ppwr.PenaltyAmount;
+        var totalR = decimal.Round(total, 2, MidpointRounding.AwayFromZero);
+
         return new TcoResult(
-            Commercial: decimal.Round(commercial, 2, MidpointRounding.AwayFromZero),
-            Regulatory: decimal.Round(regulatory, 2, MidpointRounding.AwayFromZero),
-            Technical: decimal.Round(technical, 2, MidpointRounding.AwayFromZero),
-            Switching: decimal.Round(switching, 2, MidpointRounding.AwayFromZero),
-            Total: decimal.Round(total, 2, MidpointRounding.AwayFromZero));
+            Commercial: commercialR,
+            Regulatory: regulatoryR,
+            Technical: technicalR,
+            Switching: switchingR,
+            Total: totalR)
+        {
+            PpwrRiskPenalty = ppwr.PenaltyAmount,
+            PpwrGrade = ppwr.NormalizedGrade,
+            MarketAccessRisk2030 = ppwr.MarketAccessRisk2030,
+            MarketAccessRiskNow = ppwr.MarketAccessRiskNow,
+            PpwrRiskBreakdown = ppwr.Breakdown
+        };
     }
 
     public TcoDecisionOutput CalculateDecision(SupplierOffer offer)
@@ -50,7 +66,8 @@ public sealed class TcoCalculator : ITcoCalculator
             (actual.Commercial * w.Commercial) +
             (actual.Technical * w.Technical) +
             (actual.Switching * w.Switching) +
-            (actual.Regulatory * w.Regulatory);
+            (actual.Regulatory * w.Regulatory) +
+            (actual.PpwrRiskPenalty * w.Regulatory);
 
         // Index to avoid presenting this as currency.
         // 100 = same as actual total; >100 means "worse" under strategic weights; <100 means "better".
