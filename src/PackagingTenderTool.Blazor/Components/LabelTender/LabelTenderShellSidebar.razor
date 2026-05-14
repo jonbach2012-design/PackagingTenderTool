@@ -160,8 +160,7 @@
         await Bridge.ImportExcelAsync(file.Name, buffer[..bytesRead]);
     }
 
-    private void GoTab(string tab) =>
-        Nav.NavigateTo($"/labeltender?tab={tab}");
+    private void GoTab(string tab) => Bridge.OnTabChanged?.Invoke(tab);
 
     private string NavBtnClass(string tab)
     {

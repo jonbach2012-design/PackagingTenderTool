@@ -164,105 +164,274 @@ else
                     </MudAlert>
                 }
 
-                <MudTabs Rounded="true" Class="cockpit-tabs" ActivePanelIndex="@_activePanelIndex" ActivePanelIndexChanged="OnActivePanelChanged">
-                <MudTabPanel Text="Dashboard">
-                    <MudPaper Elevation="0" Class="cockpit-chart-shell pa-6 mt-4">
-                        <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
-                        <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
+                @if (_activeTab == "dashboard")
+                {
+                    <div style="display:flex; gap:24px; padding:24px; align-items:flex-start;">
 
-                        <div class="cockpit-spend-wrap">
+                        @* LEFT — Bubble chart (65%) *@
+                        <div style="flex:0 0 65%; min-width:0;">
+                            <MudText Typo="Typo.h5" Class="mb-1" Style="text-align:center; color:#485230; font-weight:600;">Supplier positioning</MudText>
+                            <MudText Typo="Typo.body2" Class="cockpit-muted mb-1">
+                                CTR score vs commercial spend. Bubble size = number of lines.
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="cockpit-muted mb-3">
+                                CTR = Combined Tender Rating — weighted: Commercial @(Session.Commercial)% ·
+                                Technical @(Session.Technical)% · Regulatory @(Session.Regulatory)%
+                            </MudText>
+
                             @{
-                                var results = _tcoResults;
+                                var bubbleResults = _tcoResults;
+                                var lineCountBySupplierB = _importedLineItems
+                                    .Where(i => !string.IsNullOrWhiteSpace(i.SupplierName))
+                                    .GroupBy(i => i.SupplierName!.Trim(), StringComparer.OrdinalIgnoreCase)
+                                    .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+
+                                var maxSpend = bubbleResults.Count > 0
+                                    ? (double)bubbleResults.Max(r => r.Commercial)
+                                    : 1.0;
+                                var maxLines = lineCountBySupplierB.Count > 0
+                                    ? lineCountBySupplierB.Values.Max()
+                                    : 1;
+
+                                const int svgW = 700;
+                                const int svgH = 420;
+                                const int padL = 64;
+                                const int padR = 24;
+                                const int padT = 24;
+                                const int padB = 56;
+                                int plotW = svgW - padL - padR;
+                                int plotH = svgH - padT - padB;
+
+                                double ScaleX(double spend) => padL + (maxSpend > 0 ? spend / maxSpend * plotW : 0);
+                                double ScaleY(double ctr) => padT + plotH - (ctr / 100.0 * plotH);
+                                double BubbleR(string name)
+                                {
+                                    var lc = lineCountBySupplierB.TryGetValue(name, out var v) ? v : 1;
+                                    return 14 + (double)lc / maxLines * 28;
+                                }
+                                string BubbleColor(decimal ctr) => ctr >= 68 ? "#485230" : ctr >= 48 ? "#6b7c3f" : "#c0392b";
+                                var yAxisMid = padT + plotH / 2.0;
                             }
-                            @if (results.Count == 0)
+
+                            @if (bubbleResults.Count == 0)
                             {
-                                <svg width="900"
-                                     height="200"
-                                     viewBox="0 0 900 200"
-                                     class="cockpit-spend-svg">
-                                    <svg:text x="450" y="100" text-anchor="middle" fill="rgba(45,52,54,0.65)">No suppliers selected</svg:text>
-                                </svg>
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-6" Style="text-align:center; color:rgba(45,52,54,0.45);">
+                                    Import suppliers to see positioning chart
+                                </MudPaper>
                             }
                             else
                             {
-                                var lineCountBySupplier = _importedLineItems
-                                    .GroupBy(i => i.SupplierName?.Trim() ?? string.Empty,
-                                             StringComparer.OrdinalIgnoreCase)
-                                    .ToDictionary(g => g.Key, g => g.Count(),
-                                                  StringComparer.OrdinalIgnoreCase);
+                                <svg width="100%" viewBox="0 0 @svgW @svgH" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">
 
-                                @for (var idx = 0; idx < results.Count; idx++)
-                                {
-                                    var r = results[idx];
-                                    var yPos = 10.0;
-                                    var x0 = 150.0;
-                                    var barH = 30.0;
-                                    var trackW = 600.0;
-                                    var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
+                                    @* Grid lines Y *@
+                                    @foreach (var tick in new[] { 0, 25, 50, 75, 100 })
+                                    {
+                                        var y = ScaleY(tick);
+                                        <line x1="@FmtSvg(padL)" y1="@FmtSvg(y)" x2="@FmtSvg(svgW - padR)" y2="@FmtSvg(y)"
+                                              stroke="rgba(45,52,54,0.08)" stroke-width="1" />
+                                        <svg:text x="@FmtSvg(padL - 6)" y="@FmtSvg(y + 4)"
+                                                  font-size="10" fill="rgba(45,52,54,0.45)" text-anchor="end">@tick</svg:text>
+                                    }
 
-                                    <MudTooltip Placement="Placement.Bottom">
-                                        <TooltipContent>
-                                            <MudText Typo="Typo.body2" Style="max-width:420px;white-space:pre-wrap;">@r.CalculationBreakdown</MudText>
-                                        </TooltipContent>
-                                        <ChildContent>
-                                            <svg width="900"
-                                                 height="50"
-                                                 viewBox="0 0 900 50"
-                                                 class="cockpit-spend-svg"
-                                                 style="display:block;">
-                                                <g opacity="@FmtSvg(alpha)">
-                                                    <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
+                                    @* Y axis label *@
+                                    <svg:text x="14" y="@FmtSvg(yAxisMid)"
+                                              font-size="11" fill="rgba(45,52,54,0.55)"
+                                              text-anchor="middle"
+                                              transform="rotate(-90 14 @FmtSvg(yAxisMid))">CTR score</svg:text>
 
-                                                    <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
-                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.RegulatoryWidth)" height="@FmtSvg(barH)" fill="#FFB300" rx="4" />
-                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.SwitchingWidth)" height="@FmtSvg(barH)" fill="#D3D3D3" rx="4" />
-                                                    <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
+                                    @* X axis label *@
+                                    <svg:text x="@FmtSvg(padL + plotW / 2)" y="@FmtSvg(svgH - 8)"
+                                              font-size="11" fill="rgba(45,52,54,0.55)" text-anchor="middle">Commercial spend (kr)</svg:text>
 
-                                                    <!-- Score badge -->
-                                                    <circle cx="@FmtSvg(12)" cy="@FmtSvg(yPos + 15)" r="@FmtSvg(10)" fill="rgba(45,52,54,0.10)" />
-                                                    <svg:text x="@FmtSvg(12)" y="@FmtSvg(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
-                                                        @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
-                                                    </svg:text>
+                                    @* Quadrant lines *@
+                                    <line x1="@FmtSvg(padL + plotW / 2)" y1="@FmtSvg(padT)"
+                                          x2="@FmtSvg(padL + plotW / 2)" y2="@FmtSvg(padT + plotH)"
+                                          stroke="rgba(45,52,54,0.12)" stroke-width="1" stroke-dasharray="4,4" />
+                                    <line x1="@FmtSvg(padL)" y1="@FmtSvg(ScaleY(50))"
+                                          x2="@FmtSvg(svgW - padR)" y2="@FmtSvg(ScaleY(50))"
+                                          stroke="rgba(45,52,54,0.12)" stroke-width="1" stroke-dasharray="4,4" />
 
-                                                    <svg:text x="@FmtSvg(28)" y="@FmtSvg(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
+                                    @* Bubbles *@
+                                    @foreach (var r in bubbleResults)
+                                    {
+                                        var cx = ScaleX((double)r.Commercial);
+                                        var cy = ScaleY((double)r.FinalCtrScore);
+                                        var radius = BubbleR(r.SupplierName);
+                                        var color = BubbleColor(r.FinalCtrScore);
 
-                                                    <svg:text x="750" y="@FmtSvg(yPos + 20)" text-anchor="end"
-                                                              font-size="12" font-family="monospace">
-                                                        @r.Total.ToString("N0", Da) kr.
-                                                    </svg:text>
-                                                    <svg:text x="850" y="@FmtSvg(yPos + 20)"
-                                                              font-size="11" fill="#111" font-weight="700" font-family="monospace">
-                                                        @(lineCountBySupplier.TryGetValue(r.SupplierName, out var lc) ? $"{lc} linjer" : string.Empty)
-                                                    </svg:text>
-                                                </g>
-                                            </svg>
-                                        </ChildContent>
-                                    </MudTooltip>
-                                }
+                                        <circle cx="@FmtSvg(cx)" cy="@FmtSvg(cy)" r="@FmtSvg(radius)"
+                                                fill="@color" fill-opacity="0.75"
+                                                stroke="@color" stroke-width="1.5" />
+                                        <svg:text x="@FmtSvg(cx)" y="@FmtSvg(cy - radius - 5)"
+                                                  font-size="11" font-weight="600"
+                                                  fill="#333" text-anchor="middle">@r.SupplierName</svg:text>
+                                        <svg:text x="@FmtSvg(cx)" y="@FmtSvg(cy + 4)"
+                                                  font-size="10" fill="white" text-anchor="middle"
+                                                  font-weight="600">@r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)</svg:text>
+                                    }
+                                </svg>
+
+                                @* Legend *@
+                                <div style="display:flex; gap:16px; margin-top:8px; flex-wrap:wrap;">
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <div style="width:12px;height:12px;border-radius:50%;background:#485230;opacity:0.8;"></div>
+                                        <span style="font-size:12px; color:rgba(45,52,54,0.65);">CTR ≥ 68 — strong</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <div style="width:12px;height:12px;border-radius:50%;background:#6b7c3f;opacity:0.8;"></div>
+                                        <span style="font-size:12px; color:rgba(45,52,54,0.65);">CTR 48–67 — review</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <div style="width:12px;height:12px;border-radius:50%;background:#c0392b;opacity:0.8;"></div>
+                                        <span style="font-size:12px; color:rgba(45,52,54,0.65);">CTR &lt; 48 — risk</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+                                        <span style="font-size:12px; color:rgba(45,52,54,0.65);">Bubble size = line count</span>
+                                    </div>
+                                </div>
+                            }
+
+                            @* Score table below bubble chart *@
+                            @if (bubbleResults.Count > 0)
+                            {
+                                <div style="margin-top:24px;">
+                                    <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Score breakdown</MudText>
+                                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                                        <thead>
+                                            <tr style="border-bottom:2px solid rgba(45,52,54,0.12);">
+                                                <th style="text-align:left; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Supplier</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">CTR</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Comm</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Tech</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Reg</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Spend</th>
+                                                <th style="text-align:right; padding:6px 8px; color:rgba(45,52,54,0.55); font-weight:500;">Lines</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var r in bubbleResults.OrderByDescending(x => x.FinalCtrScore))
+                                            {
+                                                var lc = lineCountBySupplierB.TryGetValue(r.SupplierName, out var v) ? v : 0;
+                                                var isTop = r.FinalCtrScore == bubbleResults.Max(x => x.FinalCtrScore);
+                                                <tr style="border-bottom:1px solid rgba(45,52,54,0.07); @(isTop ? "background:rgba(90,122,58,0.07);" : "")">
+                                                    <td style="padding:6px 8px; font-weight:@(isTop ? "600" : "400");">@r.SupplierName</td>
+                                                    <td style="text-align:right; padding:6px 8px; font-weight:600; color:@BubbleColor(r.FinalCtrScore);">
+                                                        @r.FinalCtrScore.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)
+                                                    </td>
+                                                    <td style="text-align:right; padding:6px 8px;">@r.PriceScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)</td>
+                                                    <td style="text-align:right; padding:6px 8px;">@r.TechScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)</td>
+                                                    <td style="text-align:right; padding:6px 8px;">@r.RegScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)</td>
+                                                    <td style="text-align:right; padding:6px 8px;">@r.Commercial.ToString("N0", Da) kr</td>
+                                                    <td style="text-align:right; padding:6px 8px;">@lc</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
                             }
                         </div>
 
-                        <div style="margin-top: 12px; display:flex; flex-wrap:wrap; gap: 14px; align-items:center;">
-                            <div style="display:flex; align-items:center; gap: 8px;">
-                                <span style="width:14px;height:14px;border-radius:3px;background:#91a363;display:inline-block;"></span>
-                                <span>Aftalt pris (Indkøb)</span>
+                        @* RIGHT — Spend bars (35%) *@
+                        <div style="flex:0 0 35%; min-width:0;">
+                            <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
+                            <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
+                            <div class="cockpit-spend-wrap">
+                                @{
+                                    var results = _tcoResults;
+                                }
+                                @if (results.Count == 0)
+                                {
+                                    <svg width="900"
+                                         height="200"
+                                         viewBox="0 0 900 200"
+                                         class="cockpit-spend-svg">
+                                        <svg:text x="450" y="100" text-anchor="middle" fill="rgba(45,52,54,0.65)">No suppliers selected</svg:text>
+                                    </svg>
+                                }
+                                else
+                                {
+                                    var lineCountBySupplier = _importedLineItems
+                                        .GroupBy(i => i.SupplierName?.Trim() ?? string.Empty,
+                                                 StringComparer.OrdinalIgnoreCase)
+                                        .ToDictionary(g => g.Key, g => g.Count(),
+                                                      StringComparer.OrdinalIgnoreCase);
+
+                                    @for (var idx = 0; idx < results.Count; idx++)
+                                    {
+                                        var r = results[idx];
+                                        var yPos = 10.0;
+                                        var x0 = 150.0;
+                                        var barH = 30.0;
+                                        var trackW = 600.0;
+                                        var alpha = Math.Max(0.25, (double)r.FinalCtrScore / 100.0);
+
+                                        <MudTooltip Placement="Placement.Bottom">
+                                            <TooltipContent>
+                                                <MudText Typo="Typo.body2" Style="max-width:420px;white-space:pre-wrap;">@r.CalculationBreakdown</MudText>
+                                            </TooltipContent>
+                                            <ChildContent>
+                                                <svg width="900"
+                                                     height="50"
+                                                     viewBox="0 0 900 50"
+                                                     class="cockpit-spend-svg"
+                                                     style="display:block;">
+                                                    <g opacity="@FmtSvg(alpha)">
+                                                        <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(trackW)" height="@FmtSvg(barH)" fill="#f5f5f5" rx="4" />
+
+                                                        <rect x="@FmtSvg(x0)" y="@FmtSvg(yPos)" width="@FmtSvg(r.CommercialWidth)" height="@FmtSvg(barH)" fill="#91a363" rx="4" />
+                                                        <rect x="@FmtSvg(x0 + r.CommercialWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.RegulatoryWidth)" height="@FmtSvg(barH)" fill="#FFB300" rx="4" />
+                                                        <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.SwitchingWidth)" height="@FmtSvg(barH)" fill="#D3D3D3" rx="4" />
+                                                        <rect x="@FmtSvg(x0 + r.CommercialWidth + r.RegulatoryWidth + r.SwitchingWidth)" y="@FmtSvg(yPos)" width="@FmtSvg(r.MoqWidth)" height="@FmtSvg(barH)" fill="#4682B4" rx="4" />
+
+                                                        <!-- Score badge -->
+                                                        <circle cx="@FmtSvg(12)" cy="@FmtSvg(yPos + 15)" r="@FmtSvg(10)" fill="rgba(45,52,54,0.10)" />
+                                                        <svg:text x="@FmtSvg(12)" y="@FmtSvg(yPos + 19)" text-anchor="middle" font-size="10" fill="#333" font-weight="700" font-family="monospace">
+                                                            @r.FinalCtrScore.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
+                                                        </svg:text>
+
+                                                        <svg:text x="@FmtSvg(28)" y="@FmtSvg(yPos + 20)" font-size="12" fill="#333" font-weight="bold">@r.SupplierName</svg:text>
+
+                                                        <svg:text x="750" y="@FmtSvg(yPos + 20)" text-anchor="end"
+                                                                  font-size="12" font-family="monospace">
+                                                            @r.Total.ToString("N0", Da) kr.
+                                                        </svg:text>
+                                                        <svg:text x="850" y="@FmtSvg(yPos + 20)"
+                                                                  font-size="11" fill="#111" font-weight="700" font-family="monospace">
+                                                            @(lineCountBySupplier.TryGetValue(r.SupplierName, out var lc) ? $"{lc} linjer" : string.Empty)
+                                                        </svg:text>
+                                                    </g>
+                                                </svg>
+                                            </ChildContent>
+                                        </MudTooltip>
+                                    }
+                                }
                             </div>
-                            <div style="display:flex; align-items:center; gap: 8px;">
-                                <span style="width:14px;height:14px;border-radius:3px;background:#4682B4;display:inline-block;"></span>
-                                <span>Skjulte omkostninger (TCO-tillæg)</span>
-                            </div>
-                            <div style="color: rgba(45, 52, 54, 0.65);">
-                                Gennemsigtighed indikerer strategisk CTR-match (Solid = Højt match, Transparent = Lavt match).
+
+                            <div style="margin-top: 12px; display:flex; flex-wrap:wrap; gap: 14px; align-items:center;">
+                                <div style="display:flex; align-items:center; gap: 8px;">
+                                    <span style="width:14px;height:14px;border-radius:3px;background:#91a363;display:inline-block;"></span>
+                                    <span>Aftalt pris (Indkøb)</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap: 8px;">
+                                    <span style="width:14px;height:14px;border-radius:3px;background:#4682B4;display:inline-block;"></span>
+                                    <span>Skjulte omkostninger (TCO-tillæg)</span>
+                                </div>
+                                <div style="color: rgba(45, 52, 54, 0.65);">
+                                    Gennemsigtighed indikerer strategisk CTR-match (Solid = Højt match, Transparent = Lavt match).
+                                </div>
                             </div>
                         </div>
-                    </MudPaper>
-                </MudTabPanel>
 
-                <MudTabPanel Text="Price Matrix">
+                    </div>
+                }
+
+                @if (_activeTab == "matrix")
+                {
                     <PriceMatrix />
-                </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Evidence table">
+                @if (_activeTab == "evidence")
+                {
                     @if (SidebarBridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
                     {
                         <MudPaper Elevation="0" Class="mb-4 pa-3" Style="border: 1px solid var(--mud-palette-error); border-radius: 8px;">
@@ -610,9 +779,10 @@ else
                             </ChildRowContent>
                         </MudDataGrid>
                     </MudPaper>
-                </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Audit Board">
+                @if (_activeTab == "audit")
+                {
                     <MudPaper Elevation="0" Outlined="true" Class="cockpit-audit-shell pa-5 mt-4">
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Audit Board</MudText>
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Active clarifications flagged by the Digital Auditor.</MudText>
@@ -714,8 +884,7 @@ else
                             </MudStack>
                         }
                     </MudPaper>
-                </MudTabPanel>
-            </MudTabs>
+                }
                 }
     </MudStack>
 }
@@ -738,8 +907,6 @@ else
     private List<SupplierPillarAnalysisRow> _tableRows = [];
 
     private SupplierPillarAnalysisRow? _tableSelectedRow;
-
-    private int _activePanelIndex = 0;
 
     private string _activeTab = "dashboard";
 
@@ -802,6 +969,7 @@ else
         SidebarBridge.OnMaterialChanged = OnMaterialChanged;
         SidebarBridge.OnSynergyChanged = OnSynergyChanged;
         SidebarBridge.OnPpwrEffectChanged = OnPpwrEffectChanged;
+        SidebarBridge.OnTabChanged = OnBridgeTabChanged;
 
         await Task.Yield();
         RefreshData();
@@ -833,6 +1001,7 @@ else
         SidebarBridge.OnLabelSizeChanged = null;
         SidebarBridge.OnWindingChanged = null;
         SidebarBridge.OnColorsChanged = null;
+        SidebarBridge.OnTabChanged = null;
     }
 
     private void OnSessionChanged()
@@ -848,20 +1017,17 @@ else
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private void OnActivePanelChanged(int v)
+    private void OnBridgeTabChanged(string tab)
     {
-        _activePanelIndex = v;
-        var tab = v switch
+        var t = (tab ?? string.Empty).Trim().ToLowerInvariant();
+        _activeTab = t switch
         {
-            0 => "dashboard",
-            1 => "matrix",
-            2 => "evidence",
-            3 => "audit",
+            "dashboard" or "matrix" or "evidence" or "audit" or "settings" => t,
             _ => "dashboard"
         };
-
-        _activeTab = tab;
-        Nav.NavigateTo($"/labeltender?tab={tab}", replace: true);
+        Nav.NavigateTo($"/labeltender?tab={_activeTab}", replace: true);
+        SyncSidebarBridge();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void SyncTabFromUri()
@@ -870,7 +1036,6 @@ else
         if (uri.Contains("#audit", StringComparison.OrdinalIgnoreCase))
         {
             _activeTab = "audit";
-            _activePanelIndex = 3;
             SyncSidebarBridge();
             return;
         }
@@ -880,7 +1045,6 @@ else
         if (!query.Contains("tab=", StringComparison.OrdinalIgnoreCase))
         {
             _activeTab = "dashboard";
-            _activePanelIndex = 0;
             SyncSidebarBridge();
             return;
         }
@@ -897,15 +1061,6 @@ else
             {
                 "dashboard" or "matrix" or "evidence" or "audit" or "settings" => t,
                 _ => "dashboard"
-            };
-            _activePanelIndex = t switch
-            {
-                "dashboard" => 0,
-                "matrix" => 1,
-                "evidence" => 2,
-                "audit" => 3,
-                "settings" => 0,
-                _ => 0
             };
             SyncSidebarBridge();
             return;

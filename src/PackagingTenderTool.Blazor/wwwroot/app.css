@@ -910,7 +910,9 @@
 /* Label tender shell sidebar (layout drawer) */
 .lt-shell-sidebar {
     position: relative;
-    overflow: visible !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: calc(100vh - 64px);
 }
 
 .lt-shell-section-title {
@@ -968,8 +970,9 @@
     height: calc(100vh - 64px);
     flex-shrink: 0;
     color: rgba(255, 255, 255, 0.88);
-    overflow: hidden !important;
-    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 64px);
 }
 
 .pt-filter-panel--hidden {
@@ -1046,7 +1049,9 @@
 
 .pt-drawer--label-shell.mud-drawer .mud-drawer-content {
     color: rgba(255, 255, 255, 0.92);
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 64px);
 }
 
 .pt-drawer--label-shell .lt-shell-sidebar .cockpit-muted,

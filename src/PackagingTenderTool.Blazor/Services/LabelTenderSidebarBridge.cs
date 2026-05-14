@@ -56,6 +56,9 @@ public sealed class LabelTenderSidebarBridge
     /// <summary>Raised by shell toggle; MainLayout flips <see cref="FilterPanelOpen"/> and filter strip width.</summary>
     public Action? OnToggleFilterPanel { get; set; }
 
+    /// <summary>Raised when shell navigation selects a main view tab (<c>dashboard</c>, <c>matrix</c>, …).</summary>
+    public Action<string>? OnTabChanged { get; set; }
+
     public string[] FilterSitesForCountry { get; set; } = [];
 
     public string[] FilterMaterials { get; set; } = [];
