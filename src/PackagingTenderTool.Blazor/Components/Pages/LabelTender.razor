@@ -1012,6 +1012,7 @@ else
     private string _filterSite = string.Empty;
     private string[] _filterCountries = [];
     private string[] _filterSitesForCountry = [];
+    private HashSet<string> _activeSites = new(StringComparer.OrdinalIgnoreCase);
     private string _filterMaterial = string.Empty;
     private string[] _filterMaterials = [];
     private string _filterLabelSize = string.Empty;
@@ -1092,6 +1093,7 @@ else
         SidebarBridge.ImportExcelAsync = null;
         SidebarBridge.OnCountryChanged = null;
         SidebarBridge.OnSiteChanged = null;
+        SidebarBridge.OnSitesChanged = null;
         SidebarBridge.OnMaterialChanged = null;
         SidebarBridge.OnSynergyChanged = null;
         SidebarBridge.OnPpwrEffectChanged = null;
@@ -1186,6 +1188,7 @@ else
         SidebarBridge.FilterLabelSizes = _filterLabelSizes;
         SidebarBridge.FilterWindings = _filterWindings;
         SidebarBridge.FilterColorValues = _filterColorValues;
+        SidebarBridge.ActiveFilterSites = _activeSites;
         SidebarBridge.FilterAdhesives = [];
         SidebarBridge.SelectedSupplierIds = Session.SelectedSuppliers;
         SidebarBridge.DrawerSuppliers = _suppliersAll
@@ -1195,6 +1198,7 @@ else
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         SidebarBridge.OnSupplierSelectionChanged = OnSupplierSelectionChanged;
+        SidebarBridge.OnSitesChanged = OnSitesChanged;
         SidebarBridge.OnLabelSizeChanged = OnLabelSizeChanged;
         SidebarBridge.OnWindingChanged = OnWindingChanged;
         SidebarBridge.OnColorsChanged = OnColorsChanged;
@@ -1214,6 +1218,13 @@ else
         _filterSite = v ?? string.Empty;
         RefreshData();
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSitesChanged(HashSet<string> v)
+    {
+        _activeSites = v;
+        RefreshData();
+        StateHasChanged();
     }
 
     private void OnMaterialChanged(string v)
@@ -1666,6 +1677,10 @@ else
 
     private bool LineItemMatchesActiveDimensionFilters(LabelLineItem i)
     {
+        if (_activeSites.Count > 0 &&
+            !_activeSites.Contains(i.Site?.Trim() ?? string.Empty))
+            return false;
+
         if (!string.IsNullOrWhiteSpace(_filterMaterial) &&
             !string.Equals(i.Material?.Trim(), _filterMaterial,
                 StringComparison.OrdinalIgnoreCase))

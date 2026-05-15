@@ -24,15 +24,15 @@
                         <MudStack Spacing="0">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
                                 @{
-                                    var currentFilter = g.Current();
-                                    var allSelected = string.IsNullOrEmpty(currentFilter);
-                                    var toggleLabel = allSelected ? "Deselect all" : "Select all";
-                                    Action<string> filterDelegate = g.Apply;
+                                    var noneSelected = g.Current().Count == 0;
+                                    var toggleLabel = noneSelected ? "Select all" : "Deselect all";
                                 }
                                 <MudCheckBox T="bool"
                                              Dense="true"
-                                             Value="@allSelected"
-                                             ValueChanged="@(v => filterDelegate(v ? "" : "__none__"))"
+                                             Color="Color.Default"
+                                             Class="lt-filter-panel-cb"
+                                             Value="@(!noneSelected)"
+                                             ValueChanged="@(_ => ApplyGroupToggle(g))"
                                              Label="@toggleLabel"
                                              Style="color:rgba(255,255,255,0.88); font-size:13px;" />
                             </MudStack>
@@ -40,13 +40,14 @@
                                 @foreach (var opt in g.Options)
                                 {
                                     var captured = opt;
+                                    var isChecked = g.Current().Contains(captured);
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1" @key="@($"{g.Title}-{captured}")">
                                         <MudCheckBox T="bool"
                                                      Dense="true"
                                                      Color="Color.Default"
                                                      Class="lt-filter-panel-cb"
-                                                     Value="@FilterMatches(g.Current(), captured)"
-                                                     ValueChanged="@(v => { if (v) g.Apply(captured); })"
+                                                     Value="@isChecked"
+                                                     ValueChanged="@(v => ApplyGroupOptionChanged(g, captured, v))"
                                                      Label="@captured" />
                                     </MudStack>
                                 }
@@ -84,15 +85,15 @@
                         <MudStack Spacing="0">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
                                 @{
-                                    var currentFilter = g.Current();
-                                    var allSelected = string.IsNullOrEmpty(currentFilter);
-                                    var toggleLabel = allSelected ? "Deselect all" : "Select all";
-                                    Action<string> filterDelegate = g.Apply;
+                                    var noneSelected = g.Current().Count == 0;
+                                    var toggleLabel = noneSelected ? "Select all" : "Deselect all";
                                 }
                                 <MudCheckBox T="bool"
                                              Dense="true"
-                                             Value="@allSelected"
-                                             ValueChanged="@(v => filterDelegate(v ? "" : "__none__"))"
+                                             Color="Color.Default"
+                                             Class="lt-filter-panel-cb"
+                                             Value="@(!noneSelected)"
+                                             ValueChanged="@(_ => ApplyGroupToggle(g))"
                                              Label="@toggleLabel"
                                              Style="color:rgba(255,255,255,0.88); font-size:13px;" />
                             </MudStack>
@@ -100,13 +101,14 @@
                                 @foreach (var opt in g.Options)
                                 {
                                     var captured = opt;
+                                    var isChecked = g.Current().Contains(captured);
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1" @key="@($"{g.Title}-{captured}")">
                                         <MudCheckBox T="bool"
                                                      Dense="true"
                                                      Color="Color.Default"
                                                      Class="lt-filter-panel-cb"
-                                                     Value="@FilterMatches(g.Current(), captured)"
-                                                     ValueChanged="@(v => { if (v) g.Apply(captured); })"
+                                                     Value="@isChecked"
+                                                     ValueChanged="@(v => ApplyGroupOptionChanged(g, captured, v))"
                                                      Label="@captured" />
                                     </MudStack>
                                 }
@@ -124,23 +126,53 @@
 
     private void OnBridgeChanged() => _ = InvokeAsync(StateHasChanged);
 
+    private static void ApplyGroupToggle(FilterGroupDef g)
+    {
+        if (g.Current().Count == 0)
+            g.Apply(new HashSet<string>(g.Options, StringComparer.OrdinalIgnoreCase));
+        else
+            g.Apply(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static void ApplyGroupOptionChanged(FilterGroupDef g, string captured, bool v)
+    {
+        var next = new HashSet<string>(g.Current(), StringComparer.OrdinalIgnoreCase);
+        if (v)
+            next.Add(captured);
+        else
+            next.Remove(captured);
+        g.Apply(next);
+    }
+
     private static bool FilterMatches(string current, string value) =>
         string.Equals((current ?? string.Empty).Trim(), value, StringComparison.OrdinalIgnoreCase);
 
-    private sealed record FilterGroupDef(string Title, IReadOnlyList<string> Options, Func<string> Current, Action<string> Apply);
+    private sealed record FilterGroupDef(string Title, IReadOnlyList<string> Options, Func<IReadOnlySet<string>> Current, Action<HashSet<string>> Apply);
 
     private IEnumerable<FilterGroupDef> LeftColumnGroups()
     {
-        yield return new FilterGroupDef("Lande", Bridge.FilterCountries, () => Bridge.FilterCountry, v => Bridge.OnCountryChanged?.Invoke(v));
-        yield return new FilterGroupDef("Sites", Bridge.FilterSitesForCountry, () => Bridge.FilterSite, v => Bridge.OnSiteChanged?.Invoke(v));
+        yield return new FilterGroupDef("Lande", Bridge.FilterCountries,
+            () => Bridge.ActiveFilterCountries,
+            v => Bridge.OnCountriesChanged?.Invoke(v));
+        yield return new FilterGroupDef("Sites", Bridge.FilterSitesForCountry,
+            () => Bridge.ActiveFilterSites,
+            v => Bridge.OnSitesChanged?.Invoke(v));
     }
 
     private IEnumerable<FilterGroupDef> RightColumnGroups()
     {
-        yield return new FilterGroupDef("Materialer", Bridge.FilterMaterials, () => Bridge.FilterMaterial, v => Bridge.OnMaterialChanged?.Invoke(v));
-        yield return new FilterGroupDef("Label sizes", Bridge.FilterLabelSizes, () => Bridge.FilterLabelSize, v => Bridge.OnLabelSizeChanged?.Invoke(v));
-        yield return new FilterGroupDef("Winding", Bridge.FilterWindings, () => Bridge.FilterWinding, v => Bridge.OnWindingChanged?.Invoke(v));
-        yield return new FilterGroupDef("Colors", Bridge.FilterColorValues, () => Bridge.FilterColors, v => Bridge.OnColorsChanged?.Invoke(v));
+        yield return new FilterGroupDef("Materialer", Bridge.FilterMaterials,
+            () => Bridge.ActiveFilterMaterials,
+            v => Bridge.OnMaterialsChanged?.Invoke(v));
+        yield return new FilterGroupDef("Label sizes", Bridge.FilterLabelSizes,
+            () => Bridge.ActiveFilterLabelSizes,
+            v => Bridge.OnLabelSizesChanged?.Invoke(v));
+        yield return new FilterGroupDef("Winding", Bridge.FilterWindings,
+            () => Bridge.ActiveFilterWindings,
+            v => Bridge.OnWindingsChanged?.Invoke(v));
+        yield return new FilterGroupDef("Colors", Bridge.FilterColorValues,
+            () => Bridge.ActiveFilterColors,
+            v => Bridge.OnColorsSetChanged?.Invoke(v));
     }
 
     public void Dispose() => Bridge.Changed -= OnBridgeChanged;

@@ -36,6 +36,30 @@ public sealed class LabelTenderSidebarBridge
 
     public string FilterColors { get; set; } = string.Empty;
 
+    public IReadOnlySet<string> ActiveFilterCountries { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> ActiveFilterSites { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> ActiveFilterMaterials { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> ActiveFilterLabelSizes { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> ActiveFilterWindings { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> ActiveFilterColors { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public Action<HashSet<string>>? OnCountriesChanged { get; set; }
+
+    public Action<HashSet<string>>? OnSitesChanged { get; set; }
+
+    public Action<HashSet<string>>? OnMaterialsChanged { get; set; }
+
+    public Action<HashSet<string>>? OnLabelSizesChanged { get; set; }
+
+    public Action<HashSet<string>>? OnWindingsChanged { get; set; }
+
+    public Action<HashSet<string>>? OnColorsSetChanged { get; set; }
+
     public string FilterAdhesive { get; set; } = string.Empty;
 
     public bool SynergyToggle { get; set; }
