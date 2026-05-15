@@ -251,7 +251,7 @@ else
                             }
                             else
                             {
-                                <svg width="100%" viewBox="0 0 1000 420" preserveAspectRatio="none" style="display:block; overflow:visible; max-height:65vh;">
+                                <svg width="100%" viewBox="0 0 724 420" style="display:block; overflow:visible; max-height:65vh;">
 
                                     @* Grid lines Y *@
                                     @foreach (var tick in new[] { 0, 25, 50, 75, 100 })
@@ -436,9 +436,9 @@ else
 
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Spend overview</MudText>
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Commercial vs regulatory cost by supplier.</MudText>
-                        <div class="cockpit-spend-wrap" style="width:100%;">
+                        <div class="cockpit-spend-wrap" style="width:100%; display:flex; flex-direction:column;">
                             @{
-                                var results = _tcoResults;
+                                var results = _tcoResults.OrderBy(r => r.Commercial).ToList();
                             }
                             @if (results.Count == 0)
                             {

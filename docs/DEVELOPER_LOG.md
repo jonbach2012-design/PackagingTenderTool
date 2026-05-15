@@ -3,6 +3,18 @@
 <!-- AUDIENCE: Udvikler / Studerende | OWNER: docs/DEVELOPER_LOG.md -->
 <!-- Formål: Teknisk dokumentation, læringsrefleksion og eksamensunderstøttelse -->
 
+## [2026-05-15] Architecture decision: Hybrid UI framework
+
+After POC delivery in MudBlazor, the following architecture was decided:
+
+- **MudBlazor**: app shell, navigation, snackbars, dialogs, polish
+- **Radzen**: grids, filters, data-heavy cockpit views
+- **Custom PTDE CSS**: brand identity, KPI-cards, colors, spacing
+
+**Reason:** MudBlazor proved too rigid for dynamic dashboards and responsive data-heavy layouts during bubble chart layout work (6 hours debugging margin-left, max-width, SVG viewBox). Root cause was push-layout vs overlay (gardin) misunderstanding compounded by MudBlazor CSS variable interference.
+
+**Decision:** Migrate business cockpit views to Radzen post-POC. Tracked as BACK-025.
+
 ---
 
 ## Overblik

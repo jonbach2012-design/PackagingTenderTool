@@ -812,8 +812,7 @@
 }
 
 .cockpit-main-stack {
-    max-width: 1280px;
-    margin: 0 auto;
+    max-width: 100%;
     min-height: calc(100vh - 80px);
 }
 
@@ -1955,4 +1954,8 @@ html, body {
     .cockpit-ctr-box {
         display: none !important;
     }
+}
+
+.mud-main-content.cockpit-main--label-tender {
+    margin-left: 0 !important;
 }

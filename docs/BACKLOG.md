@@ -7,10 +7,11 @@
 
 <!-- Priority order for next sessions:
 1. BACK-019 visualization (POC blocker)
-2. BACK-016 multi-country benchmark
-3. BACK-017 audit shield
-4. BACK-018 constraint builder
-5. BACK-021 material PPWR grade mapping
+2. BACK-025 hybrid UI architecture (MudBlazor + Radzen + PTDE CSS)
+3. BACK-016 multi-country benchmark
+4. BACK-017 audit shield
+5. BACK-018 constraint builder
+6. BACK-021 material PPWR grade mapping
 -->
 
 ## How to use this
@@ -80,6 +81,27 @@
   - System reads from validated rate files only — unvalidated rates are never applied to scoring.
   - Integration with SharePoint RAG project already exists as data source.
 - **Value proposition**: Single tender file → instant regulatory cost comparison across all 7 Scandi Standard operating countries. Identifies cheapest supplier per country and highest regulatory risk exposure across portfolio.
+
+---
+
+### 🔴 High priority — blocks future packaging profiles
+
+#### [BACK-025] Migrate UI framework — MudBlazor to hybrid architecture
+- **Status**: `planned`
+- **Category**: Frontend / Architecture
+- **Priority**: High (blocks all future packaging profiles)
+- **Prerequisite**: POC delivery in MudBlazor complete
+- **Reason**: MudBlazor is too rigid for dynamic dashboards, responsive chart layouts, and data-heavy visualizations.
+- **Target architecture**:
+  - **MudBlazor**: app shell, navigation, snackbars, dialogs, polish
+  - **Radzen**: grids, filters, data-heavy cockpit views
+  - **Custom PTDE CSS**: brand identity, KPI-cards, colors, spacing
+- **Scope**:
+  - `MainLayout.razor`
+  - `LabelTender.razor`
+  - `LabelTenderFilterPanel.razor`
+  - `LabelTenderShellSidebar.razor`
+  - `LabelTenderDrawerPanel.razor`
 
 ---
 

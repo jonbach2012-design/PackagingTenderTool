@@ -21,6 +21,7 @@ Quick context for humans and agents picking up the repo. For deep narrative and 
 ## 2. Last 5 commits (newest first)
 
 ```
+fix: bubble chart full-width layout - gardin approach, max-width, preserveAspectRatio
 a60fbc0 docs: add BACK-024 filter drill-down label size specs
 0a63a5f feat: multi-select filter infrastructure, sites filter, bubble chart improvements
 42c5e09 feat: bubble chart x-axis values, CTR info box, spend overview aligned, score breakdown
@@ -34,10 +35,11 @@ c832979 docs: add BACK-022 generic profile architecture
 
 ## 3. Next priorities
 
-1. Fix bubble chart full-width layout
-2. **BACK-002** Azure deploy
-3. **BACK-017** Audit Shield
-4. **BACK-023** Manual T-score per supplier
+1. **BACK-025**: Migrate to hybrid UI architecture (MudBlazor + Radzen + PTDE CSS)
+2. Fix bubble chart full-width layout
+3. **BACK-002** Azure deploy
+4. **BACK-017** Audit Shield
+5. **BACK-023** Manual T-score per supplier
 
 See `docs/BACKLOG.md` for full scored backlog (e.g. **BACK-019** POC visualization, **BACK-016** multi-country benchmark, **BACK-024** filter drill-down on label size).
 
@@ -45,7 +47,8 @@ See `docs/BACKLOG.md` for full scored backlog (e.g. **BACK-019** POC visualizati
 
 ## 4. Known issues
 
-- Bubble chart does not fill full available width on large screens
+- Spend overview bars render horizontally on large screens (deferred - MudBlazor limitation, fix post BACK-025)
+- Bubble chart data clusters to right side when supplier spend values are close together (cosmetic, deferred)
 - Logo position drifts after Cursor edits
 - Gardin toggle visibility inconsistent
 

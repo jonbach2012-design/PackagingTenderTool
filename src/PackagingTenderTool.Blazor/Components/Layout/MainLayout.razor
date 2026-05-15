@@ -27,7 +27,7 @@
     {
         @if (_labelTenderRoute)
         {
-            <div style="display:flex; flex-direction:row; position:fixed; top:64px; left:0; height:calc(100vh - 64px); z-index:100;">
+            <div style="position:fixed; top:64px; left:0; width:240px; height:calc(100vh - 64px); z-index:100;">
                 <div class="pt-label-drawer-wrap">
                     <MudDrawer Variant="DrawerVariant.Persistent"
                                Open="true"
@@ -38,10 +38,10 @@
                         <LabelTenderShellSidebar />
                     </MudDrawer>
                 </div>
-                <div class="pt-filter-panel @(Bridge.HasImportedData ? "" : "pt-filter-panel--hidden")"
-                     style="@FilterPanelInlineStyle">
-                    <LabelTenderFilterPanel />
-                </div>
+            </div>
+            <div class="pt-filter-panel @(Bridge.HasImportedData ? "" : "pt-filter-panel--hidden")"
+                 style="@FilterPanelInlineStyle">
+                <LabelTenderFilterPanel />
             </div>
         }
         else
@@ -81,13 +81,11 @@
 
     private string? MainContentStyle =>
         Profile.SelectedProfile is not null && _labelTenderRoute
-            ? _filterPanelOpen && Bridge.HasImportedData
-                ? "margin-left: 720px; transition: margin-left 0.25s ease;"
-                : "margin-left: 240px; transition: margin-left 0.25s ease;"
+            ? "margin-left: 240px !important; --mud-drawer-width-left: 240px;"
             : null;
 
     private string FilterPanelInlineStyle =>
-        $"width:{(_filterPanelOpen && Bridge.HasImportedData ? "480px" : "0px")}; min-width:0; overflow:hidden; transition:width 0.25s ease; background:#485230; border-left: 1px solid rgba(255,255,255,0.25); height: calc(100vh - 64px); flex-shrink: 0;";
+        $"position:fixed;left:240px;top:64px;z-index:101;width:{(_filterPanelOpen && Bridge.HasImportedData ? "480px" : "0px")};min-width:0;overflow:hidden;transition:width 0.25s ease;background:#485230;border-left:1px solid rgba(255,255,255,0.25);height:calc(100vh - 64px);";
 
     protected override void OnInitialized()
     {
