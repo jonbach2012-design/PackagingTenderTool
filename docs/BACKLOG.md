@@ -227,6 +227,27 @@
 
 - **Value**: "Price of security" argument for COO-level decisions. Quantifies supply risk in DKK — not just strategy.
 
+#### [BACK-024] Filter drill-down — vis specs ved label size valg
+- **Status**: `idea`
+- **Category**: UX
+- **Score**: 7
+- **Depends on**: multi-select filters (done)
+- **Description**: Når category manager vælger en specifik label size 
+  i Label Profile, vis automatisk hvilke specs der hører til:
+  site, materiale, winding, varenummer, antal linjer.
+  
+  Eksempel: vælger man "80x110" → panel viser:
+  - Varenummer: 540640
+  - Site: Jæren
+  - Materiale: PP top white
+  - Winding: OUT Bottom first
+  - Antal linjer: 1
+  
+  Formål: hurtig kontekst uden at skulle krydstjekke i Evidence table.
+
+- **Value**: Reducerer kognitivt load for category manager ved 
+  komplekse tenders med mange label sizes.
+
 ---
 
 ### ⚪ Score 6 — Backlog
