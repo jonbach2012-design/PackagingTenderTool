@@ -226,9 +226,9 @@ else
                     @* ROW 1 — bubble chart + CTR info *@
                     <div class="cockpit-dashboard-grid"
                          style="display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,300px);
-                                gap:24px; padding:24px 24px 0; align-items:start;">
+                                gap:24px; padding:24px 8px 0; align-items:start;">
 
-                        <div style="min-width:0; overflow:hidden;">
+                        <div style="min-width:0; width:100%;">
                             <MudText Typo="Typo.h5" Class="mb-1" Style="text-align:center; color:#485230; font-weight:600;">Supplier positioning</MudText>
                             <MudText Typo="Typo.body2" Class="cockpit-muted mb-1">
                                 CTR score vs commercial spend. Bubble size = number of lines.
@@ -251,7 +251,7 @@ else
                             }
                             else
                             {
-                                <svg width="100%" viewBox="0 0 700 420" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">
+                                <svg width="100%" viewBox="0 0 1000 420" preserveAspectRatio="none" style="display:block; overflow:visible; max-height:65vh;">
 
                                     @* Grid lines Y *@
                                     @foreach (var tick in new[] { 0, 25, 50, 75, 100 })
@@ -1013,6 +1013,11 @@ else
     private string[] _filterCountries = [];
     private string[] _filterSitesForCountry = [];
     private HashSet<string> _activeSites = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _activeCountries = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _activeMaterials = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _activeLabelSizes = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _activeWindings = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _activeColors = new(StringComparer.OrdinalIgnoreCase);
     private string _filterMaterial = string.Empty;
     private string[] _filterMaterials = [];
     private string _filterLabelSize = string.Empty;
@@ -1094,6 +1099,11 @@ else
         SidebarBridge.OnCountryChanged = null;
         SidebarBridge.OnSiteChanged = null;
         SidebarBridge.OnSitesChanged = null;
+        SidebarBridge.OnCountriesChanged = null;
+        SidebarBridge.OnMaterialsChanged = null;
+        SidebarBridge.OnLabelSizesChanged = null;
+        SidebarBridge.OnWindingsChanged = null;
+        SidebarBridge.OnColorsSetChanged = null;
         SidebarBridge.OnMaterialChanged = null;
         SidebarBridge.OnSynergyChanged = null;
         SidebarBridge.OnPpwrEffectChanged = null;
@@ -1189,6 +1199,11 @@ else
         SidebarBridge.FilterWindings = _filterWindings;
         SidebarBridge.FilterColorValues = _filterColorValues;
         SidebarBridge.ActiveFilterSites = _activeSites;
+        SidebarBridge.ActiveFilterCountries = _activeCountries;
+        SidebarBridge.ActiveFilterMaterials = _activeMaterials;
+        SidebarBridge.ActiveFilterLabelSizes = _activeLabelSizes;
+        SidebarBridge.ActiveFilterWindings = _activeWindings;
+        SidebarBridge.ActiveFilterColors = _activeColors;
         SidebarBridge.FilterAdhesives = [];
         SidebarBridge.SelectedSupplierIds = Session.SelectedSuppliers;
         SidebarBridge.DrawerSuppliers = _suppliersAll
@@ -1199,6 +1214,11 @@ else
             .ToArray();
         SidebarBridge.OnSupplierSelectionChanged = OnSupplierSelectionChanged;
         SidebarBridge.OnSitesChanged = OnSitesChanged;
+        SidebarBridge.OnCountriesChanged = OnCountriesChanged;
+        SidebarBridge.OnMaterialsChanged = OnMaterialsChanged;
+        SidebarBridge.OnLabelSizesChanged = OnLabelSizesChanged;
+        SidebarBridge.OnWindingsChanged = OnWindingsChanged;
+        SidebarBridge.OnColorsSetChanged = OnColorsSetChanged;
         SidebarBridge.OnLabelSizeChanged = OnLabelSizeChanged;
         SidebarBridge.OnWindingChanged = OnWindingChanged;
         SidebarBridge.OnColorsChanged = OnColorsChanged;
@@ -1223,6 +1243,41 @@ else
     private void OnSitesChanged(HashSet<string> v)
     {
         _activeSites = v;
+        RefreshData();
+        StateHasChanged();
+    }
+
+    private void OnCountriesChanged(HashSet<string> v)
+    {
+        _activeCountries = v;
+        RefreshData();
+        StateHasChanged();
+    }
+
+    private void OnMaterialsChanged(HashSet<string> v)
+    {
+        _activeMaterials = v;
+        RefreshData();
+        StateHasChanged();
+    }
+
+    private void OnLabelSizesChanged(HashSet<string> v)
+    {
+        _activeLabelSizes = v;
+        RefreshData();
+        StateHasChanged();
+    }
+
+    private void OnWindingsChanged(HashSet<string> v)
+    {
+        _activeWindings = v;
+        RefreshData();
+        StateHasChanged();
+    }
+
+    private void OnColorsSetChanged(HashSet<string> v)
+    {
+        _activeColors = v;
         RefreshData();
         StateHasChanged();
     }
@@ -1681,6 +1736,25 @@ else
             !_activeSites.Contains(i.Site?.Trim() ?? string.Empty))
             return false;
 
+        if (_activeCountries.Count > 0 &&
+            !_activeCountries.Contains(DeriveCountryFromSiteName(i.Site ?? string.Empty)))
+            return false;
+        if (_activeMaterials.Count > 0 &&
+            !_activeMaterials.Contains(i.Material?.Trim() ?? string.Empty))
+            return false;
+        if (_activeLabelSizes.Count > 0 &&
+            !_activeLabelSizes.Contains(i.LabelSize?.Trim() ?? string.Empty))
+            return false;
+        if (_activeWindings.Count > 0 &&
+            !_activeWindings.Contains(i.WindingDirection?.Trim() ?? string.Empty))
+            return false;
+        if (_activeColors.Count > 0)
+        {
+            var colorToken = (i.OriginalColorsValue ?? i.NumberOfColors?.ToString() ?? string.Empty).Trim();
+            if (!_activeColors.Contains(colorToken))
+                return false;
+        }
+
         if (!string.IsNullOrWhiteSpace(_filterMaterial) &&
             !string.Equals(i.Material?.Trim(), _filterMaterial,
                 StringComparison.OrdinalIgnoreCase))
@@ -1772,7 +1846,13 @@ else
             var anyDimensionFilterActive = !string.IsNullOrWhiteSpace(_filterLabelSize)
                 || !string.IsNullOrWhiteSpace(_filterWinding)
                 || !string.IsNullOrWhiteSpace(_filterColors)
-                || !string.IsNullOrWhiteSpace(_filterMaterial);
+                || !string.IsNullOrWhiteSpace(_filterMaterial)
+                || _activeCountries.Count > 0
+                || _activeSites.Count > 0
+                || _activeMaterials.Count > 0
+                || _activeLabelSizes.Count > 0
+                || _activeWindings.Count > 0
+                || _activeColors.Count > 0;
             var itemsForSupplierBuild = anyDimensionFilterActive
                 ? _importedLineItems.Where(LineItemMatchesActiveDimensionFilters).ToList()
                 : _importedLineItems;

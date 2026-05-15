@@ -81,15 +81,13 @@
 
     private string? MainContentStyle =>
         Profile.SelectedProfile is not null && _labelTenderRoute
-            ? Bridge.HasImportedData && _filterPanelOpen
+            ? _filterPanelOpen && Bridge.HasImportedData
                 ? "margin-left: 720px; transition: margin-left 0.25s ease;"
                 : "margin-left: 240px; transition: margin-left 0.25s ease;"
             : null;
 
     private string FilterPanelInlineStyle =>
-        !Bridge.HasImportedData
-            ? string.Empty
-            : $"width:{(_filterPanelOpen ? "480px" : "0px")};min-width:{(_filterPanelOpen ? "480px" : "0px")};transition:width 0.25s ease;";
+        $"width:{(_filterPanelOpen && Bridge.HasImportedData ? "480px" : "0px")}; min-width:0; overflow:hidden; transition:width 0.25s ease; background:#485230; border-left: 1px solid rgba(255,255,255,0.25); height: calc(100vh - 64px); flex-shrink: 0;";
 
     protected override void OnInitialized()
     {
