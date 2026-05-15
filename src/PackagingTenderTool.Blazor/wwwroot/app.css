@@ -910,9 +910,8 @@
 /* Label tender shell sidebar (layout drawer) */
 .lt-shell-sidebar {
     position: relative;
-    overflow-x: hidden;
-    overflow-y: auto;
-    max-height: calc(100vh - 64px);
+    overflow: visible;
+    padding-bottom: 1rem;
 }
 
 .lt-shell-section-title {
@@ -1947,4 +1946,13 @@ html, body {
     background: #eceff1;
     padding: 2px 8px;
     border-radius: 4px;
+}
+
+@media (max-width: 1200px) {
+    .cockpit-dashboard-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .cockpit-ctr-box {
+        display: none !important;
+    }
 }

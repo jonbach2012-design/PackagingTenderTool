@@ -39,3 +39,49 @@ Den studerende kan:
 
 ---
 
+
+
+**Programmerings fagets moduler og deres formål** 
+
+**Hvad er programmering**
+Du kan bruge vibe coding til at programmere simple løsninger
+Du kender grundlæggende begreber og udtryk inden for programmering
+Du kender vibe codings muligheder og begrænsninger
+
+
+**Programstrukturer** 
+Du kan skabe simple programmer med Codex
+Du kender de grundlæggende programmeringsstrukturer
+Du kan læse og forstå strukturen af C#-programmer
+
+
+**Versionsstyring**
+Du forstår formålet med versionsstyring i forbindelse med AI-drevet udvikling
+Du kan anvende Github til versionsstyring, sikkerhedskopi og log i dine egne projekter
+Du kan rulle tilbage til tidligere version af dit program
+
+
+**Programmering med agenter**
+Du kan udnytte mulighederne med AI kode-agenter
+Du kender processen Spec driven development
+Du kan gå fra specifikation til løsning med en AI kodeagent
+
+
+**Debugging**
+Du kender teknikker til debugging
+Du kan følge med i koden, når programmet køres
+Du kan kontrollere korrektheden af AI-genereret kode
+
+
+**Automatiske test**
+Du ved hvad unit test er
+Du kan bruge unit test til at sikre kvaliteten af koden
+Du kan arbejde testdrevet
+
+
+**Projektstruktur**
+Du kender fordele og ulemper ved at bruge tredjepartsbiblioteker
+Du kan vurdere kvaliteten af et tredjepartsbibliotek
+Du kender til designmønstre og deres fordele
+
+---

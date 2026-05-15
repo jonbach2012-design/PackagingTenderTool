@@ -23,13 +23,18 @@
                         <div class="pt-filter-group-title">@g.Title</div>
                         <MudStack Spacing="0">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                                @{
+                                    var currentFilter = g.Current();
+                                    var allSelected = string.IsNullOrEmpty(currentFilter);
+                                    var toggleLabel = allSelected ? "Deselect all" : "Select all";
+                                    Action<string> filterDelegate = g.Apply;
+                                }
                                 <MudCheckBox T="bool"
                                              Dense="true"
-                                             Color="Color.Default"
-                                             Class="lt-filter-panel-cb"
-                                             Value="@string.IsNullOrWhiteSpace(g.Current())"
-                                             ValueChanged="@(v => { if (v) g.Apply(string.Empty); })"
-                                             Label="@SelectAllNoneLabel(g.Current())" />
+                                             Value="@allSelected"
+                                             ValueChanged="@(v => filterDelegate(v ? "" : "__none__"))"
+                                             Label="@toggleLabel"
+                                             Style="color:rgba(255,255,255,0.88); font-size:13px;" />
                             </MudStack>
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
                                 @foreach (var opt in g.Options)
@@ -78,13 +83,18 @@
                         <div class="pt-filter-group-title">@g.Title</div>
                         <MudStack Spacing="0">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="px-2 py-1">
+                                @{
+                                    var currentFilter = g.Current();
+                                    var allSelected = string.IsNullOrEmpty(currentFilter);
+                                    var toggleLabel = allSelected ? "Deselect all" : "Select all";
+                                    Action<string> filterDelegate = g.Apply;
+                                }
                                 <MudCheckBox T="bool"
                                              Dense="true"
-                                             Color="Color.Default"
-                                             Class="lt-filter-panel-cb"
-                                             Value="@string.IsNullOrWhiteSpace(g.Current())"
-                                             ValueChanged="@(v => { if (v) g.Apply(string.Empty); })"
-                                             Label="@SelectAllNoneLabel(g.Current())" />
+                                             Value="@allSelected"
+                                             ValueChanged="@(v => filterDelegate(v ? "" : "__none__"))"
+                                             Label="@toggleLabel"
+                                             Style="color:rgba(255,255,255,0.88); font-size:13px;" />
                             </MudStack>
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
                                 @foreach (var opt in g.Options)
@@ -116,9 +126,6 @@
 
     private static bool FilterMatches(string current, string value) =>
         string.Equals((current ?? string.Empty).Trim(), value, StringComparison.OrdinalIgnoreCase);
-
-    private static string SelectAllNoneLabel(string? current) =>
-        string.IsNullOrWhiteSpace(current) ? "Deselect all" : "Select all";
 
     private sealed record FilterGroupDef(string Title, IReadOnlyList<string> Options, Func<string> Current, Action<string> Apply);
 
