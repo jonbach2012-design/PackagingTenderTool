@@ -24,13 +24,14 @@ public sealed class PivotLabelsExcelImportService
     private const int ColReelDiameter = 8;
     private const int ColNumberOfColors = 9;
     private const int ColSuggestedMoq = 10;
+    private const int ColCurrentPrice = 11;
 
     private static readonly (string SupplierName, int PriceCol, int MoqCol, int CommentCol)[] SupplierBlocks =
     [
-        ("Flexoprint", 11, 12, 13),
-        ("Norsk Etikett", 14, 15, 16),
-        ("Grafiket", 17, 18, 19),
-        ("Ettiketto", 20, 21, 22)
+        ("Flexoprint", 12, 13, 14),
+        ("Norsk Etikett", 15, 16, 17),
+        ("Grafiket", 18, 19, 20),
+        ("Ettiketto", 21, 22, 23)
     ];
 
     /// <summary>Headers for the synthetic workbook — must match <c>LabelsExcelImportService</c> column aliases.</summary>
@@ -47,7 +48,8 @@ public sealed class PivotLabelsExcelImportService
         "No. of colors",
         "Supplier name",
         "Price per 1000",
-        "Comment"
+        "Comment",
+        "current_price"
     ];
 
     public LabelsTenderImportResult ImportTenderWithReport(Stream stream, string tenderName)
@@ -80,6 +82,7 @@ public sealed class PivotLabelsExcelImportService
             var reel = TrimmedCellText(pivotSheet, row, ColReelDiameter);
             var colorsText = RawCellText(pivotSheet, row, ColNumberOfColors);
             var suggestedMoq = TrimmedCellText(pivotSheet, row, ColSuggestedMoq);
+            var currentPriceText = RawCellText(pivotSheet, row, ColCurrentPrice);
 
             foreach (var block in SupplierBlocks)
             {
@@ -105,7 +108,8 @@ public sealed class PivotLabelsExcelImportService
                     colorsText,
                     block.SupplierName,
                     priceText,
-                    comment));
+                    comment,
+                    currentPriceText));
             }
         }
 
@@ -202,6 +206,7 @@ public sealed class PivotLabelsExcelImportService
                 WriteString(ws, r, 10, row.SupplierName);
                 WriteDecimalOrText(ws, r, 11, row.PricePerThousandText);
                 WriteString(ws, r, 12, row.Comment);
+                WriteDecimalOrText(ws, r, 13, row.CurrentPriceText);
                 r++;
             }
 
@@ -266,5 +271,6 @@ public sealed class PivotLabelsExcelImportService
         string? NumberOfColorsText,
         string SupplierName,
         string? PricePerThousandText,
-        string? Comment);
+        string? Comment,
+        string? CurrentPriceText);
 }

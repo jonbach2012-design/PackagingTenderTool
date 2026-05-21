@@ -5,33 +5,36 @@
 - User: Architect (45yo, Enneagram 5-1-3).
 - Communication: Direct, technical, and data-centric. Zero fluff. No polite fillers or apologies.
 - AI Mode: Critical, innovative, and challenging partner. Follow Spec-Driven Development (SDD).
-- Source of Truth: Reference `/docs/spec.md` as the primary technical specification.
+- Source of Truth: Reference `docs/spec.md` as the primary technical specification.
+- Session context: Read `SESSION_STARTER.md` at the start of every session before touching any file.
 
 ---
 
 ## 0. Documentation Ownership — Read Before Touching Any Markdown
 
-Every documentation file has a single owner and a single audience. Before creating or editing any markdown file, check `/docs/_INDEX.md`.
+Every documentation file has a single owner and a single audience. Before creating or editing any markdown file, check `docs/_INDEX.md`.
 
 | File | Audience | What belongs here |
 |---|---|---|
 | `README.md` | Business / Category Manager | Value proposition, scoring model summary, status, competitive positioning |
-| `decisions.md` | Developer / AI agent | ADRs only — one record per architectural decision |
+| `SESSION_STARTER.md` | Developer / AI agent | Quick context: current status, next priorities, known issues, key data model facts |
+| `docs/decisions/decisions.md` | Developer / AI agent | ADRs only — one record per architectural decision. Never create separate ADR files. |
 | `.cursorrules` | AI agent (Cursor) | This file. Project constitution and guardrails. |
 | `docs/ARCHITECTURE.md` | Developer / AI agent | System orientation, layers, named services, invariants, repo structure |
 | `docs/spec.md` | Developer / AI agent | Full specification — formulas, EPR matrix, domain model, scoring detail |
-| `docs/plan_HISTORICAL.md` |` | Developer | Historical baseline — read only, do not update |
+| `docs/BACKLOG.md` | Developer / Architect | Prioritised backlog — single source of truth for planned, in progress, and done work |
 | `docs/DEVELOPER_LOG.md` | Developer | Refactoring journal, root cause analyses |
 | `docs/learning/SL_LearningGoals.md` | Personal | Education only — not project documentation |
 
 ### Forbidden documentation patterns
 
-- Do not create new markdown files at repo root (except `README.md` and `decisions.md`).
-- Do not create `README2.md`, `overview.md`, `notes.md`, or similar.
+- Do not create new markdown files at repo root (except `README.md` and `SESSION_STARTER.md`).
+- Do not create `README2.md`, `overview.md`, `notes.md`, or similar shadow files.
 - Do not put architecture content in `README.md`.
 - Do not put business narrative in `docs/ARCHITECTURE.md`.
 - Do not duplicate content between `spec.md` and `ARCHITECTURE.md`. Spec owns detail. Architecture owns orientation.
-- Do not create new ADR files — extend `decisions.md`.
+- Do not create new ADR files — extend `docs/decisions/decisions.md`.
+- Do not put `decisions.md` at repo root — it lives in `docs/decisions/decisions.md`.
 - If a documentation task cannot fit an existing file, stop and ask before creating a new one.
 
 ---
@@ -50,18 +53,104 @@ Every task MUST follow this sequence:
 
 ## 2. Architecture & Brand Guardrails
 
-- **Identity:** Scandi Standard Green (`#91A363`). No default MudBlazor blue in the cockpit shell.
+- **Identity:** Scandi Standard Green (`#485230` / `#91A363`). No default MudBlazor blue in the cockpit shell.
 - **Pattern:** Strict Strategy Pattern for all scoring. New packaging profiles implement the strategy interface — they do not touch the engine.
 - **Logic Leakage:** UI code must NEVER contain calculation logic. Use `TcoEngineService`.
 - **Sensitivity Logic:** Protect the ±5% weight perturbation model. Do not regress decision insight logic.
 - **No Hardcoded Data:** All dropdowns and KPIs must bind to the active session/tender data.
-- **InvariantCulture:** All SVG/numeric output must use `FmtSvg` (InvariantCulture). Danish decimal commas corrupt SVG attributes.
+- **InvariantCulture:** All SVG/numeric output must use `InvariantCulture`. Danish decimal commas corrupt SVG attributes.
 - **DTO Stability:** DTO/data contract changes require explicit ADR and full UI impact analysis before merging.
 - **Commit size:** Core logic changes must be shipped as small commits (<200 lines) to keep rollback safe.
 
 ---
 
-## 3. Mandatory Feedback Structure
+## 3. Hybrid UI Layer — Component Ownership
+
+The UI uses a deliberate three-way split. Never mix responsibilities across layers.
+
+| Layer | Use for | Never use for |
+|-------|---------|---------------|
+| **MudBlazor** | App shell, navigation, snackbars, dialogs, alerts, chips, sliders, checkboxes | Charts, data grids, cockpit visualizations |
+| **Radzen 7.3.0** | Charts (`RadzenChart`, `RadzenColumnSeries`, `RadzenLineSeries`), data grids | Shell layout, navigation, dialogs |
+| **Custom PTDE CSS** | Brand identity, KPI-cards, colors, spacing | Component logic |
+
+### Radzen-specific rules
+
+- `RadzenReferenceLine` does not exist in Radzen 7.x — use flat `RadzenLineSeries` with one point per category as workaround.
+- `RadzenMarkers` must be wrapped in `<ChildContent>` when nested under `RadzenLineSeries` — direct child causes RZ9996.
+- `RadzenSeriesDataLabels` has no `Style` property in Radzen 7.x — use `Visible="true"` only.
+- `@{ }` code blocks must not appear inside `<RadzenChart>` between component children — move variable declarations outside the chart.
+- `RadzenColumnSeries` renders vertical bars. `RadzenBarSeries` renders horizontal bars. Use the correct one.
+
+### MudBlazor/Radzen type conflicts
+
+`Variant` and `AlignItems` exist in both libraries. Aliases are set in `_Imports.razor`:
+```csharp
+@using AlignItems = MudBlazor.AlignItems
+@using Variant = MudBlazor.Variant
+```
+- Do not remove these aliases — build breaks with CS0104.
+- Radzen components that use `Variant` or `AlignItems` must use fully qualified `Radzen.` prefix.
+
+---
+
+## 4. Import Pipeline Rules
+
+### Standard format (`LabelsExcelImportService`)
+- Header matching via `ColumnAliases` dictionary — robust to column name variations.
+- `current_price` column: price per 1,000 labels (Scandi Standard's current contract price). Nullable — absent column or empty cell → null. Never blocks import.
+- Do not add `CurrentContractPrice` to `NumericImportValidationFieldNames` — it must not trigger manual review warnings.
+
+### Pivot format (`PivotLabelsExcelImportService`)
+- Detected automatically by worksheet name "All labels DSH".
+- Column layout is **hardcoded** (see ADR-007). Any change requires updating both `PivotLabelsExcelImportService.cs` AND `docs/decisions/decisions.md`.
+- Current layout: A–J = item fields, K(11) = current_price, L–N(12–14) = Flexoprint, O–Q(15–17) = Norsk Etikett, R–T(18–20) = Grafiket, U–W(21–23) = Ettiketto.
+- `PivotLongRow` record: do not add `CurrentContractPrice` as a field — it is written as a synthetic column and read by `LabelsExcelImportService`.
+
+### Revision convention
+- Revised bids follow naming convention: `[SupplierName] Rev[N]` (e.g. `Ettiketto Rev2`).
+- Revisions are treated as separate suppliers in the data model — no special import logic needed.
+- Latest revision (highest N) is active by default after import.
+
+---
+
+## 5. Baseline & Imputation Rules
+
+### BestBidBaseline
+- Computed as: `min(PricePerThousand / 1000 across all suppliers) × Quantity` per ItemNo.
+- Stored as `Dictionary<string, decimal>` (ItemNo → line total spend).
+- Values are **line totals** (price × qty already applied) — never multiply by quantity again when using as fallback.
+
+### CurrentContractPriceBaseline
+- Computed as: `(current_price / 1000) × Quantity` per ItemNo.
+- `current_price` is price per 1,000 labels — always divide by 1000 before multiplying by quantity.
+
+### ImputedSupplierSpend
+- Missing lines: use `CurrentContractPrice` (unit price) → multiply by quantity.
+- Fallback: use `BestBidBaseline[itemNo]` directly — it is already a line total, do not multiply again.
+- If neither available: exclude line silently (Option 2 — no imputation without a price).
+- `bidLineCount` increments when supplier has submitted any price (`unitPrice > 0` OR `Spend > 0`) — regardless of whether quantity is present.
+
+---
+
+## 6. Defensive Rules — Do Not Regress
+
+These are known workarounds and deliberate decisions. Do not "fix" them.
+
+| Rule | Why |
+|------|-----|
+| Do not simplify `ComputeBestBidBaseline` | `PricePerThousand / 1000 × Quantity` is deliberate — prices are per 1,000 labels |
+| Do not remove MudBlazor aliases from `_Imports.razor` | CS0104 build breaks immediately |
+| Do not change pivot column numbers without ADR-007 update | Silent data errors if columns shift |
+| Do not rename "deep-dive" back to "evidence" | Renamed throughout UI and navigation — regression breaks routing |
+| Do not move `@{ var barData }` inside `<RadzenChart>` | Causes column series to disappear at runtime |
+| Do not use `RadzenReferenceLine` | Not available in Radzen 7.x — use `RadzenLineSeries` workaround |
+| Do not add `Style` to `RadzenSeriesDataLabels` | Property does not exist — runtime exception |
+| Do not put `decisions.md` at repo root | Lives in `docs/decisions/decisions.md` |
+
+---
+
+## 7. Mandatory Feedback Structure
 
 Every technical response/update MUST end with this exact structure:
 
@@ -77,22 +166,25 @@ Every technical response/update MUST end with this exact structure:
 
 ---
 
-## 4. Formatting & Technical Standards
+## 8. Formatting & Technical Standards
 
-- **Language:** C# / .NET 10.0 / Blazor / MudBlazor / Radzen.
+- **Language:** C# / .NET 10.0 / Blazor / MudBlazor 7 / Radzen 7.3.0.
 - **Lifecycle:** Ensure `InvokeAsync(StateHasChanged)` is called after async data updates (e.g., Excel import).
 - **Ambiguity:** If a task is unclear, STOP and ask for a 'Functional Envelope'.
 - **WinForms:** Verification shell only. Do not add features, charts, or logic to WinForms.
+- **Tests:** 151 tests must remain green after every change. Run `dotnet test` before reporting complete.
+- **Encoding:** Fix encoding artifacts (`â€"`, `Ã¦`, `JÃ¦ren`) when encountered — do not introduce new ones.
 
 ---
 
-## 5. Audit Gates
+## 9. Audit Gates
 
 The following changes always require full audit before merging:
 
 - Scoring formulas or weights
 - DTO / data contracts
 - Filtering or aggregation logic
+- Pivot column layout (must update `PivotLabelsExcelImportService.cs` AND `docs/decisions/decisions.md` ADR-007)
 
 Golden cases that must always pass:
 1. Zero volume
@@ -105,10 +197,18 @@ UI cosmetic changes are fast-tracked without audit.
 
 ---
 
-## 6. Completion Rule
+## 10. Completion Rule
 
 A UI task is not complete when build passes.
 
 A UI task is complete only when the rendered browser output visually matches the acceptance criteria.
 
 If screenshots contradict the written report, the screenshot wins.
+
+A task is fully complete only when:
+- Change is implemented
+- `dotnet build` — 0 errors, 0 warnings
+- `dotnet test` — 151 tests green
+- Result is explained using the Mandatory Feedback Structure (Section 7)
+- No hidden architectural damage has been introduced
+- `docs/BACKLOG.md` status is updated if a backlog item was completed

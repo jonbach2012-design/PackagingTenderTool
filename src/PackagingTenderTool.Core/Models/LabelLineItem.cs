@@ -20,6 +20,12 @@ public sealed class LabelLineItem
 
     public decimal? Price { get; set; }
 
+    /// <summary>
+    /// Current contract price per unit, imported from the 'current_price' column in the tender Excel file.
+    /// Null if the column is absent or the cell is empty. Used for deviation analysis vs. tender prices.
+    /// </summary>
+    public decimal? CurrentContractPrice { get; set; }
+
     public decimal? TheoreticalSpend { get; set; }
 
     /// <summary>

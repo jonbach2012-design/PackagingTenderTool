@@ -53,7 +53,8 @@ public sealed class LabelsExcelImportService
             [nameof(LabelLineItem.IsReusableOrRecyclableMaterial)] =
                 ["Reusable or recyclable material direction", "Reusable or recyclable", "Recyclable material"],
             [nameof(LabelLineItem.HasTraceability)] = ["Traceability", "Has traceability"],
-            [nameof(LabelLineItem.Comment)] = ["Comment", "Comments"]
+            [nameof(LabelLineItem.Comment)] = ["Comment", "Comments"],
+            [nameof(LabelLineItem.CurrentContractPrice)] = ["current_price", "Current price", "Current Price"]
         };
 
     private static readonly Regex ColorsRangePattern = new(
@@ -100,6 +101,7 @@ public sealed class LabelsExcelImportService
             nameof(LabelLineItem.IsReusableOrRecyclableMaterial) => "Reusable or recyclable material",
             nameof(LabelLineItem.HasTraceability) => "Traceability",
             nameof(LabelLineItem.Comment) => "Comment",
+            nameof(LabelLineItem.CurrentContractPrice) => "Current price",
             _ => propertyName
         };
 
@@ -601,6 +603,14 @@ public sealed class LabelsExcelImportService
             columnMap,
             nameof(LabelLineItem.Price),
             nameof(LabelLineItem.Price),
+            lineItem,
+            issues);
+        lineItem.CurrentContractPrice = GetDecimal(
+            excelRowNumber,
+            row,
+            columnMap,
+            nameof(LabelLineItem.CurrentContractPrice),
+            nameof(LabelLineItem.CurrentContractPrice),
             lineItem,
             issues);
         lineItem.TheoreticalSpend = GetDecimal(

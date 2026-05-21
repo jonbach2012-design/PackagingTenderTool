@@ -6,12 +6,15 @@
      Before adding a new idea, add it here — not in chat, not in a comment, not in your head. -->
 
 <!-- Priority order for next sessions:
-1. BACK-019 visualization (POC blocker)
-2. BACK-025 hybrid UI architecture (MudBlazor + Radzen + PTDE CSS)
-3. BACK-016 multi-country benchmark
-4. BACK-017 audit shield
-5. BACK-018 constraint builder
-6. BACK-021 material PPWR grade mapping
+1. BACK-026 baseline + current price deviation (data model first)
+2. BACK-027 bar chart primary + supplier selector + deep-dive navigation
+3. BACK-028 revision handling for revised supplier bids
+4. BACK-019 visualization (POC blocker)
+5. BACK-025 hybrid UI architecture (MudBlazor + Radzen + PTDE CSS)
+6. BACK-016 multi-country benchmark
+7. BACK-017 audit shield
+8. BACK-018 constraint builder
+9. BACK-021 material PPWR grade mapping
 -->
 
 ## How to use this
@@ -25,6 +28,102 @@
 ## Active Backlog
 
 ### 🟢 Score 10 — Do next
+
+#### [BACK-026] Baseline price + current price deviation
+- **Status**: `ready`
+- **Category**: Data model / Frontend
+- **Score**: 10
+- **Depends on**: import pipeline (LabelsExcelImportService)
+- **Description**: Two related but distinct concepts — implement together, keep separated in the model.
+
+  **Baseline — BestBidBaseline:**
+  - Lowest offered price per line across all suppliers in the current tender
+  - Derived automatically from imported data — no user input required
+  - Exposed as `BestBidBaseline` on the line/result DTO — never called "current price"
+  - Used as reference point: "how far is each supplier from the cheapest available bid?"
+
+  **Current price — CurrentContractPrice:**
+  - Imported from a new Excel column: `current_price` (exact column name TBD with import owner)
+  - Optional — system must handle missing values gracefully (null = no current contract)
+  - Stored on `TenderLine` or equivalent import model
+  - UI deviation: `(tender_price − current_price) / current_price × 100` = % above/below current contract
+
+  **UI output:**
+  - Deviation badge per supplier: green (below current), amber (±5%), red (above current)
+  - "Market setup strength" indicator: if tender prices cluster close to baseline → strong market, many competitive bids
+  - KPI card on dashboard: "Closest to baseline" supplier highlighted
+
+- **Import change**: Add `CurrentContractPrice` (decimal?) column to `LabelsExcelImportService`
+- **DTO change**: Add `CurrentContractPrice` and `BestBidBaseline` to result/line model
+- **Risk**: Column may not exist in all tender files — null handling is mandatory, not optional
+
+#### [BACK-027] Dashboard UX overhaul — bar chart primary, supplier selector, deep-dive navigation
+- **Status**: `ready`
+- **Category**: Frontend / UX
+- **Score**: 10
+- **Depends on**: BACK-026 (baseline data helps bar chart be meaningful)
+- **Description**: Four coordinated UX changes requested by stakeholder. Implement as one coherent dashboard revision.
+
+  **1. Bar chart as primary visualization:**
+  - Replace bubble chart as the hero chart on dashboard
+  - X-axis: suppliers. Y-axis: spend or TCO score (decide before implementing)
+  - Color: green ramp consistent with existing PTDE palette
+  - Baseline reference line overlaid on bars (from BACK-026)
+  - Bubble chart is NOT deleted — moved to a secondary "Analysis" tab or collapsible section
+
+  **2. Supplier selector in left sidebar:**
+  - Sidebar section: "Suppliers" with checkbox list
+  - Controls: "Select all" / "Deselect all" + individual tick per supplier
+  - Selecting/deselecting a supplier filters all charts and tables on the current view
+  - State lives in `LabelTenderSidebarBridge` or equivalent — not in the chart component
+  - Consistent with existing filter panel approach (BACK-006 filter infrastructure)
+
+  **3. Rename Evidence → Deep-dive:**
+  - All UI labels, sidebar navigation items, page titles: "Evidence" → "Deep-dive"
+  - File renames: `LabelTenderEvidence.razor` → `LabelTenderDeepDive.razor` (if it exists)
+  - No logic changes — rename only. Update all `@page` directives and navigation links.
+
+  **4. Bar chart click → Deep-dive navigation:**
+  - Clicking a supplier's bar navigates to Deep-dive view
+  - Deep-dive view opens pre-filtered to that supplier
+  - Filter state set programmatically via `LabelTenderSidebarBridge` before navigation
+  - No modal — full navigation. User can use back-button or sidebar to return.
+
+- **Acceptance criteria**:
+  - [ ] Bar chart renders with real imported data, not placeholder
+  - [ ] Bubble chart still accessible (not deleted)
+  - [ ] Supplier selector filters dashboard charts and Deep-dive table
+  - [ ] Click on bar → navigates to Deep-dive filtered on that supplier
+  - [ ] "Evidence" renamed to "Deep-dive" everywhere in UI and navigation
+  - [ ] `dotnet build` green, existing tests pass
+
+#### [BACK-028] Revision handling for revised supplier bids
+- **Status**: `ready`
+- **Category**: Import / Frontend / UX
+- **Score**: 9
+- **Depends on**: BACK-027 (supplier selector, deep-dive navigation)
+- **Description**: Support multiple bid revisions per supplier in import, sidebar, and deep-dive — so category managers can compare original vs. revised offers without losing traceability.
+
+  **Revision model:**
+  - Each revised bid is a distinct supplier row in the tender model, linked to a base supplier
+  - Naming convention in UI and import: `[LeverandørNavn] Rev[N]` (e.g. `Flex Rev1`, `Flex Rev2`)
+  - Latest revision is the **default active** selection for charts, KPIs, and scoring
+
+  **Supplier selector (sidebar):**
+  - Group revisions under their base supplier in the "Leverandører" section
+  - Expand/collapse or indented sub-list per supplier family
+  - Selecting a revision filters views to that bid only; "Alle" / base-supplier semantics TBD at implementation
+
+  **Deep-dive:**
+  - Side-by-side comparison of two revisions (same supplier): price, spend, deviation vs. baseline/current contract
+  - Entry point: from supplier selector or bar-chart navigation with revision context preserved
+
+- **Acceptance criteria**:
+  - [ ] Import recognizes or maps revision suffixes to `Rev[N]` display names
+  - [ ] Supplier selector shows grouped revisions; latest revision selected by default after import
+  - [ ] Deep-dive supports side-by-side revision comparison for one supplier
+  - [ ] Dashboard and deep-dive respect revision selection (no silent merge of Rev1 + Rev2 spend)
+  - [ ] `dotnet build` green, existing tests pass
 
 #### [BACK-019] POC Visualization & Navigation Design
 - **Status**: `ready`
@@ -86,22 +185,47 @@
 
 ### 🔴 High priority — blocks future packaging profiles
 
-#### [BACK-025] Migrate UI framework — MudBlazor to hybrid architecture
-- **Status**: `planned`
+#### [BACK-025] Migrate UI framework — hybrid architecture (MudBlazor + Radzen + PTDE CSS)
+- **Status**: `in progress`
 - **Category**: Frontend / Architecture
 - **Priority**: High (blocks all future packaging profiles)
 - **Prerequisite**: POC delivery in MudBlazor complete
-- **Reason**: MudBlazor is too rigid for dynamic dashboards, responsive chart layouts, and data-heavy visualizations.
-- **Target architecture**:
-  - **MudBlazor**: app shell, navigation, snackbars, dialogs, polish
-  - **Radzen**: grids, filters, data-heavy cockpit views
-  - **Custom PTDE CSS**: brand identity, KPI-cards, colors, spacing
-- **Scope**:
-  - `MainLayout.razor`
-  - `LabelTender.razor`
-  - `LabelTenderFilterPanel.razor`
-  - `LabelTenderShellSidebar.razor`
-  - `LabelTenderDrawerPanel.razor`
+
+### Architecture Decision
+
+This is a **deliberate three-way split** — not a full replacement of MudBlazor with Radzen.
+
+| Layer | Responsibility |
+|-------|----------------|
+| **MudBlazor** | App shell, navigation, snackbars, dialogs, polish |
+| **Radzen** | Grids, filters, data-heavy cockpit views |
+| **Custom PTDE CSS** | Brand identity, KPI-cards, colors, spacing |
+
+### Rationale
+
+- MudBlazor remains for everything it already handles well (layout, feedback components, shell)
+- Radzen replaces MudBlazor **only** where data density and grid flexibility matter (DataGrid, filters, cockpit panels)
+- PTDE CSS is the brand layer — neither library owns the visual identity
+- Incremental migration: no big-bang rewrite, components move one at a time
+- MudBlazor rigidity is the specific pain point for dynamic dashboards, responsive chart layouts, and data-heavy visualizations — Radzen solves exactly that scope
+
+### Scope
+
+- `MainLayout.razor`
+- `LabelTender.razor`
+- `LabelTenderFilterPanel.razor`
+- `LabelTenderShellSidebar.razor`
+- `LabelTenderDrawerPanel.razor`
+
+### Migration checklist
+
+- [ ] Install `Radzen.Blazor` NuGet package + register services in `Program.cs`
+- [ ] Add Radzen CSS/JS imports — order relative to MudBlazor imports matters (validate no collision)
+- [ ] Migrate score breakdown table → `RadzenDataGrid`
+- [ ] Migrate multi-select filters → Radzen equivalents
+- [ ] Validate MudBlazor shell components render correctly alongside Radzen components
+- [ ] Smoke test: `dotnet build` passes, no CSS collisions, layout intact, gardin toggle still works
+- [ ] Spend overview bars layout issue (deferred from MudBlazor) — reassess after Radzen migration
 
 ---
 

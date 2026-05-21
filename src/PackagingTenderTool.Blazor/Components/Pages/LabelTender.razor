@@ -13,6 +13,8 @@
 @using PackagingTenderTool.Blazor.Components.LabelTender
 @using PackagingTenderTool.Blazor.Models.LabelTender
 @using PackagingTenderTool.Blazor.Services
+@using Radzen
+@using Radzen.Blazor
 
 @inject PackagingProfileSession Session
 @inject NavigationManager Nav
@@ -223,35 +225,160 @@ else
                             positions[r.SupplierName] = (finalCx, finalCy);
                         }
 
-                    @* ROW 1 — bubble chart + CTR info *@
+                    @* ROW 1 — bar chart (primary) + CTR info *@
                     <div class="cockpit-dashboard-grid"
                          style="display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,300px);
                                 gap:24px; padding:24px 8px 0; align-items:start;">
 
                         <div style="min-width:0; width:100%;">
-                            <MudText Typo="Typo.h5" Class="mb-1" Style="text-align:center; color:#485230; font-weight:600;">Supplier positioning</MudText>
-                            <MudText Typo="Typo.body2" Class="cockpit-muted mb-1">
-                                CTR score vs commercial spend. Bubble size = number of lines.
+                            <MudText Typo="Typo.h5" Class="mb-1"
+                                     Style="text-align:left; color:#485230; font-weight:600;">
+                                Supplier spend overview
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="cockpit-muted mb-3">
+                                Total spend per leverandør på tværs af hele pakken.
+                                Leverandører uden bud på alle linjer suppleres med nuværende kontraktpris.
                             </MudText>
 
-                            @if (_tcoResults.Count > 0 && _tcoResults.All(r => r.TechScore == 0))
+                            @if (_tcoResults.Count == 0)
                             {
-                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2"
-                                          Style="font-size:12px;">
-                                    Technical score is 0% for all suppliers — no technical ratings
-                                    in this import. Adjust weights in Settings if needed.
-                                </MudAlert>
-                            }
-
-                            @if (bubbleResults.Count == 0)
-                            {
-                                <MudPaper Elevation="0" Outlined="true" Class="pa-6" Style="text-align:center; color:rgba(45,52,54,0.45);">
-                                    Import suppliers to see positioning chart
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-6"
+                                          Style="text-align:center; color:rgba(45,52,54,0.45);">
+                                    Import suppliers to see spend chart
                                 </MudPaper>
                             }
                             else
                             {
-                                <svg width="100%" viewBox="0 0 724 420" style="display:block; overflow:visible; max-height:65vh;">
+                                var barData = _tcoResults
+                                    .Select(r =>
+                                    {
+                                        var imputed = _imputedSpend.TryGetValue(r.SupplierName, out var s)
+                                            ? s : null;
+                                        var spend = r.Commercial;
+                                        var bidLines = imputed?.BidLineCount ?? 0;
+                                        var totalLines = imputed?.TotalLineCount ?? 0;
+                                        var incomplete = imputed?.IsIncompleteBid ?? false;
+                                        return new
+                                        {
+                                            r.SupplierName,
+                                            Spend = spend,
+                                            BidLines = bidLines,
+                                            TotalLines = totalLines,
+                                            IsIncompleteBid = incomplete,
+                                            r.FinalCtrScore
+                                        };
+                                    })
+                                    .OrderByDescending(x => x.Spend)
+                                    .ToList();
+
+                                var baselineTotal = (double)_bestBidBaseline.Values.Sum();
+                                var supplierNames = barData.Select(x => x.SupplierName).ToList();
+                                var baselinePoints = supplierNames
+                                    .Select(name => new { SupplierName = name, Value = baselineTotal })
+                                    .ToList();
+                                var currentContractTotal = (double)_currentContractBaseline.Values
+                                    .DefaultIfEmpty(0m).Sum();
+                                var contractPoints = currentContractTotal > 0
+                                    ? supplierNames
+                                        .Select(name => new { SupplierName = name, Value = currentContractTotal })
+                                        .ToList()
+                                    : null;
+
+                                <RadzenChart Style="height:320px; width:100%;"
+                                             SeriesClick="OnBarChartSeriesClick">
+                                    <RadzenColumnSeries Data="@barData"
+                                                        CategoryProperty="SupplierName"
+                                                        ValueProperty="Spend"
+                                                        Title="Estimeret spend"
+                                                        Fill="#6b7c3f"
+                                                        Stroke="#485230"
+                                                        StrokeWidth="1">
+                                        <TooltipTemplate Context="item">
+                                            <div style="padding:8px; min-width:180px;">
+                                                <strong>@item.SupplierName</strong><br />
+                                                <span>Spend: @item.Spend.ToString("N0", Da) kr</span><br />
+                                                <span>Lines bid: @item.BidLines / @item.TotalLines</span><br />
+                                                @if (item.IsIncompleteBid)
+                                                {
+                                                    <span style="color:#FFB300;">&#9888; Incomplete bid</span>
+                                                }
+                                            </div>
+                                        </TooltipTemplate>
+                                        <ChildContent>
+                                            <RadzenSeriesDataLabels Visible="true" />
+                                        </ChildContent>
+                                    </RadzenColumnSeries>
+
+                                    @if (baselineTotal > 0)
+                                    {
+                                        <RadzenLineSeries Data="@baselinePoints"
+                                                          CategoryProperty="SupplierName"
+                                                          ValueProperty="Value"
+                                                          Title="Best bid baseline"
+                                                          Stroke="#c0392b"
+                                                          StrokeWidth="2"
+                                                          LineType="LineType.Dashed">
+                                            <ChildContent>
+                                                <RadzenMarkers Visible="false" />
+                                            </ChildContent>
+                                            <TooltipTemplate Context="item">
+                                                <span>Best bid baseline: @_bestBidBaseline.Values.Sum().ToString("N0", Da) kr</span>
+                                            </TooltipTemplate>
+                                        </RadzenLineSeries>
+                                    }
+
+                                    @if (contractPoints is not null)
+                                    {
+                                        <RadzenLineSeries Data="@contractPoints"
+                                                          CategoryProperty="SupplierName"
+                                                          ValueProperty="Value"
+                                                          Title="Current contract"
+                                                          Stroke="#4682B4"
+                                                          StrokeWidth="2"
+                                                          LineType="LineType.Dashed">
+                                            <ChildContent>
+                                                <RadzenMarkers Visible="false" />
+                                            </ChildContent>
+                                            <TooltipTemplate Context="item">
+                                                <span>Current contract: @currentContractTotal.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("da-DK")) kr</span>
+                                            </TooltipTemplate>
+                                        </RadzenLineSeries>
+                                    }
+                                    <RadzenValueAxis Min="@((double)(_tcoResults.Count > 0 ? _tcoResults.Min(r => r.Commercial) * 0.75m : 0m))"
+                                                     Formatter="@(v => $"{Convert.ToDouble(v)/1000000:F1}M")">
+                                        <RadzenAxisTitle Text="Spend (kr)" />
+                                        <RadzenGridLines Visible="true" />
+                                    </RadzenValueAxis>
+                                    <RadzenCategoryAxis>
+                                        <RadzenAxisTitle Text="Supplier" />
+                                    </RadzenCategoryAxis>
+                                    <RadzenLegend Visible="true" />
+                                </RadzenChart>
+
+                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                                    @foreach (var item in barData)
+                                    {
+                                        var chipColor = item.IsIncompleteBid ? Color.Warning : Color.Success;
+                                        var lineLabel = item.IsIncompleteBid
+                                            ? $"{item.SupplierName} — {item.BidLines}/{item.TotalLines} linjer ⚠"
+                                            : $"{item.SupplierName} — {item.BidLines}/{item.TotalLines} linjer";
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@chipColor"
+                                                 Variant="Variant.Outlined">
+                                            @lineLabel
+                                        </MudChip>
+                                    }
+                                </MudStack>
+
+                                <div class="mt-4">
+                                    <MudText Typo="Typo.subtitle2"
+                                             Class="cockpit-muted mb-1"
+                                             Style="cursor:pointer; user-select:none;"
+                                             @onclick="@(() => _bubbleChartExpanded = !_bubbleChartExpanded)">
+                                        @(_bubbleChartExpanded ? "▾" : "▸") Supplier positioning (CTR vs spend)
+                                    </MudText>
+                                    <MudCollapse Expanded="@_bubbleChartExpanded">
+                                        <svg width="100%" viewBox="0 0 724 420" style="display:block; overflow:visible; max-height:65vh;">
 
                                     @* Grid lines Y *@
                                     @foreach (var tick in new[] { 0, 25, 50, 75, 100 })
@@ -320,6 +447,8 @@ else
                                                   font-size="9" fill="rgba(255,255,255,0.85)" text-anchor="middle">@FmtSpend(r.Commercial)</svg:text>
                                     }
                                 </svg>
+                                    </MudCollapse>
+                                </div>
                             }
                         </div>
 
@@ -528,7 +657,7 @@ else
                     <PriceMatrix />
                 }
 
-                @if (_activeTab == "evidence")
+                @if (_activeTab == "deep-dive")
                 {
                     @if (SidebarBridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
                     {
@@ -638,7 +767,7 @@ else
                     </MudPaper>
 
                     <MudStack Spacing="1" Class="mb-2 px-2">
-                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Evidence table</MudText>
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Deep-dive</MudText>
                     </MudStack>
 
                     <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0 mt-2">
@@ -1035,6 +1164,21 @@ else
     private TenderDecisionInsight? _decisionInsight;
 
     private List<LabelLineItem> _importedLineItems = [];
+
+    private IReadOnlyDictionary<string, decimal> _bestBidBaseline =
+        new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+    private IReadOnlyDictionary<string, decimal> _currentContractBaseline =
+        new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Imputed total spend per supplier across full tender package.
+    /// Missing lines use CurrentContractPrice. Lines with no price are excluded.
+    /// Key = SupplierName (case-insensitive).
+    /// </summary>
+    private IReadOnlyDictionary<string, ImputedSupplierSpend> _imputedSpend =
+        new Dictionary<string, ImputedSupplierSpend>(StringComparer.OrdinalIgnoreCase);
+
     private string _importStatus = string.Empty;
     private readonly List<ImportUnitMismatchFlag> _importFlags = [];
     private bool _isImporting;
@@ -1132,7 +1276,7 @@ else
         var t = (tab ?? string.Empty).Trim().ToLowerInvariant();
         _activeTab = t switch
         {
-            "dashboard" or "matrix" or "evidence" or "audit" or "settings" => t,
+            "dashboard" or "matrix" or "deep-dive" or "audit" or "settings" => t,
             _ => "dashboard"
         };
         Nav.NavigateTo($"/labeltender?tab={_activeTab}", replace: true);
@@ -1169,7 +1313,7 @@ else
             var t = raw.ToLowerInvariant();
             _activeTab = t switch
             {
-                "dashboard" or "matrix" or "evidence" or "audit" or "settings" => t,
+                "dashboard" or "matrix" or "deep-dive" or "audit" or "settings" => t,
                 _ => "dashboard"
             };
             SyncSidebarBridge();
@@ -1843,6 +1987,13 @@ else
             if (_importedLineItems.Count == 0)
                 return;
 
+            _bestBidBaseline = ComputeBestBidBaseline(_importedLineItems);
+            _currentContractBaseline = ComputeCurrentContractBaseline(_importedLineItems);
+            _imputedSpend = ComputeImputedSpend(
+                _importedLineItems,
+                _currentContractBaseline,
+                _bestBidBaseline);
+
             var anyDimensionFilterActive = !string.IsNullOrWhiteSpace(_filterLabelSize)
                 || !string.IsNullOrWhiteSpace(_filterWinding)
                 || !string.IsNullOrWhiteSpace(_filterColors)
@@ -2025,6 +2176,38 @@ else
         Commercial = 0,
         Technical = 1,
         Regulatory = 2
+    }
+
+    private bool _bubbleChartExpanded;
+
+    private void NavigateToDeepDiveForSupplier(string supplierName)
+    {
+        var supplier = _suppliersAll
+            .FirstOrDefault(s => string.Equals(
+                s.SupplierName, supplierName,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (supplier is null || string.IsNullOrWhiteSpace(supplier.SupplierId))
+            return;
+
+        Session.ReplaceSelectedSuppliers(new[] { supplier.SupplierId });
+        Session.SetActiveSupplier(supplier.SupplierId);
+        Nav.NavigateTo("/labeltender?tab=deep-dive");
+    }
+
+    private void OnBarChartSeriesClick(SeriesClickEventArgs args)
+    {
+        if (!string.Equals(args.Title, "Estimeret spend", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var supplierName = args.Category as string;
+        if (string.IsNullOrWhiteSpace(supplierName) && args.Data is not null)
+        {
+            supplierName = args.Data.GetType().GetProperty("SupplierName")?.GetValue(args.Data) as string;
+        }
+
+        if (!string.IsNullOrWhiteSpace(supplierName))
+            NavigateToDeepDiveForSupplier(supplierName);
     }
 
     private bool _suppressSessionChanged;
@@ -2214,6 +2397,12 @@ else
     }
 
     private sealed record SupplierOption(string Id, string Name);
+
+    private sealed record ImputedSupplierSpend(
+        decimal TotalSpend,
+        int BidLineCount,
+        int TotalLineCount,
+        bool IsIncompleteBid);
 
     private void OnSitesSelectedChanged(IEnumerable<string> v) =>
         _tableSitesSelected = v is null ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : new HashSet<string>(v, StringComparer.OrdinalIgnoreCase);
@@ -2451,4 +2640,189 @@ else
     }
 
     private int RiskReviewRowCount => TableItems.Count(RowNeedsManualReview);
+
+    private static IReadOnlyDictionary<string, decimal> ComputeBestBidBaseline(
+        IReadOnlyList<LabelLineItem> items)
+    {
+        // Best bid baseline = sum of (lowest price × quantity) per ItemNo
+        // across all suppliers. Uses PricePerThousand/1000 × Quantity.
+        var lowestPricePerItem = new Dictionary<string, decimal>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in items)
+        {
+            var itemNo = item.ItemNo?.Trim();
+            if (string.IsNullOrWhiteSpace(itemNo))
+                continue;
+
+            var unitPrice = item.PricePerThousand is > 0m
+                ? item.PricePerThousand.Value / 1000m
+                : item.Price is > 0m
+                    ? item.Price.Value
+                    : 0m;
+
+            if (unitPrice <= 0m)
+                continue;
+
+            if (!lowestPricePerItem.TryGetValue(itemNo, out var existing)
+                || unitPrice < existing)
+            {
+                lowestPricePerItem[itemNo] = unitPrice;
+            }
+        }
+
+        // Now multiply lowest unit price × quantity per ItemNo
+        // Use first available quantity for each ItemNo
+        var quantityPerItem = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.ItemNo)
+                && i.Quantity is > 0m)
+            .GroupBy(i => i.ItemNo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().Quantity!.Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (itemNo, unitPrice) in lowestPricePerItem)
+        {
+            if (!quantityPerItem.TryGetValue(itemNo, out var qty) || qty <= 0m)
+                continue;
+
+            result[itemNo] = decimal.Round(
+                unitPrice * qty, 0, MidpointRounding.AwayFromZero);
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyDictionary<string, decimal> ComputeCurrentContractBaseline(
+        IReadOnlyList<LabelLineItem> items)
+    {
+        // current_price is a unit price — multiply by quantity to get line total.
+        // Use first available current_price and quantity per ItemNo.
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        var byItemNo = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.ItemNo))
+            .GroupBy(i => i.ItemNo!.Trim(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in byItemNo)
+        {
+            var contractPrice = group
+                .Select(i => i.CurrentContractPrice)
+                .FirstOrDefault(p => p is > 0m);
+
+            if (contractPrice is null or <= 0m)
+                continue;
+
+            var qty = group
+                .Select(i => i.Quantity)
+                .FirstOrDefault(q => q is > 0m);
+
+            if (qty is null or <= 0m)
+                continue;
+
+            result[group.Key] = decimal.Round(
+                (contractPrice.Value / 1000m) * qty.Value,
+                0,
+                MidpointRounding.AwayFromZero);
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyDictionary<string, ImputedSupplierSpend> ComputeImputedSpend(
+        IReadOnlyList<LabelLineItem> allItems,
+        IReadOnlyDictionary<string, decimal> currentContractBaseline,
+        IReadOnlyDictionary<string, decimal> bestBidBaseline)
+    {
+        // Full package = all distinct ItemNos across all suppliers
+        var fullPackage = allItems
+            .Select(i => i.ItemNo?.Trim())
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var totalLineCount = fullPackage.Count;
+
+        // Group actual bids per supplier
+        var bidsBySupplier = allItems
+            .Where(i => !string.IsNullOrWhiteSpace(i.SupplierName)
+                && !string.IsNullOrWhiteSpace(i.ItemNo))
+            .GroupBy(i => i.SupplierName!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.ToDictionary(
+                    i => i.ItemNo!.Trim(),
+                    i => i,
+                    StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, ImputedSupplierSpend>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (supplierName, bids) in bidsBySupplier)
+        {
+            var totalSpend = 0m;
+            var bidLineCount = 0;
+
+            foreach (var itemNo in fullPackage)
+            {
+                if (bids.TryGetValue(itemNo, out var line))
+                {
+                    // Supplier has bid on this line
+                    var unitPrice = line.PricePerThousand is > 0m
+                        ? line.PricePerThousand.Value / 1000m
+                        : line.Price is > 0m
+                            ? line.Price.Value
+                            : 0m;
+                    var qty = line.Quantity ?? 0m;
+
+                    // Count as bid if supplier has submitted any price — qty may be absent
+                    var hasBid = unitPrice > 0m || line.Spend is > 0m;
+                    if (hasBid)
+                        bidLineCount++;
+
+                    if (unitPrice > 0m && qty > 0m)
+                    {
+                        totalSpend += unitPrice * qty;
+                    }
+                    else if (line.Spend is > 0m)
+                    {
+                        totalSpend += line.Spend.Value;
+                    }
+                }
+                else
+                {
+                    // Supplier has not bid — impute with CurrentContractPrice,
+                    // fall back to BestBidBaseline if CurrentContractPrice is absent.
+                    var hasContract = currentContractBaseline.TryGetValue(itemNo, out var contractPrice)
+                        && contractPrice > 0m;
+                    var hasBestBid = bestBidBaseline.TryGetValue(itemNo, out var bestBidLineTotal)
+                        && bestBidLineTotal > 0m;
+
+                    if (hasContract)
+                    {
+                        // contractPrice is already (unit price × qty) — add directly
+                        totalSpend += contractPrice;
+                    }
+                    else if (hasBestBid)
+                    {
+                        // bestBidLineTotal is already (unit price × qty) — add directly
+                        totalSpend += bestBidLineTotal;
+                    }
+                    // else: no price available — exclude line silently
+                }
+            }
+
+            result[supplierName] = new ImputedSupplierSpend(
+                TotalSpend: decimal.Round(totalSpend, 0, MidpointRounding.AwayFromZero),
+                BidLineCount: bidLineCount,
+                TotalLineCount: totalLineCount,
+                IsIncompleteBid: bidLineCount < totalLineCount);
+        }
+
+        return result;
+    }
 }    

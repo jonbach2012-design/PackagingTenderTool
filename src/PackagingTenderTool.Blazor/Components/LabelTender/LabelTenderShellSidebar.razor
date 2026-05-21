@@ -42,8 +42,8 @@
                  Bridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
             {
                 <MudChip T="string" Color="Color.Error" Size="Size.Small" Class="mt-1"
-                         OnClick="@(() => Nav.NavigateTo("/labeltender?tab=evidence"))">
-                    @Bridge.LastImportValidationReport!.Issues.Count(i => i.Severity == ImportValidationSeverity.Error) fejl — se Evidence table
+                         OnClick="@(() => Nav.NavigateTo("/labeltender?tab=deep-dive"))">
+                    @Bridge.LastImportValidationReport!.Issues.Count(i => i.Severity == ImportValidationSeverity.Error) fejl — se Deep-dive
                 </MudChip>
             }
         </section>
@@ -71,9 +71,9 @@
             <MudButton Variant="Variant.Text"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.FactCheck"
-                       Class="@NavBtnClass("evidence")"
-                       OnClick="@(() => GoTab("evidence"))">
-                Evidence table
+                       Class="@NavBtnClass("deep-dive")"
+                       OnClick="@(() => GoTab("deep-dive"))">
+                Deep-dive
             </MudButton>
             <MudButton Variant="Variant.Text"
                        FullWidth="true"
@@ -109,6 +109,61 @@
             </MudStack>
         </MudStack>
     </section>
+
+    @if (Bridge.DrawerSuppliers.Count > 0)
+    {
+        <MudDivider Class="my-1" />
+
+        <section class="lt-shell-section px-3 pb-2">
+            <MudStack Row="true" AlignItems="AlignItems.Center"
+                      Justify="Justify.SpaceBetween" Class="mb-1">
+                <MudText Typo="Typo.subtitle2" Class="lt-shell-section-title">
+                    Leverandører
+                </MudText>
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               Class="lt-shell-select-btn"
+                               OnClick="@SelectAllSuppliers">
+                        Alle
+                    </MudButton>
+                    <MudText Typo="Typo.caption"
+                             Class="cockpit-muted"
+                             Style="line-height:30px;">/</MudText>
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               Class="lt-shell-select-btn"
+                               OnClick="@DeselectAllSuppliers">
+                        Ingen
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+
+            <MudStack Spacing="0">
+                @foreach (var supplier in Bridge.DrawerSuppliers)
+                {
+                    var isSelected = Bridge.SelectedSupplierIds.Contains(supplier.Id);
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Spacing="1"
+                              Class="px-1 py-0"
+                              Style="cursor:pointer;">
+                        <MudCheckBox T="bool"
+                                     Value="@isSelected"
+                                     ValueChanged="@(v => ToggleSupplier(supplier.Id, v))"
+                                     Color="Color.Success"
+                                     Dense="true"
+                                     StopClickPropagation="true"
+                                     Class="lt-shell-supplier-check" />
+                        <MudText Typo="Typo.body2"
+                                 Style="color:rgba(255,255,255,0.88); font-size:12px;">
+                            @supplier.Name
+                        </MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        </section>
+    }
 
     <MudDivider Class="my-1" />
 
@@ -168,6 +223,23 @@
         var active = uri.Contains($"tab={tab}", StringComparison.OrdinalIgnoreCase)
             || (tab == "dashboard" && !uri.Contains("tab=", StringComparison.OrdinalIgnoreCase));
         return active ? "lt-nav-btn lt-nav-btn--active" : "lt-nav-btn";
+    }
+
+    private void ToggleSupplier(string id, bool selected)
+    {
+        Bridge.OnSupplierSelectionChanged?.Invoke(id, selected);
+    }
+
+    private void SelectAllSuppliers()
+    {
+        foreach (var s in Bridge.DrawerSuppliers)
+            Bridge.OnSupplierSelectionChanged?.Invoke(s.Id, true);
+    }
+
+    private void DeselectAllSuppliers()
+    {
+        foreach (var s in Bridge.DrawerSuppliers)
+            Bridge.OnSupplierSelectionChanged?.Invoke(s.Id, false);
     }
 
     public void Dispose()
