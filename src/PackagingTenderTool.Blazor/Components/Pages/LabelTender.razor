@@ -762,14 +762,109 @@ else
                 </MudGrid>
             </MudPaper>
 
-            @* Section 2 — Pris-analyse placeholder (BACK-028 Part B) *@
-            <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4">
-                <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">
-                    Pris-analyse per linje
-                </MudText>
-                <MudText Typo="Typo.body2" Class="cockpit-muted">
-                    Kommer i næste trin — viser afvigelse per linje vs. best bid og nuværende kontrakt.
-                </MudText>
+            @* Section 2 — Pris-analyse per linje *@
+            var priceRows = BuildDeepDivePriceRows(_deepDiveSupplierName!);
+            <MudPaper Elevation="0" Outlined="true" Class="pa-0 mb-4">
+                <div style="padding:16px 16px 8px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle2" Class="cockpit-section-title">
+                            Pris-analyse per linje
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="cockpit-muted">
+                            @priceRows.Count linjer · sorteret efter afvigelse fra best bid
+                        </MudText>
+                    </MudStack>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="border-bottom:2px solid rgba(45,52,54,0.12);
+                                       background:rgba(45,52,54,0.03);">
+                                <th style="text-align:left; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Label format
+                                </th>
+                                <th style="text-align:left; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Site
+                                </th>
+                                <th style="text-align:left; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Materiale
+                                </th>
+                                <th style="text-align:right; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Leverandørpris
+                                </th>
+                                <th style="text-align:right; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Best bid
+                                </th>
+                                <th style="text-align:right; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Nuv. pris
+                                </th>
+                                <th style="text-align:right; padding:8px 12px;
+                                           color:rgba(45,52,54,0.55); font-weight:500;">
+                                    Afvigelse
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in priceRows)
+                            {
+                                var deviationColor = row.DeviationFromBestBid > 20m ? "#A32D2D"
+                                    : row.DeviationFromBestBid > 5m ? "#854F0B"
+                                    : "#3B6D11";
+                                var deviationBg = row.DeviationFromBestBid > 20m
+                                    ? "rgba(163,45,45,0.06)"
+                                    : row.DeviationFromBestBid > 5m
+                                    ? "rgba(133,79,11,0.06)"
+                                    : "rgba(59,109,17,0.06)";
+                                <tr style="border-bottom:1px solid rgba(45,52,54,0.07);">
+                                    <td style="padding:7px 12px; font-weight:500;">
+                                        @row.LabelSize
+                                    </td>
+                                    <td style="padding:7px 12px; color:rgba(45,52,54,0.65);">
+                                        @row.Site
+                                    </td>
+                                    <td style="padding:7px 12px; color:rgba(45,52,54,0.65);">
+                                        @row.Material
+                                    </td>
+                                    <td style="padding:7px 12px; text-align:right;
+                                               font-family:monospace;">
+                                        @row.SupplierPrice.ToString("N2", Da)
+                                    </td>
+                                    <td style="padding:7px 12px; text-align:right;
+                                               font-family:monospace;
+                                               color:rgba(45,52,54,0.55);">
+                                        @(row.BestBidPrice > 0
+                                            ? row.BestBidPrice.ToString("N2", Da)
+                                            : "—")
+                                    </td>
+                                    <td style="padding:7px 12px; text-align:right;
+                                               font-family:monospace;
+                                               color:rgba(45,52,54,0.55);">
+                                        @(row.CurrentPrice > 0
+                                            ? row.CurrentPrice.ToString("N2", Da)
+                                            : "—")
+                                    </td>
+                                    <td style="padding:7px 12px; text-align:right;">
+                                        <span style="display:inline-block; padding:2px 8px;
+                                                     border-radius:4px; font-size:12px;
+                                                     font-weight:500;
+                                                     background:@deviationBg;
+                                                     color:@deviationColor;">
+                                            @(row.DeviationFromBestBid >= 0 ? "+" : "")@row.DeviationFromBestBid.ToString("N1", Da)%
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </MudPaper>
 
             @* Section 3 — TCO breakdown *@
@@ -3082,4 +3177,62 @@ else
 
         return result;
     }
-}    
+
+    private IReadOnlyList<DeepDivePriceRow> BuildDeepDivePriceRows(string supplierName)
+    {
+        var supplierLines = _importedLineItems
+            .Where(i => string.Equals(i.SupplierName, supplierName,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var rows = new List<DeepDivePriceRow>();
+
+        foreach (var line in supplierLines)
+        {
+            var itemNo = line.ItemNo?.Trim() ?? string.Empty;
+            var supplierPrice = line.PricePerThousand ?? line.Price ?? 0m;
+
+            // Best bid for this ItemNo (unit price — divide baseline by quantity)
+            decimal bestBidPrice = 0m;
+            if (_bestBidBaseline.TryGetValue(itemNo, out var baselineTotal)
+                && line.Quantity is > 0m)
+                bestBidPrice = decimal.Round(baselineTotal / line.Quantity.Value, 4);
+
+            // Current contract price from Flexoprint line for same ItemNo
+            decimal currentPrice = 0m;
+            if (_currentContractBaseline.TryGetValue(itemNo, out var contractTotal)
+                && line.Quantity is > 0m)
+                currentPrice = decimal.Round(contractTotal / line.Quantity.Value, 4);
+
+            var deviationFromBestBid = bestBidPrice > 0m
+                ? decimal.Round((supplierPrice - bestBidPrice) / bestBidPrice * 100m, 1)
+                : 0m;
+
+            rows.Add(new DeepDivePriceRow(
+                ItemNo: itemNo,
+                LabelSize: line.LabelSize ?? line.ItemName ?? itemNo,
+                Site: line.Site ?? "—",
+                Material: line.Material ?? "—",
+                SupplierPrice: supplierPrice,
+                BestBidPrice: bestBidPrice,
+                CurrentPrice: currentPrice,
+                DeviationFromBestBid: deviationFromBestBid,
+                Quantity: line.Quantity ?? 0m));
+        }
+
+        return rows
+            .OrderByDescending(r => r.DeviationFromBestBid)
+            .ToList();
+    }
+
+    private sealed record DeepDivePriceRow(
+        string ItemNo,
+        string LabelSize,
+        string Site,
+        string Material,
+        decimal SupplierPrice,
+        decimal BestBidPrice,
+        decimal CurrentPrice,
+        decimal DeviationFromBestBid,
+        decimal Quantity);
+}
