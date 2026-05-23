@@ -18,7 +18,7 @@ namespace PackagingTenderTool.Core.Tests;
 /// <summary>
 /// NEVER TRUST AN AI: tests, evidence and execution.
 /// 
-/// Eksamen-case: automatiske tests for Excel-import i Packaging Tender Tool.
+/// Eksamen-case: automatiske tests for Excel-import i Packaging Tender Decision Engine.
 /// 
 /// Denne testfil viser, hvordan programmering bruges til at omsætte
 /// forretningsregler og Excel-importkrav til præcise, kontrollerbare instruktioner.

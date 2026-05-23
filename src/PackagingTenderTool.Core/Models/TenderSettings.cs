@@ -6,6 +6,27 @@ public sealed class TenderSettings
 
     public string CurrencyCode { get; set; } = "EUR";
 
+    /// <summary>
+    /// Target currency for all price comparisons in this tender.
+    /// All imported prices are converted to this currency.
+    /// Supported values: "DKK", "NOK", "SEK", "EUR"
+    /// </summary>
+    public string TargetCurrency { get; set; } = "NOK";
+
+    /// <summary>
+    /// Exchange rates used for currency conversion at import time.
+    /// Key format: "FROM:TO" e.g. "DKK:NOK". Inverse computed automatically.
+    /// Default: DKK→NOK = 1.4403
+    /// </summary>
+    public Dictionary<string, decimal> CurrencyRates { get; set; } = new()
+    {
+        ["DKK:NOK"] = 1.4403m,
+        ["NOK:SEK"] = 0.9650m,
+        ["NOK:EUR"] = 0.0870m,
+        ["DKK:EUR"] = 0.1342m,
+        ["DKK:SEK"] = 1.3901m,
+    };
+
     // Scoring weights (slider-ready). Defaults match spec v1 direction.
     // These are normalized at calculation time to remain robust.
     public decimal CommercialWeight { get; set; } = 0.30m;

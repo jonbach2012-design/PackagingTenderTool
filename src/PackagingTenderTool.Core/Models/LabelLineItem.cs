@@ -41,6 +41,12 @@ public sealed class LabelLineItem
 
     public string? Adhesive { get; set; }
 
+    /// <summary>
+    /// Surface finish of the label (e.g. "Varnish gloss", "Varnish matt printable", "N/A").
+    /// Imported from TenderPriceAnalyze format column E.
+    /// </summary>
+    public string? SurfaceFinish { get; set; }
+
     public string? ReelDiameterOrPcsPerRoll { get; set; }
 
     public int? NumberOfColors { get; set; }

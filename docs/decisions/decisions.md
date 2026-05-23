@@ -1,35 +1,231 @@
-# ADR: PPWR Risk Multiplier — Static Grade Penalty (Option A)
+# Decision Log
 
-## Status
+<!-- All architectural decisions live here. One file, in order.
+     Do not create separate ADR files. -->
 
-Accepted — static penalty model for POC.
+## ADR-001 — SRP & Decoupling
 
-## Context
+- **Status**: Done
+- **Context**: Calculation logic was leaking into UI components, making it untestable and fragile.
+- **Decision**: Moved all TCO math to `TcoEngineService.cs`. UI code must never contain calculation logic.
+- **Consequence**: Logic is testable without UI. Rendering side-effects are isolated. Enforced by `.cursorrules`.
 
-Category managers need PPWR recyclability grades reflected in TCO as a deterministic penalty on commercial spend, plus clear market-access risk flags for grades D and E.
+---
 
-## Decision
+## ADR-002 — Deterministic SVG Output
 
-- **Formula:** `PpwrRiskPenalty = CommercialSpend × PenaltyRate(grade)`
-- **CommercialSpend:** the same rounded commercial amount used as `TcoResult.Commercial` (DKK spend basis for the line).
-- **Penalty rates (by grade):**
+- **Status**: Done
+- **Context**: SVG attributes were corrupted by Danish decimal comma format, causing empty bars and diagonal text in the dashboard.
+- **Decision**: Forced `InvariantCulture` (`.`) for all SVG/numeric output via `FmtSvg` helper.
+- **Consequence**: Prevents "Empty Bar" syndrome. All SVG output is culture-independent and deterministic.
+
+---
+
+## ADR-003 — Migration to Blazor + hybrid UI layer
+
+- **Status**: Done
+- **Context**: WinForms could not support interactive SVG, real-time sliders, or browser-based stakeholder access.
+- **Decision**: Blazor is the primary UI direction for the tender cockpit. WinForms retained as a minimal verification shell only.
+- **Update (2026-05-21)**: Radzen 7.3.0 added as chart and data-grid layer alongside MudBlazor. See ADR-006.
+- **Consequence**: Enhanced UX, deterministic web rendering, stakeholder access without local install.
+
+---
+
+## ADR-004 — Configuration Isolation
+
+- **Status**: Partially implemented — under review
+- **Context**: `epr-settings.json` at repo root creates ambiguity between runtime config and source code.
+- **Decision**: Move `epr-settings.json` into `/config` folder for clear config boundary.
+- **Note**: File is currently still at repo root. Migration to `/config` is pending — see BACKLOG.md BACK-011.
+
+---
+
+## ADR-005 — 80/20 Audit Strategy
+
+- **Status**: Active
+- **Context**: Full audit on every change was slowing development without proportional benefit.
+- **Decision**: Mandatory audit applies only to the 20% core — formulas, weights, DTO/data contracts, filtering/aggregation. UI cosmetic changes are fast-tracked.
+
+### Audit triggers — mandatory
+
+Audit required when changing: formulas, weighting, DTO/data contracts, filtering/aggregation.
+
+### Golden cases — always verify
+
+1. Zero volume
+2. Missing data / grades
+3. Extreme scaling
+4. PPWR toggles
+5. Ranking stability
+
+### Rollback discipline
+
+Core-logic changes must be shipped as small commits (<200 lines) to keep rollback safe and fast.
+
+---
+
+## ADR-006 — Hybrid UI Architecture (MudBlazor + Radzen + PTDE CSS)
+
+- **Status**: Done — 2026-05-21
+- **Context**: MudBlazor 7 is too rigid for dynamic dashboards and data-heavy visualizations.
+- **Decision**: Three-way split:
+
+| Layer | Responsibility |
+|-------|----------------|
+| **MudBlazor** | App shell, navigation, snackbars, dialogs, polish |
+| **Radzen 7.3.0** | Charts, grids, data-heavy cockpit views |
+| **Custom PTDE CSS** | Brand identity, KPI-cards, colors, spacing |
+
+- **Rules**:
+  - `Variant` and `AlignItems` aliased to MudBlazor in `_Imports.razor` — do not remove.
+  - `RadzenReferenceLine` not available in Radzen 7.x — use flat `RadzenLineSeries` as workaround.
+- **Consequence**: Incremental migration. MudBlazor rigidity solved for charts without destabilising the shell.
+
+---
+
+## ADR-007 — Pivot Import Column Layout (Hardcoded Indices)
+
+- **Status**: Done — 2026-05-21
+- **Context**: `PivotLabelsExcelImportService` reads a fixed-format "All labels DSH" workbook.
+- **Decision**: Hardcoded column indices — simpler, faster, easier to audit than fuzzy header matching.
+- **Current layout** (as of 2026-05-21):
+
+| Column | Field |
+|--------|-------|
+| A (1) | Item no |
+| B (2) | Item name |
+| C (3) | DSH Site |
+| D (4) | Quantity |
+| E (5) | Label size |
+| F (6) | Winding direction |
+| G (7) | Material |
+| H (8) | Reel diameter / pcs per roll |
+| I (9) | No. of colors |
+| J (10) | Suggested MOQ |
+| K (11) | current_price |
+| L–N (12–14) | Flexoprint (price, MOQ, comment) |
+| O–Q (15–17) | Norsk Etikett (price, MOQ, comment) |
+| R–T (18–20) | Grafiket (price, MOQ, comment) |
+| U–W (21–23) | Ettiketto (price, MOQ, comment) |
+
+- **Risk**: Column mismatch → silent data errors. Any format change must update both `PivotLabelsExcelImportService.cs` AND this ADR.
+- **Technical gæld**: Pivot test-fixtures still reference old column indices (11, 14, 17, 20).
+
+---
+
+## ADR-008 — TenderPriceAnalyze Import Format + Currency Architecture
+
+- **Status**: Ready — 2026-05-23
+- **Context**: A new consolidated Excel format ("Tender Price Analyze") replaces the previous pivot format as the primary Labels tender input. The new format:
+  - Has one row per label format per site (not one row per supplier per item)
+  - Uses `DSH Site + Label format` as surrogate key (no `Item no` column)
+  - Has supplier price blocks in columns (like pivot) but with DKK and NOK mixed
+  - Has Flexoprint as the current supplier — Flexoprint price = `CurrentContractPrice`
+  - Sheet name is irrelevant and must not be used for format detection
+
+  Additionally, multi-currency comparison is required: all supplier prices must be normalised to a single user-selected currency (DKK, NOK, SEK, EUR) for meaningful spend comparison.
+
+### Import format detection
+
+Format detected by column header structure — sheet name is unreliable (users rename sheets):
+
+| Headers present | Format |
+|-----------------|--------|
+| `Label format` + `Flexoprint` in header row | TenderPriceAnalyze → `TenderPriceAnalyzeImportService` |
+| Sheet name = "All labels DSH" | Legacy pivot → `PivotLabelsExcelImportService` |
+| Otherwise | Standard → `LabelsExcelImportService` |
+
+### Column layout (TenderPriceAnalyze format, hardcoded)
+
+| Column | Field | Currency | Notes |
+|--------|-------|----------|-------|
+| A (1) | DSH Site | — | |
+| B (2) | Label format | — | → `LabelSize` + part of surrogate `ItemNo` |
+| C (3) | Label material | — | → `Material` |
+| D (4) | No. of colors | — | → `NumberOfColors` |
+| E (5) | Surface finish | — | → new `SurfaceFinish` field |
+| F (6) | Labels per roll | — | → `ReelDiameterOrPcsPerRoll` |
+| G (7) | Historical yearly volume | — | → `Quantity` (basis for spend) |
+| H (8) | Number of designs | — | → `Comment` |
+| I (9) | Suggested production volume | — | imported, not used for spend |
+| J (10) | Stock article | — | → `Comment` |
+| K (11) | Flexoprint price | DKK | → `CurrentContractPrice` + Flexoprint `PricePerThousand` |
+| L (12) | Flexoprint spend | NOK | → Flexoprint `Spend` |
+| M (13) | Norsk Etikett price | NOK | → Norsk Etikett `PricePerThousand` |
+| N (14) | MOQ Norsk Etikett | — | → `Comment` |
+| O (15) | Comment Norsk Etikett | — | → appended to `Comment` |
+| P (16) | Norsk Etikett spend | NOK | → Norsk Etikett `Spend` |
+| Q (17) | Grafiket price | DKK | → Grafiket `PricePerThousand` |
+| R (18) | MOQ Grafiket | — | → `Comment` |
+| S (19) | Comment Grafiket | — | → appended to `Comment` |
+| T (20) | Grafiket spend | NOK | → Grafiket `Spend` |
+| U (21) | Ettiketto price | NOK | → Ettiketto `PricePerThousand` |
+| V (22) | MOQ Ettiketto | — | → `Comment` |
+| W (23) | Comment Ettiketto | — | → appended to `Comment` |
+| X (24) | Ettiketto spend | NOK | → Ettiketto `Spend` |
+
+### Surrogate key
+
+```
+ItemNo = "{DSH Site}|{Label format}"
+```
+
+Example: `"Jæren|90x219"`
+
+This is stable as long as `DSH Site + Label format` is unique per row — which is the business invariant for this format.
+
+### Currency architecture
+
+**Problem:** Flexoprint and Grafiket prices are in DKK. Norsk Etikett and Ettiketto are in NOK. Comparison requires a single target currency.
+
+**Decision:** All prices converted to `TargetCurrency` at import time via `CurrencyConverter` service.
+
+```csharp
+// CurrencyConverter interface
+decimal Convert(decimal amount, string fromCurrency, string toCurrency);
+```
+
+- Rates stored in `TenderSettings.CurrencyRates` as `Dictionary<string, decimal>` keyed `"DKK:NOK"`, `"NOK:DKK"` etc.
+- Inverse rate computed automatically if reverse key not present: `rate("NOK:DKK") = 1 / rate("DKK:NOK")`
+- Same currency → pass through unchanged
+- Default rates (2026-05-23): DKK→NOK = 1.4403
+- Rate overridable in Settings UI per tender
+
+**TargetCurrency options:** DKK, NOK, SEK, EUR
+
+**Flexoprint DKK→NOK conversion for `CurrentContractPrice`:**
+```
+CurrentContractPrice = FlexoprintPriceDKK × rate("DKK:TargetCurrency")
+```
+
+### Consequences
+
+- `LabelLineItem` gains `SurfaceFinish` (string?) field.
+- `TenderSettings` gains `TargetCurrency` (string, default "NOK") and `CurrencyRates` (Dictionary).
+- `CurrencyConverter` is a new injectable service in Core.
+- `TenderPriceAnalyzeImportService` depends on `CurrencyConverter`.
+- `PivotLabelsExcelImportService` retained for legacy "All labels DSH" format — no changes.
+- `LabelsExcelImportService` retained for other packaging profiles — no changes.
+- Re-import required when `TargetCurrency` changes (no in-memory re-conversion).
+
+---
+
+## ADR-PPWR — PPWR Risk Multiplier — Static Grade Penalty (Option A)
+
+- **Status**: Accepted — static penalty model for POC
+- **Context**: Category managers need PPWR recyclability grades reflected in TCO as a deterministic penalty on commercial spend, plus clear market-access risk flags for grades D and E.
+- **Decision**:
+  - **Formula:** `PpwrRiskPenalty = CommercialSpend × PenaltyRate(grade)`
+  - **Penalty rates:**
 
 | Grade | Penalty rate |
-|-------|----------------|
-| A     | 0%            |
-| B     | 0%            |
-| C     | 5%            |
-| D     | 15%           |
-| E     | 25%           |
+|-------|-------------|
+| A | 0% |
+| B | 0% |
+| C | 5% |
+| D | 15% |
+| E | 25% |
 
-- **Total TCO:** `PpwrRiskPenalty` is included in `TcoResult.Total` (`IncludeInTotal: true` in the cost component registry).
-- **Market access flags:**
-  - `MarketAccessRisk2030` = true when grade is **D**
-  - `MarketAccessRiskNow` = true when grade is **E**
-- **Breakdown text (for UI / audit):**  
-  `Grade {grade} — penalty {penaltyRate:P0} of commercial spend`
-
-## Consequences
-
-- Deterministic, easy to explain in procurement and audit.
-- Does not model time decay (contrast Option B in backlog discussion); can be replaced later without changing the `TcoResult` shape.
+  - `MarketAccessRisk2030` = true when grade is D
+  - `MarketAccessRiskNow` = true when grade is E
+- **Consequences**: Deterministic, explainable. Does not model time decay — replaceable without changing `TcoResult` shape.

@@ -20,6 +20,7 @@
 @inject NavigationManager Nav
 @inject LabelsExcelImportService Importer
 @inject PivotLabelsExcelImportService PivotImporter
+@inject PackagingTenderTool.Core.Import.TenderPriceAnalyzeImportService PriceAnalyzeImporter
 @inject PackagingTenderTool.Blazor.Services.ITcoEngineService TcoEngine
 @inject PackagingTenderTool.Blazor.Services.LabelTenderSidebarBridge SidebarBridge
 @inject ISnackbar Snackbar
@@ -1503,6 +1504,12 @@ else
         }
     }
 
+    private static bool IsTenderPriceAnalyzeFormat(Stream stream)
+    {
+        return PackagingTenderTool.Core.Import.TenderPriceAnalyzeImportService
+            .IsTenderPriceAnalyzeFormat(stream);
+    }
+
     private async Task OnExcelSelected(string fileName, byte[] fileBytes)
     {
         var snapshot = CaptureImportSnapshot();
@@ -1521,11 +1528,23 @@ else
             LabelsTenderImportResult result;
             try
             {
-                var isPivotFormat = IsPivotFormat(ms);
                 ms.Position = 0;
-                result = isPivotFormat
-                    ? PivotImporter.ImportTenderWithReport(ms, SidebarBridge.LastImportedFileName)
-                    : Importer.ImportTenderWithReport(ms);
+                var isTenderPriceAnalyze = IsTenderPriceAnalyzeFormat(ms);
+                ms.Position = 0;
+                var isPivotFormat = !isTenderPriceAnalyze && IsPivotFormat(ms);
+                ms.Position = 0;
+
+                result = isTenderPriceAnalyze
+                    ? PriceAnalyzeImporter.ImportTenderWithReport(
+                        ms,
+                        SidebarBridge.LastImportedFileName,
+                        new PackagingTenderTool.Core.Models.TenderSettings
+                        {
+                            TargetCurrency = "NOK"
+                        })
+                    : isPivotFormat
+                        ? PivotImporter.ImportTenderWithReport(ms, SidebarBridge.LastImportedFileName)
+                        : Importer.ImportTenderWithReport(ms);
             }
             catch (Exception ex)
             {
