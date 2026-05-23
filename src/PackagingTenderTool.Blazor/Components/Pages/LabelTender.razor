@@ -3196,13 +3196,15 @@ else
             decimal bestBidPrice = 0m;
             if (_bestBidBaseline.TryGetValue(itemNo, out var baselineTotal)
                 && line.Quantity is > 0m)
-                bestBidPrice = decimal.Round(baselineTotal / line.Quantity.Value, 4);
+                bestBidPrice = decimal.Round(
+                    baselineTotal / line.Quantity.Value * 1000m, 2);
 
             // Current contract price from Flexoprint line for same ItemNo
             decimal currentPrice = 0m;
             if (_currentContractBaseline.TryGetValue(itemNo, out var contractTotal)
                 && line.Quantity is > 0m)
-                currentPrice = decimal.Round(contractTotal / line.Quantity.Value, 4);
+                currentPrice = decimal.Round(
+                    contractTotal / line.Quantity.Value * 1000m, 2);
 
             var deviationFromBestBid = bestBidPrice > 0m
                 ? decimal.Round((supplierPrice - bestBidPrice) / bestBidPrice * 100m, 1)
