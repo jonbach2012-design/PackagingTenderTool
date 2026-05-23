@@ -660,6 +660,233 @@ else
 
                 @if (_activeTab == "deep-dive")
                 {
+        @if (_deepDiveSupplierName is not null)
+        {
+            @* DETAIL VIEW — single supplier *@
+            var detailSupplier = _suppliersAll.FirstOrDefault(s =>
+                string.Equals(s.SupplierName, _deepDiveSupplierName,
+                    StringComparison.OrdinalIgnoreCase));
+            var detailDto = detailSupplier is not null
+                ? GetTcoDto(detailSupplier.SupplierId)
+                : null;
+            var detailSpend = detailDto?.Commercial ?? 0m;
+            var baselineTotal = (decimal)_bestBidBaseline.Values.Sum();
+            var contractTotal = (decimal)_currentContractBaseline.Values.Sum();
+            var vsBaseline = baselineTotal > 0
+                ? (detailSpend - baselineTotal) / baselineTotal * 100m
+                : 0m;
+            var vsContract = contractTotal > 0
+                ? (detailSpend - contractTotal) / contractTotal * 100m
+                : 0m;
+
+            @* Back button *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+                <MudButton Variant="Variant.Outlined"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="@(() => { _deepDiveSupplierName = null; Session.ReplaceSelectedSuppliers(_suppliersAll.Select(s => s.SupplierId).Where(id => !string.IsNullOrWhiteSpace(id)).ToArray()); StateHasChanged(); })">
+                    Tilbage til oversigt
+                </MudButton>
+                <MudText Typo="Typo.h6" Style="color:#485230; font-weight:600;">
+                    @_deepDiveSupplierName
+                </MudText>
+            </MudStack>
+
+            @* Section 1 — Leverandør header *@
+            <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4">
+
+                @* Badges row *@
+                <MudStack Row="true" Spacing="1" Class="flex-wrap mb-4">
+                    @if (detailDto is not null && IsRecommendedSupplier(detailSupplier?.SupplierId ?? ""))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">Recommended</MudChip>
+                    }
+                    @if (detailDto is not null && IsLowestCommercialAnchor(detailSupplier?.SupplierId ?? ""))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">Lowest commercial</MudChip>
+                    }
+                    @if (detailDto is not null && !detailDto.IsCompliant)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">Regulatory risk</MudChip>
+                    }
+                    @if (detailSupplier is not null && IsExtremePrice(detailSupplier.SupplierId))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">Pris-outlier</MudChip>
+                    }
+                </MudStack>
+
+                @* KPI cards row *@
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3"
+                                  Style="background:#f5f5f0; border-radius:8px; text-align:center;">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">Estimeret spend</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:600; color:#485230; margin-top:4px;">
+                                @detailSpend.ToString("N0", Da) kr
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3"
+                                  Style="background:#f5f5f0; border-radius:8px; text-align:center;">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">vs. best bid</MudText>
+                            <MudText Typo="Typo.h5"
+                                     Style="@($"font-weight:600; margin-top:4px; color:{(vsBaseline > 10 ? "#A32D2D" : vsBaseline > 0 ? "#854F0B" : "#3B6D11")}")">
+                                @(vsBaseline >= 0 ? "+" : "")@vsBaseline.ToString("N1", Da)%
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3"
+                                  Style="background:#f5f5f0; border-radius:8px; text-align:center;">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">vs. nuværende kontrakt</MudText>
+                            @if (contractTotal > 0)
+                            {
+                                <MudText Typo="Typo.h5"
+                                         Style="@($"font-weight:600; margin-top:4px; color:{(vsContract > 10 ? "#A32D2D" : vsContract > 0 ? "#854F0B" : "#3B6D11")}")">
+                                    @(vsContract >= 0 ? "+" : "")@vsContract.ToString("N1", Da)%
+                                </MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.h5"
+                                         Style="font-weight:600; margin-top:4px; color:rgba(45,52,54,0.35);">
+                                    —
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">
+                                    Ingen nuværende pris
+                                </MudText>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @* Section 2 — Pris-analyse placeholder (BACK-028 Part B) *@
+            <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4">
+                <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">
+                    Pris-analyse per linje
+                </MudText>
+                <MudText Typo="Typo.body2" Class="cockpit-muted">
+                    Kommer i næste trin — viser afvigelse per linje vs. best bid og nuværende kontrakt.
+                </MudText>
+            </MudPaper>
+
+            @* Section 3 — TCO breakdown *@
+            @if (detailDto is not null)
+            {
+                <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-3">TCO breakdown</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" md="3">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">Commercial</MudText>
+                            <MudText Typo="Typo.body1" Style="font-weight:500;">
+                                @detailDto.Commercial.ToString("N0", Da) kr
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">EPR / PPWR</MudText>
+                            <MudText Typo="Typo.body1" Style="font-weight:500;">
+                                @detailDto.Epr.ToString("N0", Da) kr
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">Switching</MudText>
+                            <MudText Typo="Typo.body1" Style="font-weight:500;">
+                                @detailDto.Switching.ToString("N0", Da) kr
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudText Typo="Typo.caption" Class="cockpit-muted">Total TCO</MudText>
+                            <MudText Typo="Typo.body1" Style="font-weight:600; color:#485230;">
+                                @detailDto.Total.ToString("N0", Da) kr
+                            </MudText>
+                        </MudItem>
+                        @if (!string.IsNullOrWhiteSpace(detailDto.CalculationBreakdown))
+                        {
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Class="cockpit-muted">Beregningsgrundlag</MudText>
+                                <MudText Typo="Typo.body2" Class="cockpit-muted mt-1">
+                                    @detailDto.CalculationBreakdown
+                                </MudText>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudPaper>
+            }
+        }
+        else
+        {
+            @* OVERVIEW MODE — all suppliers *@
+            <MudStack Row="true" AlignItems="AlignItems.Center"
+                      Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.h6" Style="color:#485230; font-weight:600;">
+                    Leverandør oversigt
+                </MudText>
+                <MudText Typo="Typo.body2" Class="cockpit-muted">
+                    Klik på en leverandør for detaljevisning
+                </MudText>
+            </MudStack>
+
+            @* Supplier cards *@
+            <MudGrid Spacing="3" Class="mb-4">
+                @foreach (var r in _tcoResults.OrderByDescending(x => x.FinalCtrScore))
+                {
+                    var cardSpend = r.Commercial;
+                    var cardBaseline = (decimal)_bestBidBaseline.Values.Sum();
+                    var cardVsBaseline = cardBaseline > 0
+                        ? (cardSpend - cardBaseline) / cardBaseline * 100m
+                        : 0m;
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudPaper Elevation="1"
+                                  Class="pa-4"
+                                  Style="cursor:pointer; border-radius:8px; border: 1.5px solid rgba(72,82,48,0.15);"
+                                  @onclick="@(() => { _deepDiveSupplierName = r.SupplierName; StateHasChanged(); })">
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600; color:#485230;">
+                                @r.SupplierName
+                            </MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">CTR score</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:600;">
+                                        @r.FinalCtrScore.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)
+                                    </MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">Spend</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        @cardSpend.ToString("N0", Da) kr
+                                    </MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Class="cockpit-muted">vs. best bid</MudText>
+                                    <MudText Typo="Typo.body2"
+                                             Style="@($"font-weight:500; color:{(cardVsBaseline > 10 ? "#A32D2D" : cardVsBaseline > 0 ? "#854F0B" : "#3B6D11")}")">
+                                        @(cardVsBaseline >= 0 ? "+" : "")@cardVsBaseline.ToString("N1", Da)%
+                                    </MudText>
+                                </MudStack>
+                                @if (IsRecommendedSupplier(r.SupplierId))
+                                {
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="Color.Success"
+                                             Variant="Variant.Filled"
+                                             Class="mt-1">Recommended</MudChip>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            @* Collapsible legacy grid *@
+            <MudText Typo="Typo.subtitle2"
+                     Class="cockpit-muted mb-2"
+                     Style="cursor:pointer;"
+                     @onclick="@(() => _legacyGridExpanded = !_legacyGridExpanded)">
+                @(_legacyGridExpanded ? "▾" : "▸") Detaljeret tabel (alle leverandører)
+            </MudText>
+            <MudCollapse Expanded="@_legacyGridExpanded">
                     @if (SidebarBridge.LastImportValidationReport?.Issues.Any(i => i.Severity == ImportValidationSeverity.Error) == true)
                     {
                         <MudPaper Elevation="0" Class="mb-4 pa-3" Style="border: 1px solid var(--mud-palette-error); border-radius: 8px;">
@@ -1007,7 +1234,9 @@ else
                             </ChildRowContent>
                         </MudDataGrid>
                     </MudPaper>
-                }
+            </MudCollapse>
+        }
+    }
 
                 @if (_activeTab == "audit")
                 {
@@ -2199,6 +2428,14 @@ else
 
     private bool _bubbleChartExpanded;
 
+    /// <summary>
+    /// When set, deep-dive shows detail view for this supplier.
+    /// When null, deep-dive shows overview of all suppliers.
+    /// </summary>
+    private string? _deepDiveSupplierName;
+
+    private bool _legacyGridExpanded;
+
     private void NavigateToDeepDiveForSupplier(string supplierName)
     {
         var supplier = _suppliersAll
@@ -2209,6 +2446,7 @@ else
         if (supplier is null || string.IsNullOrWhiteSpace(supplier.SupplierId))
             return;
 
+        _deepDiveSupplierName = supplierName;
         Session.ReplaceSelectedSuppliers(new[] { supplier.SupplierId });
         Session.SetActiveSupplier(supplier.SupplierId);
         Nav.NavigateTo("/labeltender?tab=deep-dive");
