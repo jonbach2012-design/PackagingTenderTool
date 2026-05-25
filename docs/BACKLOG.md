@@ -99,11 +99,54 @@
 - **Status**: `ready`
 - **Category**: Frontend / UX
 - **Score**: 10
+- **Description**: POC approval requires three things: easy navigation, correct data, and overview with deep dive capability.
+
+  **OVERVIEW LAYER** (what decision to make):
+  - Dashboard: 4 KPI cards (Recommended, Lowest price, Best TCO, Risk exposure) + Spend overview chart. Already exists — refine only.
+  - Regulatory Benchmark tab: heatmap grid suppliers × countries (BACK-016 output)
+  - Single recommended supplier highlighted with clear rationale text
+
+  **NAVIGATION LAYER** (how to move between views):
+  - Sidebar: Import → Dashboard → Price Compare → Deep-dive → Audit Board → Settings. Clean, no clutter.
+  - Breadcrumb or context bar: always shows current tender name, line count, supplier count
+  - "Why this recommendation?" — clickable explanation on dashboard that links to Audit Board
+
+  **DEEP DIVE LAYER** (prove the numbers):
+  - Deep-dive: import issues (errors only), full line-item grid with search/filter.
+  - Audit Board: supplier-by-supplier score breakdown. Commercial / Technical / Regulatory pillars visible. CalculationBreakdown text per supplier.
+  - Price Compare: supplier × line item grid. Price per 1,000, quantity, spend.
+
+  **INTERACTION PRINCIPLES**:
+  - Every number must be traceable — click spend → see line items
+  - No orphaned data — every view links to source or explanation
+  - Filters persist across tab navigation
+  - Mobile-readable (wide screen primary, but no horizontal scroll traps)
+  - Replace native SVG tooltips with MudTooltip hover-cards showing CalculationBreakdown
+
+  **IMMEDIATE ACTIONS** (before POC presentation):
+  1. Add "Why recommended?" explanation card on Dashboard
+  2. Ensure Audit Board shows pillar scores visually (bar or gauge)
+
+- **Value**: Unblocks POC — stakeholders see a coherent story from KPI to evidence.
 
 #### [BACK-016] Multi-country regulatory benchmark engine
 - **Status**: `ready`
 - **Category**: Architecture / Scoring
 - **Score**: 10
+- **Description**: Regulatory cost comparison across all Scandi Standard operating countries from a single tender import.
+
+- **Technical**:
+  - `RegulatoryProfile` record (CountryCode, EprFeeRate, PlasticTaxRate, PpwrMultiplier, RecyclabilityThreshold)
+  - `TcoEngine.GetResultsAllCountries()` returns `Dictionary<string, List<TcoResult>>`
+  - Triggered automatically on import — no extra user action required
+  - 7 countries: DK, SE, NO, FI, IE, NL, LT
+
+- **Data governance**:
+  - Regulatory rates (EPR, plastic tax, PPWR multipliers) maintained by country specialists at Scandi Standard via central SharePoint folder (one file per country)
+  - Rates validated before activation — unvalidated rates never applied to scoring
+  - Integration with SharePoint RAG project already exists as data source
+
+- **Value proposition**: Single tender file → instant regulatory cost comparison across all 7 Scandi Standard operating countries. Identifies cheapest supplier per country and highest regulatory risk exposure across portfolio.
 
 ---
 
@@ -113,6 +156,19 @@
 - **Status**: `ready`
 - **Category**: Compliance / Architecture
 - **Score**: 9
+- **Description**: Every time a tender is "locked" by a user, serialize and store the complete decision state as JSON: TcoResult, RegulatoryProfile, ScoringWeights, SupplierSelection, timestamp, user. Creates an immutable audit trail for EU/PPWR compliance and internal governance.
+
+- **Technical**:
+  - `TcoArchiveEntry` record: Id (Guid), LockedAt (DateTime), LockedBy (string), SchemaVersion (int), TcoResultJson (string), RegulatoryProfileJson (string), ScoringWeightsJson (string), TenderName (string)
+  - Phase 1: JSON file per tender in `/data/archive/`
+  - Phase 2: Azure Blob Storage (aligns with BACK-002)
+  - Phase 3: Structured SQL table when scale requires it
+  - SchemaVersion mandatory — enables migration of old archives when TcoResult structure changes
+  - "Lock tender" button in UI triggers archival. Locked tenders are read-only.
+
+- **Safe-get requirement**: Deserialisation must handle missing fields gracefully using `JsonSerializerOptions` with default values — never crash on old schemas.
+
+- **Value**: Legal defensibility of procurement decisions under PPWR/EU audit.
 
 ---
 
@@ -122,6 +178,8 @@
 - **Status**: `idea`
 - **Category**: Infrastructure
 - **Score**: 9
+- **What**: Auto-deploy Blazor cockpit to Azure App Service on every green push to main.
+- **Why**: Makes the tool accessible without running it locally. Required before stakeholder demos outside dev team.
 
 ---
 
@@ -150,18 +208,46 @@
 #### [BACK-015] Export alignment via Cost Component Registry
 - **Status**: `idea`
 - **Score**: 7
+- **Description**: Make CSV/XLSX exports dynamic based on CostComponentRegistry. Removes hardcoded column lists in export services. Ensures BI headers are stable and consistent across all export formats.
+- **Depends on**: BACK-012a (done)
 
 #### [BACK-021] Material-to-PPWR-grade mapping
 - **Status**: `idea`
 - **Score**: 7
+- **Description**: Map material strings (PP top white, Thermo eco, Synthermal etc.) to PPWR recyclability grades A–E. Data source: sustainability team via SharePoint or supplier input. Required before PPWR effect moves from test to production.
+- **Depends on**: BACK-016 (SharePoint / country-rate integration and sustainability data path)
 
 #### [BACK-018] Constraint-Based Scenario Builder
 - **Status**: `idea`
 - **Score**: 7
+- **Description**: Allow users to define procurement constraints before scoring. System calculates optimal solution within constraints AND shows "cost of constraints" — the price of supply security.
+
+  Example output: "Applying 60% max volume share costs DKK 400,000/year vs. single-supplier optimum."
+
+- **Technical**:
+  - Phase 1: Three practical constraints Scandi actually uses:
+    - `MaxVolumeSharePerSupplier` (decimal, default 1.0 = no limit)
+    - `MinSuppliersPerRegion` (int, default 1)
+    - `RequireLocalSupplier` (bool, default false)
+  - Phase 2: Simple UI — 2–3 sliders/toggles in Settings view
+  - Phase 3: Generic constraint engine only if Phase 1/2 prove insufficient
+
+- **Critical**: Handle conflicting constraints explicitly — show user "These constraints cannot be satisfied simultaneously" rather than silent failure or wrong result.
+
+- **Value**: "Price of security" argument for COO-level decisions. Quantifies supply risk in DKK — not just strategy.
 
 #### [BACK-024] Filter drill-down
 - **Status**: `idea`
 - **Score**: 7
+- **Description**: Når category manager vælger en specifik label size i Label Profile, vis automatisk hvilke specs der hører til: site, materiale, winding, varenummer, antal linjer.
+
+  Eksempel: vælger man "80x110" → panel viser:
+  - Varenummer: 540640
+  - Site: Jæren
+  - Materiale: PP top white
+  - Antal linjer: 1
+
+- **Value**: Reducerer kognitivt load for category manager ved komplekse tenders med mange label sizes.
 
 ---
 
