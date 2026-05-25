@@ -84,9 +84,14 @@ else
                                                    Value="@Session.Commercial"
                                                    ValueChanged="@(v => { Session.SetCommercial(v); RefreshData(); StateHasChanged(); })"
                                                    Color="Color.Success" />
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Valuta</MudText><MudText Typo="Typo.body2"><b>DKK</b></MudText></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Prisindeks</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">MOQ justering</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">Prisindeks</MudText>
+                                            <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                        </MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">MOQ justering</MudText>
+                                            <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                        </MudStack>
                                     </MudStack>
                                 </MudCardContent>
                             </MudCard>
@@ -105,9 +110,18 @@ else
                                                    Value="@Session.Technical"
                                                    ValueChanged="@(v => { Session.SetTechnical(v); RefreshData(); StateHasChanged(); })"
                                                    Color="Color.Success" />
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Profil</MudText><MudText Typo="Typo.body2"><b>Labels v1</b></MudText></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Leverandør risiko</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">Cirkularitet index</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">Profil</MudText>
+                                            <MudText Typo="Typo.body2"><b>Labels v1</b></MudText>
+                                        </MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">Leverandør risiko</MudText>
+                                            <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                        </MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">Cirkularitet index</MudText>
+                                            <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                        </MudStack>
                                     </MudStack>
                                 </MudCardContent>
                             </MudCard>
@@ -126,9 +140,18 @@ else
                                                    Value="@Session.Regulatory"
                                                    ValueChanged="@(v => { Session.SetRegulatory(v); RefreshData(); StateHasChanged(); })"
                                                    Color="Color.Success" />
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">PPWR multiplier</MudText><MudText Typo="Typo.body2"><b>Aktiv</b></MudText></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">EPR fee model</MudText><MudText Typo="Typo.body2"><b>Standard</b></MudText></MudStack>
-                                        <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">PPWR Risk index</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">PPWR multiplier</MudText>
+                                            <MudText Typo="Typo.body2"><b>Aktiv</b></MudText>
+                                        </MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">EPR fee model</MudText>
+                                            <MudText Typo="Typo.body2"><b>Standard</b></MudText>
+                                        </MudStack>
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                            <MudText Typo="Typo.body2">PPWR Risk index</MudText>
+                                            <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                        </MudStack>
                                     </MudStack>
                                 </MudCardContent>
                             </MudCard>
@@ -139,9 +162,82 @@ else
                                     <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Tender konfiguration</b></MudText>
                                     <MudDivider Class="mb-3" />
                                     <MudGrid Spacing="2">
-                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Tender navn</MudText><MudText Typo="Typo.body2"><b>@(SidebarBridge.LastImportedFileName ?? "—")</b></MudText></MudStack></MudItem>
-                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Pakkeprodukt profil</MudText><MudText Typo="Typo.body2"><b>Labels v1</b></MudText></MudStack></MudItem>
-                                        <MudItem xs="4"><MudStack Spacing="0"><MudText Typo="Typo.caption" Color="Color.Secondary">Scenario analyse</MudText><MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip></MudStack></MudItem>
+                                        <MudItem xs="12" sm="4">
+                                            <MudStack Spacing="0">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Tender navn</MudText>
+                                                <MudText Typo="Typo.body2">
+                                                    <b>@(SidebarBridge.LastImportedFileName ?? "—")</b>
+                                                </MudText>
+                                            </MudStack>
+                                        </MudItem>
+                                        <MudItem xs="12" sm="4">
+                                            <MudStack Spacing="0">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Pakkeprodukt profil</MudText>
+                                                <MudText Typo="Typo.body2"><b>Labels v1</b></MudText>
+                                            </MudStack>
+                                        </MudItem>
+                                        <MudItem xs="12" sm="4">
+                                            <MudStack Spacing="0">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Scenario analyse</MudText>
+                                                <MudChip T="string" Size="Size.Small" Disabled="true">Fremtidig</MudChip>
+                                            </MudStack>
+                                        </MudItem>
+                                    </MudGrid>
+
+                                    <MudDivider Class="my-4" />
+
+                                    @* Currency selector *@
+                                    <MudText Typo="Typo.subtitle2" Class="mb-3"><b>Valuta</b></MudText>
+                                    <MudGrid Spacing="3" AlignItems="AlignItems.End">
+                                        <MudItem xs="12" sm="4">
+                                            <MudSelect T="string"
+                                                       Label="Sammenligningsvaluta"
+                                                       Variant="Variant.Outlined"
+                                                       Dense="true"
+                                                       Value="@_targetCurrency"
+                                                       ValueChanged="@((string v) => { _targetCurrency = v; StateHasChanged(); })">
+                                                <MudSelectItem Value="@("NOK")">NOK — Norske kroner</MudSelectItem>
+                                                <MudSelectItem Value="@("DKK")">DKK — Danske kroner</MudSelectItem>
+                                                <MudSelectItem Value="@("SEK")">SEK — Svenske kroner</MudSelectItem>
+                                                <MudSelectItem Value="@("EUR")">EUR — Euro</MudSelectItem>
+                                            </MudSelect>
+                                        </MudItem>
+                                        <MudItem xs="12" sm="8">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                                                Aktive kurser (DKK base)
+                                            </MudText>
+                                            <MudGrid Spacing="2">
+                                                @foreach (var pair in new[] { ("DKK","NOK"), ("DKK","SEK"), ("DKK","EUR") })
+                                                {
+                                                    var rateKey = $"{pair.Item1}:{pair.Item2}";
+                                                    var currentRate = _currencyRates.TryGetValue(rateKey, out var r)
+                                                        ? r
+                                                        : _currencyRates.TryGetValue($"{pair.Item2}:{pair.Item1}", out var inv) && inv != 0m
+                                                            ? 1m / inv
+                                                            : 0m;
+                                                    <MudItem xs="12" sm="4">
+                                                        <MudTextField T="decimal"
+                                                                      Label="@($"{pair.Item1} → {pair.Item2}")"
+                                                                      Variant="Variant.Outlined"
+                                                                      Dense="true"
+                                                                      Value="@currentRate"
+                                                                      ValueChanged="@((decimal v) => {
+                                                                          if (v > 0m)
+                                                                          {
+                                                                              _currencyRates[$"{pair.Item1}:{pair.Item2}"] = v;
+                                                                              StateHasChanged();
+                                                                          }
+                                                                      })"
+                                                                      Format="F4" />
+                                                    </MudItem>
+                                                }
+                                            </MudGrid>
+                                        </MudItem>
+                                        <MudItem xs="12">
+                                            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                                                Skift af valuta kræver ny import af tenderfilen for at træde i kraft.
+                                            </MudAlert>
+                                        </MudItem>
                                     </MudGrid>
                                 </MudCardContent>
                             </MudCard>
@@ -1604,6 +1700,10 @@ else
             "dashboard" or "matrix" or "deep-dive" or "audit" or "settings" => t,
             _ => "dashboard"
         };
+
+        if (_activeTab == "deep-dive")
+            _deepDiveSupplierName = null;
+
         Nav.NavigateTo($"/labeltender?tab={_activeTab}", replace: true);
         SyncSidebarBridge();
         _ = InvokeAsync(StateHasChanged);
@@ -1864,7 +1964,8 @@ else
                         SidebarBridge.LastImportedFileName,
                         new PackagingTenderTool.Core.Models.TenderSettings
                         {
-                            TargetCurrency = "NOK"
+                            TargetCurrency = _targetCurrency,
+                            CurrencyRates = _currencyRates
                         })
                     : isPivotFormat
                         ? PivotImporter.ImportTenderWithReport(ms, SidebarBridge.LastImportedFileName)
@@ -2562,6 +2663,16 @@ else
             NavigateToDeepDiveForSupplier(supplierName);
     }
 
+    private string _targetCurrency = "NOK";
+    private readonly Dictionary<string, decimal> _currencyRates = new()
+    {
+        ["DKK:NOK"] = 1.4403m,
+        ["NOK:SEK"] = 0.9650m,
+        ["NOK:EUR"] = 0.0870m,
+        ["DKK:EUR"] = 0.1342m,
+        ["DKK:SEK"] = 1.3901m,
+    };
+
     private bool _suppressSessionChanged;
     private string _weightWarning = string.Empty;
 
@@ -3237,4 +3348,17 @@ else
         decimal CurrentPrice,
         decimal DeviationFromBestBid,
         decimal Quantity);
+
+    private string GetCurrencyRateDisplay(string from, string to)
+    {
+        if (string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+            return "1,0000";
+        var key = $"{from.ToUpperInvariant()}:{to.ToUpperInvariant()}";
+        if (_currencyRates.TryGetValue(key, out var rate))
+            return rate.ToString("F4", Da);
+        var inverseKey = $"{to.ToUpperInvariant()}:{from.ToUpperInvariant()}";
+        if (_currencyRates.TryGetValue(inverseKey, out var inv) && inv != 0m)
+            return (1m / inv).ToString("F4", Da);
+        return "—";
+    }
 }
