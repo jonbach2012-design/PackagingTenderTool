@@ -1,19 +1,11 @@
 # Backlog — PackagingTenderTool
 
 <!-- AUDIENCE: Developer / Architect | OWNER: docs/BACKLOG.md -->
-<!-- This is the single source of truth for planned improvements.
-     Before starting any new feature or improvement, check here first.
-     Before adding a new idea, add it here — not in chat, not in a comment, not in your head. -->
-
 <!-- Priority order for next sessions:
-1. BACK-030 currency conversion service (BACK-029 depends on it)
-2. BACK-029 TenderPriceAnalyze import service
-3. BACK-028 deep-dive UI redesign + revision handling
-4. BACK-019 visualization (POC blocker)
-5. BACK-016 multi-country benchmark
-6. BACK-017 audit shield
-7. BACK-018 constraint builder
-8. BACK-021 material PPWR grade mapping
+1. BACK-028 Deep-dive revision side-by-side (Part C)
+2. BACK-019 POC visualization
+3. BACK-016 multi-country benchmark
+4. BACK-002 Azure deploy
 -->
 
 ## How to use this
@@ -28,119 +20,90 @@
 
 ### 🟢 Score 10 — Do next
 
-#### [BACK-030] Currency conversion service + currency selector UI
-- **Status**: `ready`
-- **Category**: Core / Frontend
+#### [BACK-031] Supplier Price Compare
+- **Status**: `done` — 2026-05-25
+- **Note**: `SupplierPriceCompareService`, DTOs, `LabelTenderPriceCompare.razor`, tab wired.
+  NavBtnClass + GoTab alignment fixed. Price Compare filter bug fixed (sends filtered lines).
+- **Category**: Frontend / Core / Architecture
 - **Score**: 10
-- **Depends on**: nothing — implement first, BACK-029 depends on it
-- **Description**: Unified currency handling. All prices normalised to user-selected target currency. See ADR-008.
+- **Depends on**: BACK-029 (done)
+- **Description**: Side-by-side price and spend comparison across selected suppliers. No scoring, TCO, regulatory or compliance logic.
 
-  **`CurrencyConverter` service (Core):**
-  - `Convert(decimal amount, string fromCurrency, string toCurrency) → decimal`
-  - Rates in `TenderSettings.CurrencyRates` as `Dictionary<string, decimal>` keyed `"DKK:NOK"` etc.
-  - Inverse rate auto-computed: `rate("NOK:DKK") = 1 / rate("DKK:NOK")`
-  - Same currency → return unchanged
-  - Default rates (2026-05-23): DKK→NOK = 1.4403
-  - Registered as scoped service in `Program.cs`
+  **Summary view per supplier:**
+  - Supplier name
+  - Number of quoted lines
+  - Total offered spend
+  - Average unit price
+  - Lowest quoted price count (lines where cheapest)
+  - Highest quoted price count (lines where most expensive)
+  - Price difference vs cheapest supplier (kr)
+  - Percentage difference vs cheapest supplier (%)
+  - Missing price / no-bid lines
 
-  **`TenderSettings` changes:**
-  - Add `TargetCurrency` (string, default `"NOK"`)
-  - Add `CurrencyRates` (Dictionary<string, decimal>)
+  **Line drilldown:**
+  - One row per tender line (ItemNo/surrogate key)
+  - Columns: Label format, Site, Material + one price column per supplier
+  - Cheapest price highlighted per line
+  - Missing bids shown as "—"
 
-  **UI — Settings view:**
-  - Dropdown: DKK / NOK / SEK / EUR
-  - Current rate displayed: "DKK → NOK: 1.4403"
-  - Rate editable inline for manual override
-  - Changing currency triggers re-import
+  **Architecture requirements:**
+  - Calculation logic in `SupplierPriceCompareService` (Core) — not in Razor
+  - DTOs: `SupplierPriceCompareRow`, `SupplierPriceLineRow`, `SupplierPriceCompareResult`
+  - Reuse existing `LabelLineItem` models
+  - Separate Razor component: `LabelTenderPriceCompare.razor`
+  - New tab: PRICE COMPARE in sidebar navigation
+  - Unit tests for all calculation logic
 
-- **Acceptance criteria**:
-  - [ ] `CurrencyConverter` converts between DKK, NOK, SEK, EUR
-  - [ ] Inverse rate computed automatically
-  - [ ] `TenderSettings.TargetCurrency` and `CurrencyRates` added
-  - [ ] Currency selector in Settings view
-  - [ ] Rate editable per tender
-  - [ ] Re-import triggered on currency change
-  - [ ] `dotnet build` green, existing tests pass
+  **DTO structure:**
+  ```csharp
+  SupplierPriceCompareRow {
+      SupplierName, QuotedLineCount, MissingLineCount,
+      TotalOfferedSpend, AverageUnitPrice,
+      LowestPriceCount, HighestPriceCount,
+      SpendVsCheapest, PctVsCheapest
+  }
 
-#### [BACK-029] TenderPriceAnalyze import service — new Labels format
-- **Status**: `ready`
-- **Category**: Import / Architecture
-- **Score**: 10
-- **Depends on**: BACK-030 (CurrencyConverter must exist first)
-- **Description**: New `TenderPriceAnalyzeImportService` for the consolidated Labels tender format. Replaces pivot as primary Labels import path. See ADR-008 for full spec.
+  SupplierPriceLineRow {
+      ItemNo, LabelSize, Site, Material,
+      Prices[] // SupplierName + Price + IsCheapest
+  }
 
-  **Key rules:**
-  - Detection: `Label format` + `Flexoprint` in header row — sheet name irrelevant
-  - Surrogate key: `"{DSH Site}|{Label format}"` → stored as `ItemNo`
-  - Quantity: `Historical yearly volume` (column G)
-  - CurrentContractPrice: Flexoprint DKK price (column K) converted to TargetCurrency
-  - Per input row → 4 `LabelLineItem` rows (one per supplier)
-  - DKK prices (Flexoprint K, Grafiket Q) → convert to TargetCurrency
-  - NOK prices (Norsk Etikett M, Ettiketto U) → convert to TargetCurrency
-  - New field: `LabelLineItem.SurfaceFinish` (string?) from column E
-
-  **Model change:**
-  - Add `SurfaceFinish` (string?) to `LabelLineItem`
-
-  **Auto-detection order in `LabelTender.razor`:**
-  ```
-  1. Headers match TenderPriceAnalyze → TenderPriceAnalyzeImportService
-  2. Sheet "All labels DSH" exists  → PivotLabelsExcelImportService (legacy)
-  3. Otherwise                       → LabelsExcelImportService
+  SupplierPriceCompareResult {
+      SupplierRows, LineRows
+  }
   ```
 
+  **Test cases:**
+  - To leverandører, én linje → korrekt cheapest detection
+  - Tre leverandører, fem linjer → korrekt LowestPriceCount per leverandør
+  - Leverandør mangler bud på én linje → MissingLineCount = 1
+  - Alle byder samme pris → PctVsCheapest = 0
+  - SpendVsCheapest beregnes korrekt
+
 - **Acceptance criteria**:
-  - [ ] Reads all 4 supplier blocks per row
-  - [ ] `{DSH Site}|{Label format}` as surrogate `ItemNo`
-  - [ ] `Historical yearly volume` as Quantity
-  - [ ] Flexoprint DKK price = `CurrentContractPrice` (converted)
-  - [ ] All prices converted to `TargetCurrency`
-  - [ ] `SurfaceFinish` imported to new field
-  - [ ] Detection by header structure, not sheet name
+  - [ ] `SupplierPriceCompareService` beregner alle felter korrekt
+  - [ ] Unit tests dækker alle 5 test cases
+  - [ ] Summary tabel viser alle leverandører
+  - [ ] Line drilldown viser priser per linje
+  - [ ] Billigste pris per linje highlightet
+  - [ ] PRICE COMPARE tab i sidebar
   - [ ] `dotnet build` green, existing tests pass
 
-#### [BACK-028] Deep-dive UI redesign + revision handling
-- **Status**: `ready`
-- **Category**: Frontend / UX / Import
+#### [BACK-028] Deep-dive revision side-by-side
+- **Status**: `ready` (Part A+B done, revision comparison pending)
+- **Category**: Frontend / UX
 - **Score**: 10
-- **Depends on**: BACK-027 (done)
-- **Description**: Three-section deep-dive layout + revision support.
-
-  *Section 1 — Leverandør-header:*
-  - "Tilbage til dashboard" + leverandørnavn + badges + 3 KPI-kort
-
-  *Section 2 — Pris-analyse per linje:*
-  - Varenr., Label size, Winding, Materiale, Pris, Best bid, Nuv. pris, Afvigelse %
-  - Sorteret efter afvigelse, farvekodet
-
-  *Section 3 — TCO breakdown*
-
-  **Revision handling:** `[LeverandørNavn] Rev[N]` konvention.
-
-- **Technical gæld**: Pivot test-fixtures bruger gamle kolonnenumre.
-- **Acceptance criteria**:
-  - [ ] Deep-dive header med KPI-kort
-  - [ ] Pris-analyse tabel med afvigelse sorteret
-  - [ ] Revision-gruppering i supplier selector
-  - [ ] `dotnet build` green, existing tests pass
+- **Description**: Side-by-side sammenligning af revisioner per linje i deep-dive. `[LeverandørNavn] Rev[N]` konvention.
 
 #### [BACK-019] POC Visualization & Navigation Design
 - **Status**: `ready`
 - **Category**: Frontend / UX
 - **Score**: 10
-- **Description**: Coherent visualization layer across all views. Overview → navigation → deep dive.
-- **Immediate actions**:
-  1. Remove duplicate KPI boxes from Deep-dive
-  2. Add "Why recommended?" explanation card on Dashboard
-  3. Audit Board shows pillar scores visually
-  4. Price Matrix shows real imported data
 
 #### [BACK-016] Multi-country regulatory benchmark engine
 - **Status**: `ready`
 - **Category**: Architecture / Scoring
 - **Score**: 10
-- **Depends on**: BACK-012a, BACK-012b (done)
-- **Description**: Run all suppliers through 7 regulatory profiles (DK, SE, NO, FI, IE, NL, LT). Heatmap grid on dashboard.
 
 ---
 
@@ -150,7 +113,6 @@
 - **Status**: `ready`
 - **Category**: Compliance / Architecture
 - **Score**: 9
-- **Depends on**: BACK-012a, BACK-012b (done)
 
 ---
 
@@ -167,19 +129,15 @@
 
 #### [BACK-003] Code coverage reporting
 - **Status**: `idea`
-- **Category**: CI/CD
 - **Score**: 8
 
 #### [BACK-004] Trays packaging profile
 - **Status**: `idea`
-- **Category**: Architecture
 - **Score**: 8
 
 #### [BACK-022] Generic profile architecture
 - **Status**: `idea`
-- **Category**: Architecture
 - **Score**: 8
-- **Depends on**: BACK-019
 
 ---
 
@@ -187,42 +145,23 @@
 
 #### [BACK-005] Scenario visualization in Blazor
 - **Status**: `idea`
-- **Category**: Frontend
 - **Score**: 7
 
 #### [BACK-015] Export alignment via Cost Component Registry
 - **Status**: `idea`
-- **Category**: Architecture
 - **Score**: 7
 
 #### [BACK-021] Material-to-PPWR-grade mapping
 - **Status**: `idea`
-- **Category**: Architecture / Data
 - **Score**: 7
 
 #### [BACK-018] Constraint-Based Scenario Builder
 - **Status**: `idea`
-- **Category**: Architecture / Scoring
 - **Score**: 7
 
-#### [BACK-024] Filter drill-down — vis specs ved label size valg
+#### [BACK-024] Filter drill-down
 - **Status**: `idea`
-- **Category**: UX
 - **Score**: 7
-
----
-
-### ⚪ Score 6 — Backlog
-
-#### [BACK-006] Automatic semantic versioning
-- **Status**: `idea`
-- **Category**: CI/CD
-- **Score**: 6
-
-#### [BACK-007] ERP / BI integration stub
-- **Status**: `idea`
-- **Category**: Architecture
-- **Score**: 6
 
 ---
 
@@ -230,10 +169,6 @@
 
 #### [BACK-008] Knockout / exclusion rules (v2)
 - **Status**: `idea`
-- **Score**: 5
-
-#### [BACK-009] Fix ADR-003 gap in decisions.md
-- **Status**: `ready`
 - **Score**: 5
 
 #### [BACK-010] Supplier risk scoring (M3 data)
@@ -246,18 +181,36 @@
 
 ---
 
-## Ideas (unscored — not ready for backlog)
+## Ideas (unscored)
 
 | Idea | Notes |
 |---|---|
 | Plausibility checks for suspicious supplier inputs | Catches artificially low bids |
 | Multi-tender comparison view | Compare two tender results side by side |
 | PDF export of evaluation report | For stakeholder sign-off |
-| Supplier master data via M3 ID | Replaces name-based grouping in v2 |
+| TenderPriceAnalyze: læs valuta dynamisk fra kolonneheader | Frem for hardkodet DKK/NOK antagelse |
 
 ---
 
 ## Done
+
+#### [BACK-031-followup] Dashboard + import fixes
+- **Status**: `done` — 2026-05-25
+- **Note**: Weighted average spend in BuildSuppliersFromImportedLines (Sum×Average bug).
+  Flexoprint spend basis changed to priceInTarget×historicalVolume/1000.
+  Price Matrix hidden (demo data). Price Compare filter wired correctly.
+
+#### [BACK-030] Currency conversion service + currency selector UI
+- **Status**: `done` — 2026-05-23
+- **Note**: `CurrencyConverter` service, `TenderSettings.TargetCurrency` + `CurrencyRates`, MudButton toggles i Settings, editerbare kurser, `_targetCurrency` + `_currencyRates` sendes til import.
+
+#### [BACK-029] TenderPriceAnalyze import service
+- **Status**: `done` — 2026-05-23
+- **Note**: Ny `TenderPriceAnalyzeImportService`, surrogate key `{DSH Site}|{Label format}`, dynamic column offset via `FindColumnOffset()`, Flexoprint DKK = CurrentContractPrice, revision suffix support, `SurfaceFinish` tilføjet til `LabelLineItem`.
+
+#### [BACK-028] Deep-dive UI redesign (Part A + B)
+- **Status**: `done` — 2026-05-23
+- **Note**: Leverandør-header med badges + 3 KPI-kort, pris-analyse tabel per linje sorteret efter afvigelse, TCO breakdown. "Tilbage til dashboard" gendanner alle leverandørers selection. Sidebar-valg påvirker ikke deep-dive. Leverandør oversigt som sidebar-link.
 
 #### [BACK-027] Dashboard UX overhaul
 - **Status**: `done` — 2026-05-21
@@ -287,5 +240,3 @@
 | Repo moved off OneDrive | 2026-05-07 | Now at C:\Dev |
 | Documentation structure aligned | 2026-05-07 | _INDEX.md, ARCHITECTURE.md |
 | CI/CD pipeline green | 2026-05-07 | dotnet.yml upgraded to @v5 |
-| Mermaid diagrams fixed | 2026-05-07 | spec.md diagram rendering on GitHub |
-| .cursorrules doc ownership section | 2026-05-07 | Section 0 prevents future sprawl |

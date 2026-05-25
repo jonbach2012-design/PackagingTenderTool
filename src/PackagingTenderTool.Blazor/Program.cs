@@ -37,6 +37,7 @@ builder.Services.AddSingleton<IRegulatoryService, RegulatoryService>();
 builder.Services.AddSingleton<LabelsExcelImportService>();
 builder.Services.AddSingleton<PivotLabelsExcelImportService>();
 builder.Services.AddSingleton<TenderPriceAnalyzeImportService>();
+builder.Services.AddSingleton<SupplierPriceCompareService>();
 
 var app = builder.Build();
 

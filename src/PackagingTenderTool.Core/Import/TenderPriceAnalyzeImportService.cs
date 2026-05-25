@@ -196,10 +196,22 @@ public sealed class TenderPriceAnalyzeImportService
 
                     var priceInTarget = converter.Convert(rawPrice.Value, block.PriceCurrency, target);
 
-                    var rawSpend = GetDecimal(row, block.SpendCol + offset);
-                    var spendInTarget = rawSpend.HasValue
-                        ? converter.Convert(rawSpend.Value, "NOK", target)
-                        : (decimal?)null;
+                    decimal? spendInTarget;
+                    if (block.IsCurrentSupplier)
+                    {
+                        // Flexoprint: compute spend from tender price × historical volume
+                        // for fair comparison with other suppliers' tender bids
+                        spendInTarget = historicalVolume.HasValue && historicalVolume.Value > 0
+                            ? priceInTarget * historicalVolume.Value / 1000m
+                            : (decimal?)null;
+                    }
+                    else
+                    {
+                        var rawSpend = GetDecimal(row, block.SpendCol + offset);
+                        spendInTarget = rawSpend.HasValue
+                            ? converter.Convert(rawSpend.Value, "NOK", target)
+                            : (decimal?)null;
+                    }
 
                     var moq = block.MoqCol > 0 ? GetString(row, block.MoqCol + offset) : null;
                     var comment = block.CommentCol > 0 ? GetString(row, block.CommentCol + offset) : null;

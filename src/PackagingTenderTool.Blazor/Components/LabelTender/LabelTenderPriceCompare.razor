@@ -1,0 +1,217 @@
+@using System.Globalization
+@using PackagingTenderTool.Core.DTOs
+@using PackagingTenderTool.Core.Models
+@using PackagingTenderTool.Core.Services
+
+@inject SupplierPriceCompareService PriceCompareService
+
+<MudPaper Elevation="0" Outlined="true" Class="pa-4 mt-4">
+    @* SECTION 1 — Header *@
+    <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">
+        Leverandør prissammenligning
+    </MudText>
+    <MudText Typo="Typo.caption" Class="cockpit-muted mb-4">
+        Vælg minimum 2 leverandører for sammenligning
+    </MudText>
+
+    @* SECTION 2 — Supplier selector *@
+    @if (_allSuppliers.Count > 0)
+    {
+        <MudGrid Spacing="2" Class="mb-3">
+            @foreach (var supplier in _allSuppliers)
+            {
+                var captured = supplier;
+                <MudItem xs="12" sm="6" md="4" @key="captured">
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Color="Color.Primary"
+                                 Value="@_selectedSuppliers.Contains(captured)"
+                                 ValueChanged="@(v => OnSupplierToggled(captured, v))"
+                                 Label="@captured" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+    @if (_selectedSuppliers.Count < 2)
+    {
+        <MudAlert Severity="Severity.Info"
+                  Variant="Variant.Outlined"
+                  Dense="true"
+                  Class="mb-3"
+                  Icon="@Icons.Material.Outlined.Info">
+            Vælg mindst 2 leverandører for at se sammenligningen.
+        </MudAlert>
+    }
+
+    @* SECTION 3 — Summary table *@
+    @if (_result is not null && _selectedSuppliers.Count >= 2)
+    {
+        <MudSimpleTable Dense="true" Striped="true" Bordered="true" Class="mb-4">
+            <thead>
+                <tr>
+                    <th>Leverandør</th>
+                    <th class="text-end">Linjer med bud</th>
+                    <th class="text-end">Linjer uden bud</th>
+                    <th class="text-end">Samlet spend (kr)</th>
+                    <th class="text-end">Gns. enhedspris</th>
+                    <th class="text-end">Billigst (antal linjer)</th>
+                    <th class="text-end">Dyrest (antal linjer)</th>
+                    <th class="text-end">Forskel vs billigste (kr)</th>
+                    <th class="text-end">Forskel vs billigste (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _result.SupplierRows)
+                {
+                    var isCheapest = _cheapestTotalSpend is not null
+                        && row.TotalOfferedSpend == _cheapestTotalSpend.Value;
+                    <tr style="@(isCheapest ? "background:rgba(59,109,17,0.08);" : null)">
+                        <td style="font-weight:@(isCheapest ? "600" : "400");">@row.SupplierName</td>
+                        <td class="text-end">@row.QuotedLineCount</td>
+                        <td class="text-end">@row.MissingLineCount</td>
+                        <td class="text-end cockpit-num">@row.TotalOfferedSpend.ToString("N0", Da)</td>
+                        <td class="text-end cockpit-num">@row.AverageUnitPrice.ToString("N0", Da)</td>
+                        <td class="text-end">@row.LowestPriceCount</td>
+                        <td class="text-end">@row.HighestPriceCount</td>
+                        <td class="text-end cockpit-num">@row.SpendVsCheapest.ToString("N0", Da)</td>
+                        <td class="text-end cockpit-num" style="@($"color:{GetPctColor(row.PctVsCheapest)}")">
+                            @row.PctVsCheapest.ToString("N1", Da)%
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+
+        @* SECTION 4 — Line drilldown *@
+        <MudText Typo="Typo.subtitle2"
+                 Class="cockpit-muted mb-2"
+                 Style="cursor:pointer; user-select:none;"
+                 @onclick="@(() => _lineRowsExpanded = !_lineRowsExpanded)">
+            @(_lineRowsExpanded ? "▾" : "▸") Prisoversigt per linje (@_result.LineRows.Count linjer)
+        </MudText>
+        <MudCollapse Expanded="@_lineRowsExpanded">
+            <div style="overflow-x:auto;">
+                <MudSimpleTable Dense="true" Striped="true" Bordered="true">
+                    <thead>
+                        <tr>
+                            <th>Label format</th>
+                            <th>Site</th>
+                            <th>Materiale</th>
+                            @foreach (var supplier in _result.SupplierRows)
+                            {
+                                <th class="text-end">@supplier.SupplierName</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in _result.LineRows)
+                        {
+                            <tr>
+                                <td>@line.LabelSize</td>
+                                <td>@line.Site</td>
+                                <td>@line.Material</td>
+                                @foreach (var supplier in _result.SupplierRows)
+                                {
+                                    var entry = line.Prices.FirstOrDefault(p =>
+                                        string.Equals(p.SupplierName, supplier.SupplierName,
+                                            StringComparison.OrdinalIgnoreCase));
+                                    <td class="text-end">
+                                        @if (entry?.Price is > 0m)
+                                        {
+                                            <span style="@GetLinePriceStyle(entry.IsCheapest)">
+                                                @entry.Price.Value.ToString("N2", Da)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="cockpit-muted">—</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </div>
+        </MudCollapse>
+    }
+</MudPaper>
+
+@code {
+    private static readonly CultureInfo Da = CultureInfo.GetCultureInfo("da-DK");
+
+    [Parameter]
+    public IReadOnlyList<LabelLineItem> LineItems { get; set; } = [];
+
+    private IReadOnlyList<string> _allSuppliers = [];
+    private HashSet<string> _selectedSuppliers = new(StringComparer.OrdinalIgnoreCase);
+    private bool _lineRowsExpanded;
+    private SupplierPriceCompareResult? _result;
+    private decimal? _cheapestTotalSpend;
+
+    protected override void OnParametersSet()
+    {
+        _allSuppliers = LineItems
+            .Where(l => !string.IsNullOrWhiteSpace(l.SupplierName))
+            .Select(l => l.SupplierName!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _selectedSuppliers = new HashSet<string>(_allSuppliers, StringComparer.OrdinalIgnoreCase);
+        Recalculate();
+    }
+
+    private void OnSupplierToggled(string supplier, bool selected)
+    {
+        if (selected)
+        {
+            _selectedSuppliers.Add(supplier);
+        }
+        else
+        {
+            _selectedSuppliers.Remove(supplier);
+        }
+
+        Recalculate();
+    }
+
+    private void Recalculate()
+    {
+        if (_selectedSuppliers.Count >= 2)
+        {
+            _result = PriceCompareService.Compare(
+                LineItems,
+                _selectedSuppliers.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList());
+            _cheapestTotalSpend = _result.SupplierRows.Count > 0
+                ? _result.SupplierRows.Min(r => r.TotalOfferedSpend)
+                : null;
+        }
+        else
+        {
+            _result = null;
+            _cheapestTotalSpend = null;
+        }
+    }
+
+    private static string GetPctColor(decimal pctVsCheapest)
+    {
+        if (pctVsCheapest <= 0m)
+        {
+            return "#3B6D11";
+        }
+
+        if (pctVsCheapest <= 15m)
+        {
+            return "#854F0B";
+        }
+
+        return "#A32D2D";
+    }
+
+    private static string GetLinePriceStyle(bool isCheapest) =>
+        isCheapest
+            ? "font-weight:700; color:#3B6D11;"
+            : "font-weight:400;";
+}

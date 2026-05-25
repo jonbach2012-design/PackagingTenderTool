@@ -61,12 +61,22 @@
                        OnClick="@(() => GoTab("dashboard"))">
                 Dashboard
             </MudButton>
+            @* Price matrix hidden — synthetic demo data only (PriceMatrix.razor retained).
             <MudButton Variant="Variant.Text"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.GridOn"
                        Class="@NavBtnClass("matrix")"
                        OnClick="@(() => GoTab("matrix"))">
                 Price matrix
+            </MudButton>
+            *@
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.Compare"
+                       Class="@NavBtnClass("price-compare")"
+                       OnClick="@(() => GoTab("price-compare"))">
+                PRICE COMPARE
             </MudButton>
             <MudButton Variant="Variant.Text"
                        FullWidth="true"
@@ -138,6 +148,15 @@
                     </MudButton>
                 </MudStack>
             </MudStack>
+
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Outlined.GridView"
+                       Class="lt-nav-btn mb-1"
+                       OnClick="@(() => Bridge.OnTabChanged?.Invoke("deep-dive"))">
+                Leverandør oversigt
+            </MudButton>
 
             <MudStack Spacing="0">
                 @foreach (var supplier in Bridge.DrawerSuppliers)
