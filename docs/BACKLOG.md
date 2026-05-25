@@ -90,7 +90,9 @@
   - [ ] `dotnet build` green, existing tests pass
 
 #### [BACK-028] Deep-dive revision side-by-side
-- **Status**: `ready` (Part A+B done, revision comparison pending)
+- **Status**: `in progress` — Step 1 done 2026-05-25
+- **Note**: Import dialog, dynamic header detection, accumulation with deduplication implemented.
+  Remaining: sidebar grouping (Step 2), deep-dive side-by-side comparison (Step 3).
 - **Category**: Frontend / UX
 - **Score**: 10
 - **Description**: Side-by-side sammenligning af revisioner per linje i deep-dive. `[LeverandørNavn] Rev[N]` konvention.
@@ -130,9 +132,9 @@
 - **Value**: Unblocks POC — stakeholders see a coherent story from KPI to evidence.
 
 #### [BACK-016] Multi-country regulatory benchmark engine
-- **Status**: `ready`
+- **Status**: `idea`
 - **Category**: Architecture / Scoring
-- **Score**: 10
+- **Score**: 7
 - **Description**: Regulatory cost comparison across all Scandi Standard operating countries from a single tender import.
 
 - **Technical**:

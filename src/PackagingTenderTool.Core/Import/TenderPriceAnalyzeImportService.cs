@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
@@ -6,13 +7,13 @@ namespace PackagingTenderTool.Core.Import;
 
 /// <summary>
 /// Imports the consolidated "Tender Price Analyze" Labels format.
-/// One row per label format per site — expands to 4 LabelLineItem rows (one per supplier).
+/// One row per label format per site — expands to one LabelLineItem per detected supplier price column.
 /// Detected by column header structure — sheet name is irrelevant.
 /// See ADR-008 in docs/decisions/decisions.md.
 /// </summary>
 public sealed class TenderPriceAnalyzeImportService
 {
-    // Column indices (1-based, hardcoded per ADR-008)
+    // Column indices (1-based anchor columns; offset applied at read time for cols 1–12)
     private const int ColSite = 1;
     private const int ColLabelFormat = 2;
     private const int ColMaterial = 3;
@@ -28,32 +29,14 @@ public sealed class TenderPriceAnalyzeImportService
     private const int ColFlexoprintPriceDkk = 11;
     private const int ColFlexoprintSpendNok = 12;
 
-    // Norsk Etikett (NOK)
-    private const int ColNorskEtikettPriceNok = 13;
-    private const int ColNorskEtikettMoq = 14;
-    private const int ColNorskEtikettComment = 15;
-    private const int ColNorskEtikettSpendNok = 16;
-
-    // Grafiket (DKK)
-    private const int ColGrafiketPriceDkk = 17;
-    private const int ColGrafiketMoq = 18;
-    private const int ColGrafiketComment = 19;
-    private const int ColGrafiketSpendNok = 20;
-
-    // Ettiketto (NOK)
-    private const int ColEttikettoPriceNok = 21;
-    private const int ColEttikettoMoq = 22;
-    private const int ColEttikettoComment = 23;
-    private const int ColEttikettoSpendNok = 24;
-
-    private static readonly (string SupplierName, int PriceCol, string PriceCurrency,
-        int SpendCol, int MoqCol, int CommentCol, bool IsCurrentSupplier)[] SupplierBlocks =
-    [
-        ("Flexoprint",    ColFlexoprintPriceDkk,    "DKK", ColFlexoprintSpendNok,    0,                    0,                      true),
-        ("Norsk Etikett", ColNorskEtikettPriceNok,  "NOK", ColNorskEtikettSpendNok,  ColNorskEtikettMoq,   ColNorskEtikettComment, false),
-        ("Grafiket",      ColGrafiketPriceDkk,      "DKK", ColGrafiketSpendNok,      ColGrafiketMoq,       ColGrafiketComment,     false),
-        ("Ettiketto",     ColEttikettoPriceNok,     "NOK", ColEttikettoSpendNok,     ColEttikettoMoq,      ColEttikettoComment,    false),
-    ];
+    private sealed record SupplierBlock(
+        string SupplierName,
+        int PriceCol,
+        string PriceCurrency,
+        int SpendCol,
+        int MoqCol,
+        int CommentCol,
+        bool IsCurrentSupplier);
 
     public const string FormatNotRecognizedMarker = "TENDER_PRICE_ANALYZE_NOT_RECOGNIZED";
 
@@ -144,6 +127,7 @@ public sealed class TenderPriceAnalyzeImportService
                 throw new InvalidOperationException(FormatNotRecognizedMarker);
 
             var offset = FindColumnOffset(headerRow);
+            var supplierBlocks = DetectSupplierBlocks(headerRow, offset);
 
             var lineItems = new List<LabelLineItem>();
             var issues = new List<ImportValidationIssue>();
@@ -189,9 +173,9 @@ public sealed class TenderPriceAnalyzeImportService
                     ? converter.Convert(flexoprintDkkPrice.Value, "DKK", target)
                     : (decimal?)null;
 
-                foreach (var block in SupplierBlocks)
+                foreach (var block in supplierBlocks)
                 {
-                    var rawPrice = GetDecimal(row, block.PriceCol + offset);
+                    var rawPrice = GetDecimal(row, block.PriceCol);
                     if (rawPrice is null or <= 0m) continue;
 
                     var priceInTarget = converter.Convert(rawPrice.Value, block.PriceCurrency, target);
@@ -207,14 +191,14 @@ public sealed class TenderPriceAnalyzeImportService
                     }
                     else
                     {
-                        var rawSpend = GetDecimal(row, block.SpendCol + offset);
+                        var rawSpend = block.SpendCol > 0 ? GetDecimal(row, block.SpendCol) : null;
                         spendInTarget = rawSpend.HasValue
                             ? converter.Convert(rawSpend.Value, "NOK", target)
                             : (decimal?)null;
                     }
 
-                    var moq = block.MoqCol > 0 ? GetString(row, block.MoqCol + offset) : null;
-                    var comment = block.CommentCol > 0 ? GetString(row, block.CommentCol + offset) : null;
+                    var moq = block.MoqCol > 0 ? GetString(row, block.MoqCol) : null;
+                    var comment = block.CommentCol > 0 ? GetString(row, block.CommentCol) : null;
 
                     var commentParts = new List<string>();
                     if (!string.IsNullOrWhiteSpace(numberOfDesigns))
@@ -302,6 +286,140 @@ public sealed class TenderPriceAnalyzeImportService
         {
             workbook.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Detects supplier price blocks dynamically from header row.
+    /// Supports arbitrary number of suppliers and revision columns (e.g. "Grafiket price rev 2").
+    /// Flexoprint anchor columns (11, 12) are always hardcoded — other suppliers are header-detected.
+    /// Column numbers stored are absolute Excel column indices (offset already applied for Flexoprint).
+    /// </summary>
+    private static List<SupplierBlock> DetectSupplierBlocks(IXLRow headerRow, int offset)
+    {
+        var blocks = new List<SupplierBlock>();
+
+        blocks.Add(new SupplierBlock(
+            "Flexoprint", ColFlexoprintPriceDkk + offset, "DKK",
+            ColFlexoprintSpendNok + offset, 0, 0, true));
+
+        var headers = new Dictionary<int, string>();
+        foreach (var cell in headerRow.CellsUsed())
+        {
+            var text = cell.GetString().Trim();
+            if (!string.IsNullOrWhiteSpace(text))
+                headers[cell.Address.ColumnNumber] = text;
+        }
+
+        var spendCols = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var moqCols = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var commentCols = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (col, h) in headers)
+        {
+            var hl = h.ToLowerInvariant();
+            if (hl.StartsWith("spend") || hl.Contains("current spend"))
+            {
+                var sup = ExtractSupplierFromHeader(h);
+                if (sup is not null) spendCols[sup] = col;
+            }
+            else if (hl.Contains("moq"))
+            {
+                var sup = ExtractSupplierFromHeader(h);
+                if (sup is not null) moqCols[sup] = col;
+            }
+            else if (h.StartsWith("comment", StringComparison.OrdinalIgnoreCase))
+            {
+                var sup = ExtractSupplierFromHeader(h);
+                if (sup is not null) commentCols[sup] = col;
+            }
+        }
+
+        foreach (var (col, h) in headers.OrderBy(x => x.Key))
+        {
+            if (col <= ColFlexoprintSpendNok + offset) continue;
+            var hl = h.ToLowerInvariant();
+            if (!hl.Contains("price")) continue;
+
+            var currency = hl.Contains("(dkk)") ? "DKK" : "NOK";
+
+            var supplierName = ExtractSupplierNameFromPriceHeader(h);
+            if (supplierName is null) continue;
+
+            var baseName = Regex
+                .Replace(supplierName, @"\s+Rev\d+$", "", RegexOptions.IgnoreCase)
+                .Trim();
+
+            spendCols.TryGetValue(baseName, out var spendCol);
+            moqCols.TryGetValue(baseName, out var moqCol);
+            commentCols.TryGetValue(baseName, out var commentCol);
+
+            blocks.Add(new SupplierBlock(
+                supplierName, col, currency,
+                spendCol, moqCol, commentCol, false));
+        }
+
+        return blocks;
+    }
+
+    /// <summary>
+    /// Extracts supplier name from a price header.
+    /// "Grafiket price 1 (DKK)" → "Grafiket"
+    /// "Grafiket price rev 2 (DKK)" → "Grafiket Rev2"
+    /// "Norsk Etikett price 1 (NOK)" → "Norsk Etikett"
+    /// </summary>
+    private static string? ExtractSupplierNameFromPriceHeader(string header)
+    {
+        var h = header.Trim();
+        h = Regex.Replace(
+            h, @"\s*\(DKK\)|\s*\(NOK\)", "",
+            RegexOptions.IgnoreCase).Trim();
+
+        var revMatch = Regex.Match(
+            h, @"^(.+?)\s*,?\s*price\s+rev\s*(\d+)",
+            RegexOptions.IgnoreCase);
+        if (revMatch.Success)
+            return $"{revMatch.Groups[1].Value.Trim()} Rev{revMatch.Groups[2].Value}";
+
+        var normalMatch = Regex.Match(
+            h, @"^(.+?)\s*,?\s*(?:Q\d+\s+\d{4}\s+)?price\b",
+            RegexOptions.IgnoreCase);
+        if (normalMatch.Success)
+            return normalMatch.Groups[1].Value.Trim();
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts base supplier name from spend/MOQ/comment headers.
+    /// "Spend (NOK), Grafiket" → "Grafiket"
+    /// "MOQ Norsk Etikett" → "Norsk Etikett"
+    /// "Comment, Ettiketto" → "Ettiketto"
+    /// "Flexoprint, current spend (NOK)" → "Flexoprint"
+    /// </summary>
+    private static string? ExtractSupplierFromHeader(string header)
+    {
+        var h = header.Trim();
+        var spendMatch = Regex.Match(
+            h, @"^spend\s*(?:\([^)]+\))?\s*,\s*(.+)$",
+            RegexOptions.IgnoreCase);
+        if (spendMatch.Success) return spendMatch.Groups[1].Value.Trim();
+
+        var currentMatch = Regex.Match(
+            h, @"^(.+?)\s*,\s*current\s+spend",
+            RegexOptions.IgnoreCase);
+        if (currentMatch.Success) return currentMatch.Groups[1].Value.Trim();
+
+        var moqMatch = Regex.Match(
+            h, @"^MOQ\s+(.+)$",
+            RegexOptions.IgnoreCase);
+        if (moqMatch.Success) return moqMatch.Groups[1].Value.Trim();
+
+        var commentMatch = Regex.Match(
+            h, @"^comment\s*,\s*(.+)$",
+            RegexOptions.IgnoreCase);
+        if (commentMatch.Success) return commentMatch.Groups[1].Value.Trim();
+
+        return null;
     }
 
     /// <summary>

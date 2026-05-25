@@ -135,7 +135,9 @@ Format detected by column header structure — sheet name is unreliable (users r
 | Sheet name = "All labels DSH" | Legacy pivot → `PivotLabelsExcelImportService` |
 | Otherwise | Standard → `LabelsExcelImportService` |
 
-### Column layout (TenderPriceAnalyze format, hardcoded)
+### Column layout (TenderPriceAnalyze format)
+
+**Anchor columns (1–12, hardcoded + column offset):**
 
 | Column | Field | Currency | Notes |
 |--------|-------|----------|-------|
@@ -143,26 +145,23 @@ Format detected by column header structure — sheet name is unreliable (users r
 | B (2) | Label format | — | → `LabelSize` + part of surrogate `ItemNo` |
 | C (3) | Label material | — | → `Material` |
 | D (4) | No. of colors | — | → `NumberOfColors` |
-| E (5) | Surface finish | — | → new `SurfaceFinish` field |
+| E (5) | Surface finish | — | → `SurfaceFinish` |
 | F (6) | Labels per roll | — | → `ReelDiameterOrPcsPerRoll` |
 | G (7) | Historical yearly volume | — | → `Quantity` (basis for spend) |
 | H (8) | Number of designs | — | → `Comment` |
 | I (9) | Suggested production volume | — | imported, not used for spend |
 | J (10) | Stock article | — | → `Comment` |
 | K (11) | Flexoprint price | DKK | → `CurrentContractPrice` + Flexoprint `PricePerThousand` |
-| L (12) | Flexoprint spend | NOK | → Flexoprint `Spend` |
-| M (13) | Norsk Etikett price | NOK | → Norsk Etikett `PricePerThousand` |
-| N (14) | MOQ Norsk Etikett | — | → `Comment` |
-| O (15) | Comment Norsk Etikett | — | → appended to `Comment` |
-| P (16) | Norsk Etikett spend | NOK | → Norsk Etikett `Spend` |
-| Q (17) | Grafiket price | DKK | → Grafiket `PricePerThousand` |
-| R (18) | MOQ Grafiket | — | → `Comment` |
-| S (19) | Comment Grafiket | — | → appended to `Comment` |
-| T (20) | Grafiket spend | NOK | → Grafiket `Spend` |
-| U (21) | Ettiketto price | NOK | → Ettiketto `PricePerThousand` |
-| V (22) | MOQ Ettiketto | — | → `Comment` |
-| W (23) | Comment Ettiketto | — | → appended to `Comment` |
-| X (24) | Ettiketto spend | NOK | → Ettiketto `Spend` |
+| L (12) | Flexoprint spend | NOK | anchor only; Flexoprint tender `Spend` computed as price × volume / 1000 |
+
+**Supplier columns (13+, header-detected at runtime):**
+
+- `DetectSupplierBlocks()` reads the header row and builds one block per price column after column 12.
+- Supports arbitrary supplier count and revision price columns (e.g. `Grafiket price rev 2 (DKK)` → supplier name `Grafiket Rev2`).
+- Supplier name extracted from price column header via regex (`ExtractSupplierNameFromPriceHeader`).
+- Currency detected from `(DKK)` / `(NOK)` suffix in the price header (default NOK if absent).
+- Spend, MOQ, and comment columns matched to the base supplier name via `ExtractSupplierFromHeader` on spend/MOQ/comment headers.
+- Typical four-supplier layout (offset 0): Norsk Etikett (13–16), Grafiket (17–20), Ettiketto (21–24) — exact indices vary if columns are inserted or reordered.
 
 ### Surrogate key
 
@@ -204,6 +203,7 @@ CurrentContractPrice = FlexoprintPriceDKK × rate("DKK:TargetCurrency")
 - `TenderSettings` gains `TargetCurrency` (string, default "NOK") and `CurrencyRates` (Dictionary).
 - `CurrencyConverter` is a new injectable service in Core.
 - `TenderPriceAnalyzeImportService` depends on `CurrencyConverter`.
+- Supplier price blocks detected dynamically from headers (`DetectSupplierBlocks`); columns 1–12 remain hardcoded anchors.
 - `PivotLabelsExcelImportService` retained for legacy "All labels DSH" format — no changes.
 - `LabelsExcelImportService` retained for other packaging profiles — no changes.
 - Re-import required when `TargetCurrency` changes (no in-memory re-conversion).

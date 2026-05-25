@@ -1168,6 +1168,32 @@ else
                 }
                 }
     </MudStack>
+
+    <MudDialog @bind-Visible="_showRevisionDialog" Options="@(new MudBlazor.DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+        <TitleContent>
+            <MudText Typo="Typo.h6">Importer revideret bud</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Der er allerede importeret data. Angiv et revisionssuffix for at tilføje dette bud som en revision (fx "Rev2").
+                Lad feltet være tomt for at erstatte al eksisterende data.
+            </MudText>
+            <MudTextField @bind-Value="_pendingRevisionSuffix"
+                          Label="Revisionssuffix"
+                          Placeholder="fx Rev2"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.History" />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => { _showRevisionDialog = false; _pendingRevisionStream?.Dispose(); _pendingRevisionStream = null; })">
+                Annuller
+            </MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@OnRevisionImportConfirmed">
+                Importer
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
 }
 
 @code
@@ -1236,6 +1262,11 @@ else
     private string _importStatus = string.Empty;
     private readonly List<ImportUnitMismatchFlag> _importFlags = [];
     private bool _isImporting;
+
+    private bool _showRevisionDialog = false;
+    private string _pendingRevisionSuffix = string.Empty;
+    private MemoryStream? _pendingRevisionStream = null;
+    private string? _pendingRevisionFileName = null;
 
     private SupplierOutlierReport _outliers = new(new Dictionary<string, IReadOnlyList<SupplierOutlierFlag>>(StringComparer.OrdinalIgnoreCase));
 
@@ -1567,6 +1598,90 @@ else
             .IsTenderPriceAnalyzeFormat(stream);
     }
 
+    private async Task OnRevisionImportConfirmed()
+    {
+        _showRevisionDialog = false;
+        if (_pendingRevisionStream is null) return;
+
+        var isRevision = true; // always accumulate for TenderPriceAnalyze format
+
+        LabelsTenderImportResult result;
+        try
+        {
+            _pendingRevisionStream.Position = 0;
+            result = PriceAnalyzeImporter.ImportTenderWithReport(
+                _pendingRevisionStream,
+                _pendingRevisionFileName ?? "revision",
+                new PackagingTenderTool.Core.Models.TenderSettings
+                {
+                    TargetCurrency = _targetCurrency,
+                    CurrencyRates = _currencyRates
+                },
+                revisionSuffix: null);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Revision import failed.");
+            _importStatus = LabelTenderImportFailureMessage.Format(ex);
+            Snackbar.Add(_importStatus, Severity.Error);
+            return;
+        }
+        finally
+        {
+            _pendingRevisionStream.Dispose();
+            _pendingRevisionStream = null;
+        }
+
+        var newLines = result.Tender.LabelLineItems.ToList();
+        NormalizePricePerThousand(newLines);
+        NormalizeMaterialWeights(newLines);
+
+        if (newLines.Count == 0)
+        {
+            _importStatus = "Revision import: ingen linjer fundet.";
+            Snackbar.Add(_importStatus, Severity.Warning);
+            return;
+        }
+
+        if (isRevision)
+        {
+            // Build set of supplier+ItemNo keys from new lines
+            var newKeys = newLines
+                .Where(l => !string.IsNullOrWhiteSpace(l.SupplierName) && !string.IsNullOrWhiteSpace(l.ItemNo))
+                .Select(l => $"{l.SupplierName!.Trim()}|{l.ItemNo!.Trim()}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Remove existing lines that are overwritten by new import
+            _importedLineItems.RemoveAll(l =>
+                !string.IsNullOrWhiteSpace(l.SupplierName) &&
+                !string.IsNullOrWhiteSpace(l.ItemNo) &&
+                newKeys.Contains($"{l.SupplierName!.Trim()}|{l.ItemNo!.Trim()}"));
+
+            // Append new lines
+            _importedLineItems.AddRange(newLines);
+            _importStatus = $"Revision tilføjet — {newLines.Count} linjer. Total: {_importedLineItems.Count} linjer.";
+        }
+        else
+        {
+            // REPLACE — user left suffix empty = full re-import
+            _importedLineItems = newLines;
+            _importStatus = $"Imported {_importedLineItems.Count} rows (erstattet eksisterende data).";
+        }
+
+        _importFlags.Clear();
+        BuildImportFlags(_importedLineItems);
+        _suppliersAll = BuildSuppliersFromImportedLines(_importedLineItems);
+        var importedIds = _suppliersAll
+            .Select(s => s.SupplierId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Session.ReplaceSelectedSuppliers(importedIds);
+        Snackbar.Add(_importStatus, Severity.Success);
+        RefreshData();
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async Task OnExcelSelected(string fileName, byte[] fileBytes)
     {
         var snapshot = CaptureImportSnapshot();
@@ -1579,6 +1694,18 @@ else
         try
         {
             LabelTenderExcelImportGuard.EnsureXlsxExtension(fileName);
+
+            // If we already have imported lines and this is a TenderPriceAnalyze file,
+            // accumulate directly — supplier names come from headers (e.g. "Grafiket Rev2").
+            var checkMs = new MemoryStream(fileBytes);
+            if (_importedLineItems.Count > 0 && IsTenderPriceAnalyzeFormat(checkMs))
+            {
+                _pendingRevisionStream = new MemoryStream(fileBytes);
+                _pendingRevisionFileName = SidebarBridge.LastImportedFileName;
+                _pendingRevisionSuffix = string.Empty;
+                await OnRevisionImportConfirmed();
+                return;
+            }
 
             using var ms = new MemoryStream(fileBytes);
 
@@ -2852,10 +2979,11 @@ else
             .GroupBy(i => i.SupplierName!.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
-                g => g.ToDictionary(
-                    i => i.ItemNo!.Trim(),
-                    i => i,
-                    StringComparer.OrdinalIgnoreCase),
+                g => g.GroupBy(i => i.ItemNo!.Trim(), StringComparer.OrdinalIgnoreCase)
+                      .ToDictionary(
+                          ig => ig.Key,
+                          ig => ig.Last(),
+                          StringComparer.OrdinalIgnoreCase),
                 StringComparer.OrdinalIgnoreCase);
 
         var result = new Dictionary<string, ImputedSupplierSpend>(

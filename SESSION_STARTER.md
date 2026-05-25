@@ -23,6 +23,7 @@ Quick context for humans and agents picking up the repo. For deep narrative and 
 - **Currency**: `CurrencyConverter` service, `TenderSettings.TargetCurrency` + `CurrencyRates`, default NOK
 - **Price Matrix**: hidden from navigation — contains synthetic demo data only
 - **Price Compare**: wired to filtered line items (respects Label Profile filters)
+- **Revision import**: second TenderPriceAnalyze import accumulates — supplier names from headers (e.g. "Grafiket Rev2"). Deduplication on SupplierName+ItemNo prevents doubling.
 
 **Stack:** Blazor cockpit + `PackagingTenderTool.Core` + xUnit + WinForms verification shell
 **Solution file:** `PackagingTenderTool.sln`
