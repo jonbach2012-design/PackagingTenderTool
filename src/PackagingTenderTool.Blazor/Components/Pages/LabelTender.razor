@@ -3,6 +3,7 @@
 
 @using System.Globalization
 @using System.Linq
+@using System.Text.RegularExpressions
 @using System.Collections.Concurrent
 @using PackagingTenderTool.Core.Models
 @using PackagingTenderTool.Core.Services.LabelTenderScoring
@@ -1057,6 +1058,117 @@ else
                             </MudItem>
                         }
                     </MudGrid>
+                </MudPaper>
+            }
+
+            SyncRevisionCompareState(_deepDiveSupplierName!);
+            var revisionNames = GetRevisionSupplierNames(_deepDiveSupplierName!);
+            @if (revisionNames.Count > 0)
+            {
+                var baseName = _deepDiveSupplierName!;
+                var revisionLineCount = PriceCompareService.Compare(
+                    _importedLineItems,
+                    new List<string> { baseName }.Concat(revisionNames).ToList()).LineRows.Count;
+                <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">
+                        Revisionsoversigt — @baseName
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="cockpit-muted mb-2">
+                        @revisionNames.Count revision(er) fundet
+                    </MudText>
+                    <MudText Typo="Typo.subtitle2"
+                             Class="cockpit-muted mb-2"
+                             Style="cursor:pointer; user-select:none;"
+                             @onclick="@(() => _revisionExpanded = !_revisionExpanded)">
+                        @(_revisionExpanded ? "▾" : "▸") Vis linje-for-linje sammenligning (@revisionLineCount linjer)
+                    </MudText>
+                    <MudCollapse Expanded="@_revisionExpanded">
+                        @foreach (var revName in revisionNames)
+                        {
+                            var pairCompare = PriceCompareService.Compare(
+                                _importedLineItems,
+                                new List<string> { baseName, revName });
+                            @if (revisionNames.Count > 1)
+                            {
+                                <MudText Typo="Typo.body2"
+                                         Class="cockpit-section-title mb-2 mt-3">
+                                    @revName
+                                </MudText>
+                            }
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid rgba(45,52,54,0.12);
+                                                   background:rgba(45,52,54,0.03);">
+                                            <th style="text-align:left; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                Label format
+                                            </th>
+                                            <th style="text-align:left; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                Site
+                                            </th>
+                                            <th style="text-align:left; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                Materiale
+                                            </th>
+                                            <th style="text-align:right; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                @baseName (original)
+                                            </th>
+                                            <th style="text-align:right; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                @revName
+                                            </th>
+                                            <th style="text-align:right; padding:8px 12px;
+                                                       color:rgba(45,52,54,0.55); font-weight:500;">
+                                                Ændring
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var line in pairCompare.LineRows)
+                                        {
+                                            var origEntry = line.Prices.FirstOrDefault(p =>
+                                                string.Equals(p.SupplierName, baseName,
+                                                    StringComparison.OrdinalIgnoreCase));
+                                            var revEntry = line.Prices.FirstOrDefault(p =>
+                                                string.Equals(p.SupplierName, revName,
+                                                    StringComparison.OrdinalIgnoreCase));
+                                            var changeText = FormatRevisionPctChange(
+                                                origEntry?.Price, revEntry?.Price,
+                                                out var changeColor, out var changeWeight);
+                                            <tr style="border-bottom:1px solid rgba(45,52,54,0.07);">
+                                                <td style="padding:7px 12px; font-weight:500;">
+                                                    @line.LabelSize
+                                                </td>
+                                                <td style="padding:7px 12px; color:rgba(45,52,54,0.65);">
+                                                    @line.Site
+                                                </td>
+                                                <td style="padding:7px 12px; color:rgba(45,52,54,0.65);">
+                                                    @line.Material
+                                                </td>
+                                                <td style="padding:7px 12px; text-align:right; font-family:monospace;">
+                                                    @(origEntry?.Price is > 0m
+                                                        ? origEntry.Price.Value.ToString("N2", Da)
+                                                        : "—")
+                                                </td>
+                                                <td style="padding:7px 12px; text-align:right; font-family:monospace;">
+                                                    @(revEntry?.Price is > 0m
+                                                        ? revEntry.Price.Value.ToString("N2", Da)
+                                                        : "—")
+                                                </td>
+                                                <td style="padding:7px 12px; text-align:right;
+                                                           font-weight:@changeWeight; color:@changeColor;">
+                                                    @changeText
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </MudCollapse>
                 </MudPaper>
             }
         }
@@ -2392,6 +2504,8 @@ else
     /// When null on deep-dive tab, first TCO result supplier is auto-selected.
     /// </summary>
     private string? _deepDiveSupplierName;
+    private bool _revisionExpanded;
+    private string? _revisionCompareSupplierKey;
 
     private void NavigateToDeepDiveForSupplier(string supplierName)
     {
@@ -2404,6 +2518,8 @@ else
             return;
 
         _deepDiveSupplierName = supplierName;
+        _revisionExpanded = false;
+        _revisionCompareSupplierKey = supplierName;
 
         Session.ReplaceSelectedSuppliers(new[] { supplier.SupplierId });
         Session.SetActiveSupplier(supplier.SupplierId);
@@ -3051,6 +3167,65 @@ else
         }
 
         return result;
+    }
+
+    private void SyncRevisionCompareState(string supplierName)
+    {
+        if (!string.Equals(_revisionCompareSupplierKey, supplierName, StringComparison.OrdinalIgnoreCase))
+        {
+            _revisionExpanded = false;
+            _revisionCompareSupplierKey = supplierName;
+        }
+    }
+
+    private static bool IsDeepDiveRevisionSupplierName(string name) =>
+        Regex.IsMatch(name.Trim(), @"\s+Rev\d+$", RegexOptions.IgnoreCase);
+
+    private IReadOnlyList<string> GetRevisionSupplierNames(string baseSupplierName)
+    {
+        if (IsDeepDiveRevisionSupplierName(baseSupplierName))
+            return [];
+
+        var escaped = Regex.Escape(baseSupplierName.Trim());
+        var pattern = $@"^{escaped}\s+Rev\d+$";
+        return _importedLineItems
+            .Select(l => l.SupplierName?.Trim())
+            .Where(n => !string.IsNullOrWhiteSpace(n)
+                && Regex.IsMatch(n!, pattern, RegexOptions.IgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToList();
+    }
+
+    private static string FormatRevisionPctChange(
+        decimal? origPrice,
+        decimal? revPrice,
+        out string color,
+        out string fontWeight)
+    {
+        color = "rgba(45,52,54,0.45)";
+        fontWeight = "400";
+
+        if (origPrice is not > 0m || revPrice is not > 0m)
+            return "—";
+
+        var pct = (revPrice.Value - origPrice.Value) / origPrice.Value * 100m;
+        if (pct == 0m)
+            return pct.ToString("N2", Da) + "%";
+
+        if (pct < 0m)
+        {
+            color = "#3B6D11";
+            fontWeight = "600";
+        }
+        else
+        {
+            color = "#A32D2D";
+            fontWeight = "600";
+        }
+
+        return (pct >= 0m ? "+" : "") + pct.ToString("N2", Da) + "%";
     }
 
     private IReadOnlyList<DeepDivePriceRow> BuildDeepDivePriceRows(string supplierName)

@@ -159,26 +159,40 @@
             </MudButton>
 
             <MudStack Spacing="0">
-                @foreach (var supplier in Bridge.DrawerSuppliers)
+                @{
+                    var grouped = Bridge.DrawerSuppliers
+                        .GroupBy(s => GetBaseSupplierName(s.Name),
+                                 StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+                }
+                @foreach (var group in grouped)
                 {
-                    var isSelected = Bridge.SelectedSupplierIds.Contains(supplier.Id);
-                    <MudStack Row="true"
-                              AlignItems="AlignItems.Center"
-                              Spacing="1"
-                              Class="px-1 py-0"
-                              Style="cursor:pointer;">
-                        <MudCheckBox T="bool"
-                                     Value="@isSelected"
-                                     ValueChanged="@(v => ToggleSupplier(supplier.Id, v))"
-                                     Color="Color.Success"
-                                     Dense="true"
-                                     StopClickPropagation="true"
-                                     Class="lt-shell-supplier-check" />
-                        <MudText Typo="Typo.body2"
-                                 Style="color:rgba(255,255,255,0.88); font-size:12px;">
-                            @supplier.Name
-                        </MudText>
-                    </MudStack>
+                    @foreach (var supplier in group.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var isSelected = Bridge.SelectedSupplierIds.Contains(supplier.Id);
+                        var isRev = IsRevision(supplier.Name);
+                        <MudStack Row="true"
+                                  AlignItems="AlignItems.Center"
+                                  Spacing="1"
+                                  Class="px-1 py-0"
+                                  Style="cursor:pointer;">
+                            @if (isRev)
+                            {
+                                <div style="width:16px; flex-shrink:0;"></div>
+                            }
+                            <MudCheckBox T="bool"
+                                         Value="@isSelected"
+                                         ValueChanged="@(v => ToggleSupplier(supplier.Id, v))"
+                                         Color="Color.Success"
+                                         Dense="true"
+                                         StopClickPropagation="true"
+                                         Class="lt-shell-supplier-check" />
+                            <MudText Typo="Typo.body2"
+                                     Style="@($"color:rgba(255,255,255,{(isRev ? "0.65" : "0.88")}); font-size:{(isRev ? "11" : "12")}px;")">
+                                @supplier.Name
+                            </MudText>
+                        </MudStack>
+                    }
                 }
             </MudStack>
         </section>
@@ -260,6 +274,19 @@
         foreach (var s in Bridge.DrawerSuppliers)
             Bridge.OnSupplierSelectionChanged?.Invoke(s.Id, false);
     }
+
+    private static string GetBaseSupplierName(string name)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            name, @"^(.+?)\s+Rev\d+$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value.Trim() : name.Trim();
+    }
+
+    private static bool IsRevision(string name) =>
+        System.Text.RegularExpressions.Regex.IsMatch(
+            name, @"\s+Rev\d+$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     public void Dispose()
     {

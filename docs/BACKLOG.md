@@ -2,8 +2,7 @@
 
 <!-- AUDIENCE: Developer / Architect | OWNER: docs/BACKLOG.md -->
 <!-- Priority order for next sessions:
-1. BACK-028 Deep-dive revision side-by-side (Part C)
-2. BACK-019 POC visualization
+1. BACK-019 POC visualization
 3. BACK-016 multi-country benchmark
 4. BACK-002 Azure deploy
 -->
@@ -90,9 +89,11 @@
   - [ ] `dotnet build` green, existing tests pass
 
 #### [BACK-028] Deep-dive revision side-by-side
-- **Status**: `in progress` — Step 1 done 2026-05-25
-- **Note**: Import dialog, dynamic header detection, accumulation with deduplication implemented.
-  Remaining: sidebar grouping (Step 2), deep-dive side-by-side comparison (Step 3).
+- **Status**: `done` — 2026-05-25
+- **Note**: Import dialog removed for TenderPriceAnalyze (auto-accumulate).
+  Dynamic header detection. Deduplication on SupplierName+ItemNo.
+  Sidebar groups revisions under base supplier.
+  Deep-dive revision comparison section with line-by-line price diff.
 - **Category**: Frontend / UX
 - **Score**: 10
 - **Description**: Side-by-side sammenligning af revisioner per linje i deep-dive. `[LeverandørNavn] Rev[N]` konvention.

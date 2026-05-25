@@ -10,12 +10,13 @@ Quick context for humans and agents picking up the repo. For deep narrative and 
 - **Bar chart dashboard (primary)**: Estimeret spend per leverandør, lodret `RadzenColumnSeries`, two dashed reference lines (best bid baseline red, current contract blue)
 - **Bubble chart (secondary)**: CTR vs spend, collapsible under bar chart
 - **Score breakdown + Spend overview**: collapsible on dashboard (hidden by default)
-- **Supplier selector**: checkbox list in sidebar with Alle/Ingen controls
+- **Supplier selector**: checkbox list in sidebar with Alle/Ingen controls; revision suppliers grouped under base (indented, muted)
 - **Multi-select filters**: all 6 dimensions wired and working
 - **Deep-dive view**: single supplier detail — navigable via bar chart click or sidebar "Leverandør oversigt" link
   - Leverandør-header: badges + 3 KPI-kort (spend, vs best bid, vs nuværende kontrakt)
   - Pris-analyse tabel per linje sorteret efter afvigelse
   - TCO breakdown
+  - Revisionsoversigt: line-by-line base vs revision price comparison (collapsible, color-coded % change)
   - Info-besked: sidebar-valg påvirker ikke deep-dive
   - "Tilbage til dashboard" gendanner alle leverandørers selection
 - **Leverandør oversigt**: tilgås via sidebar under Leverandører-sektionen
@@ -54,10 +55,9 @@ git log -5 --oneline
 
 ## 3. Next priorities
 
-1. **BACK-028**: Deep-dive revision side-by-side (Part C)
-2. **BACK-019**: POC visualization & navigation
-3. **BACK-016**: Multi-country regulatory benchmark
-4. **BACK-002**: Azure deploy
+1. **BACK-019**: POC visualization & navigation
+2. **BACK-016**: Multi-country regulatory benchmark
+3. **BACK-002**: Azure deploy
 
 ---
 
