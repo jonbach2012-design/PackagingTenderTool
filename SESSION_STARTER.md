@@ -8,6 +8,7 @@ Quick context for humans and agents picking up the repo. For deep narrative and 
 
 - **Three-panel layout**: green sidebar (240px) + Label profile filter panel (480px, collapsible) + main content
 - **Bar chart dashboard (primary)**: Estimeret spend per leverandør, lodret `RadzenColumnSeries`, two dashed reference lines (best bid baseline red, current contract blue)
+- **Dashboard**: Anbefaling card shows recommended supplier, narrative, pillar weight shares (stable/følsom chip, link to audit board)
 - **Bubble chart (secondary)**: CTR vs spend, collapsible under bar chart
 - **Score breakdown + Spend overview**: collapsible on dashboard (hidden by default)
 - **Supplier selector**: checkbox list in sidebar with Alle/Ingen controls; revision suppliers grouped under base (indented, muted)
@@ -25,6 +26,7 @@ Quick context for humans and agents picking up the repo. For deep narrative and 
 - **Price Matrix**: hidden from navigation — contains synthetic demo data only
 - **Price Compare**: wired to filtered line items (respects Label Profile filters)
 - **Revision import**: second TenderPriceAnalyze import accumulates — supplier names from headers (e.g. "Grafiket Rev2"). Deduplication on SupplierName+ItemNo prevents doubling.
+- **Audit Board**: Pillar score table with progress bars above clarification table
 
 **Stack:** Blazor cockpit + `PackagingTenderTool.Core` + xUnit + WinForms verification shell
 **Solution file:** `PackagingTenderTool.sln`
@@ -55,9 +57,9 @@ git log -5 --oneline
 
 ## 3. Next priorities
 
-1. **BACK-019**: POC visualization & navigation
-2. **BACK-016**: Multi-country regulatory benchmark
-3. **BACK-002**: Azure deploy
+1. **BACK-017**: Versioned TCO Models — Audit Shield
+2. **BACK-002**: Azure deploy
+3. **BACK-016**: Multi-country regulatory benchmark (deprioritized — status `idea`, score 7)
 
 ---
 

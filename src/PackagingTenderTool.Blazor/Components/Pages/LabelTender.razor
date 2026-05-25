@@ -479,6 +479,68 @@ else
                                     }
                                 </MudStack>
 
+                                @if (_decisionInsight is not null)
+                                {
+                                    <MudPaper Elevation="0" Outlined="true" Class="mt-4 pa-4"
+                                              Style="border-color: rgba(72,82,48,0.25); background: rgba(72,82,48,0.04);">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center"
+                                                  Justify="Justify.SpaceBetween" Class="mb-2">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Recommend"
+                                                         Style="color:#485230;" Size="Size.Small" />
+                                                <MudText Typo="Typo.subtitle2" Style="color:#485230; font-weight:600;">
+                                                    Anbefaling — @_decisionInsight.RecommendedSupplierName
+                                                </MudText>
+                                                @if (_decisionInsight.IsSensitiveDecision)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                             Variant="Variant.Outlined">Følsom beslutning</MudChip>
+                                                }
+                                                else
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                                                             Variant="Variant.Outlined">Stabil anbefaling</MudChip>
+                                                }
+                                            </MudStack>
+                                            <MudButton Variant="Variant.Text" Size="Size.Small"
+                                                       EndIcon="@Icons.Material.Outlined.OpenInNew"
+                                                       Style="color:#485230;"
+                                                       OnClick="@(() => GoTab("audit"))">
+                                                Se audit board
+                                            </MudButton>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Class="mb-3" Style="color:rgba(45,52,54,0.75);">
+                                            @_decisionInsight.Narrative
+                                        </MudText>
+                                        <MudStack Row="true" Spacing="3">
+                                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Kommerciel</MudText>
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                    @_decisionInsight.WeightedShareCommercial.ToString("N1", Da)%
+                                                </MudText>
+                                            </MudStack>
+                                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Teknisk</MudText>
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                    @_decisionInsight.WeightedShareTechnical.ToString("N1", Da)%
+                                                </MudText>
+                                            </MudStack>
+                                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Regulatorisk</MudText>
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                    @_decisionInsight.WeightedShareRegulatory.ToString("N1", Da)%
+                                                </MudText>
+                                            </MudStack>
+                                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                                <MudText Typo="Typo.caption" Class="cockpit-muted">Score</MudText>
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                    @_decisionInsight.RecommendedWeightedScore.ToString("N1", Da)
+                                                </MudText>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+
                                 <div class="mt-4">
                                     <MudText Typo="Typo.subtitle2"
                                              Class="cockpit-muted mb-1"
@@ -1180,6 +1242,77 @@ else
                         <MudText Typo="Typo.h6" Class="cockpit-section-title mb-1">Audit Board</MudText>
                         <MudText Typo="Typo.body2" Class="cockpit-muted mb-4">Active clarifications flagged by the Digital Auditor.</MudText>
 
+                        @if (_pillarRows.Count > 0)
+                        {
+                            <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2 mt-2">
+                                Leverandør score oversigt
+                            </MudText>
+                            <MudSimpleTable Dense="true" Hover="true" Class="mb-4"
+                                            Style="background:transparent;">
+                                <thead>
+                                    <tr>
+                                        <th>Leverandør</th>
+                                        <th>Kommerciel</th>
+                                        <th>Teknisk</th>
+                                        <th>Regulatorisk</th>
+                                        <th>Samlet CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _pillarRows)
+                                    {
+                                        var isRec = IsRecommendedSupplier(row.Supplier.SupplierId);
+                                        <tr style="@(isRec ? "background:rgba(72,82,48,0.08);" : "")">
+                                            <td>
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    @if (isRec)
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Star"
+                                                                 Size="Size.Small"
+                                                                 Style="color:#485230;" />
+                                                    }
+                                                    <MudText Typo="Typo.body2"
+                                                             Style="@(isRec ? "font-weight:600;" : "")">
+                                                        @row.Supplier.SupplierName
+                                                    </MudText>
+                                                </MudStack>
+                                            </td>
+                                            <td>
+                                                <MudStack Spacing="0">
+                                                    <MudText Typo="Typo.body2">@row.Supplier.CommercialScore.ToString("N1", Da)</MudText>
+                                                    <MudProgressLinear Value="@((double)row.Supplier.CommercialScore)"
+                                                                      Max="100" Color="Color.Success"
+                                                                      Size="Size.Small" Rounded="true" />
+                                                </MudStack>
+                                            </td>
+                                            <td>
+                                                <MudStack Spacing="0">
+                                                    <MudText Typo="Typo.body2">@row.Supplier.TechnicalScore.ToString("N1", Da)</MudText>
+                                                    <MudProgressLinear Value="@((double)row.Supplier.TechnicalScore)"
+                                                                      Max="100" Color="Color.Info"
+                                                                      Size="Size.Small" Rounded="true" />
+                                                </MudStack>
+                                            </td>
+                                            <td>
+                                                <MudStack Spacing="0">
+                                                    <MudText Typo="Typo.body2">@row.Supplier.RegulatoryScore.ToString("N1", Da)</MudText>
+                                                    <MudProgressLinear Value="@((double)row.Supplier.RegulatoryScore)"
+                                                                      Max="100" Color="Color.Warning"
+                                                                      Size="Size.Small" Rounded="true" />
+                                                </MudStack>
+                                            </td>
+                                            <td>
+                                                <MudText Typo="Typo.body2"
+                                                         Style="@(isRec ? "font-weight:600; color:#485230;" : "")">
+                                                    @row.TotalScore.ToString("N1", Da)
+                                                </MudText>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+
                         <MudText Typo="Typo.subtitle2" Class="cockpit-section-title mb-2">Negotiation summary</MudText>
                         @if (!NegotiationSummary.Any())
                         {
@@ -1467,6 +1600,8 @@ else
         RefreshData();
         _ = InvokeAsync(StateHasChanged);
     }
+
+    private void GoTab(string tab) => OnBridgeTabChanged(tab);
 
     private void OnBridgeTabChanged(string tab)
     {

@@ -2,9 +2,9 @@
 
 <!-- AUDIENCE: Developer / Architect | OWNER: docs/BACKLOG.md -->
 <!-- Priority order for next sessions:
-1. BACK-019 POC visualization
-3. BACK-016 multi-country benchmark
-4. BACK-002 Azure deploy
+1. BACK-017 Versioned TCO Models — Audit Shield
+2. BACK-002 Azure deploy
+3. BACK-016 multi-country benchmark (deprioritized)
 -->
 
 ## How to use this
@@ -99,7 +99,10 @@
 - **Description**: Side-by-side sammenligning af revisioner per linje i deep-dive. `[LeverandørNavn] Rev[N]` konvention.
 
 #### [BACK-019] POC Visualization & Navigation Design
-- **Status**: `ready`
+- **Status**: `done` — 2026-05-25
+- **Note**: Anbefaling card on dashboard (narrative, pillar shares, stable/sensitive chip).
+  Audit Board pillar score table with progress bars. Recommended supplier highlighted.
+  Remaining POC items (Price Matrix real data) deprioritized per decision 2026-05-15.
 - **Category**: Frontend / UX
 - **Score**: 10
 - **Description**: POC approval requires three things: easy navigation, correct data, and overview with deep dive capability.
